@@ -646,6 +646,13 @@ const LenderBreakdownModal = ({ lender, range, scope, fromDate, toDate, utmSourc
     );
 };
 
+// RapidMoney is a SHORT-ticket lender; hide it from the HIGH-ticket disbursal
+// view where it should not be itemised. Matches "RPM" / "RapidMoney" defensively.
+const isRapidMoneyLender = (name) => {
+    const n = String(name || '').toLowerCase().replace(/[\s_-]/g, '');
+    return n === 'rpm' || n === 'rapidmoney';
+};
+
 /* LENDER LIST (used for both amount & count) */
 const LenderChart = ({ kind, data, loading, onLenderClick }) => {
     const isAmount = kind === 'amount';
@@ -767,7 +774,15 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
 
     useEffect(() => {
         getDisbursalFilterOptions({ scope })
-            .then(res => setFilterOptions(res?.data?.data || { lenders: [], employmentTypes: [] }))
+            .then(res => {
+                const opts = res?.data?.data || { lenders: [], employmentTypes: [] };
+                // Hide RapidMoney (RPM) from the lender filter dropdown in the
+                // HIGH-ticket view (short scope keeps it — it's a short lender).
+                if (scope !== 'short') {
+                    opts.lenders = (opts.lenders || []).filter(l => !isRapidMoneyLender(l));
+                }
+                setFilterOptions(opts);
+            })
             .catch(e => console.error(e));
     }, [scope]);
 
@@ -794,9 +809,20 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
             .then(res => {
                 if (signal?.aborted) return;
                 const d = res?.data?.data || {};
-                setRows(d.data || []);
-                setTotal(d.pagination?.total || 0);
-                setFilteredAmount(d.filteredAmount || 0);
+                let allRows = d.data || [];
+                if (scope !== 'short') {
+                    // Hide RapidMoney (RPM) from the HIGH-ticket transactions table and
+                    // recompute the count + "Total in view" from the RPM-excluded set so
+                    // the header numbers stay consistent with the visible rows.
+                    allRows = allRows.filter(r => !isRapidMoneyLender(r.lender));
+                    setRows(allRows);
+                    setTotal(allRows.length);
+                    setFilteredAmount(allRows.reduce((s, r) => s + (Number(r.disb_amt) || 0), 0));
+                } else {
+                    setRows(allRows);
+                    setTotal(d.pagination?.total || 0);
+                    setFilteredAmount(d.filteredAmount || 0);
+                }
             })
             .catch(e => { if (!signal?.aborted) console.error(e); })
             .finally(() => { if (!signal?.aborted) setLoading(false); });
@@ -1327,7 +1353,14 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
         // the short KPI / trend numbers.
         const lenderFn = scope === 'short' ? getDisbursalLenderStatsShort : getDisbursalLenderStats;
         lenderFn({ range, scope, fromDate, toDate, utmSource, utmMedium, signal: controller.signal })
-            .then(res => { if (!controller.signal.aborted) setLenderStats(res?.data?.data || []); })
+            .then(res => {
+                if (controller.signal.aborted) return;
+                let rows = res?.data?.data || [];
+                // Hide RapidMoney (RPM) from the HIGH-ticket disbursal view — it's a
+                // short-ticket lender; the short scope keeps it.
+                if (scope !== 'short') rows = rows.filter(d => !isRapidMoneyLender(d.name));
+                setLenderStats(rows);
+            })
             .catch(e => { if (!controller.signal.aborted) console.error(e); })
             .finally(() => { if (!controller.signal.aborted) setLenderLoading(false); });
         return () => controller.abort();
