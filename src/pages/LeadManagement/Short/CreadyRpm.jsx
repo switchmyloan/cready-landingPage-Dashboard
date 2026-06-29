@@ -193,7 +193,10 @@ const StatCards = ({ summary, loading }) => {
                     </p>
                   )}
                   {breakdown && (
-                    <p className="text-[10px] text-gray-400 mt-0.5">hover for more</p>
+                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:ring-indigo-600 transition-colors">
+                      <MousePointerClick size={10} className="animate-pulse group-hover:animate-none" />
+                      Hover for details
+                    </span>
                   )}
                 </>
               )}
@@ -211,6 +214,7 @@ const StatCards = ({ summary, loading }) => {
                   ["Total", "total"],
                   ["Sent", "sent"],
                   ["Delivered", "delivered"],
+                  ["Read", "read"],
                   ["Clicked", "clicked"],
                   ["Failed", "failed"],
                 ].map(([lbl, k]) => (

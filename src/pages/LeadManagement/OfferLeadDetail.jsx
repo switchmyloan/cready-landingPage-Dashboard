@@ -13,7 +13,7 @@ import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getBreEligib
 import { useAuth } from '../../custom-hooks/useAuth';
 import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
 
-const SKIP_KEYS = ['isSalaried', 'staticLenders', 'priorityOrder'];
+const SKIP_KEYS = ['isSalaried', 'staticLenders', 'priorityOrder','kreditBeeCoupon'];
 
 // A "static lender" placeholder is written into lender_response as a top-level
 // key holding only { name, utm_link } — no `message`, no nested API response
@@ -48,7 +48,13 @@ const classifyLenderResponse = (resp, name) => {
   //   dedupe → isAllowed === true (message "Request Processed Successfully"
   //            matches no keyword below, so the explicit check is required or
   //            it would fall through to 'reject').
-  if (name === 'InCred' && (resp?.data?.response?.response?.APPLICATION_ID || resp?.data?.response?.response?.isAllowed === true)) return 'success';
+  // if (name === 'InCred' && (resp?.data?.response?.response?.APPLICATION_ID || resp?.data?.response?.response?.isAllowed === true)) return 'success';
+   if (name === 'InCred') {
+    const inc = resp?.data?.response?.response;
+    if (inc?.STATUS === 'REJECTED') return 'reject';
+    if (inc?.APPLICATION_ID || inc?.isAllowed === true) return 'success';
+  }
+
   // Legacy 'InCred Dedupe' key (pre-rename rows).
   if (name === 'InCred Dedupe' && resp?.data?.response?.response?.isAllowed === true) return 'success';
 
@@ -56,10 +62,13 @@ const classifyLenderResponse = (resp, name) => {
   if (!message) return 'reject';
 
   // TrueBalance edge case: duplication-check passed (isRepeat = false) and eligible → success
-  if (message.includes('isrepeat = false') && message.includes('iseligible = true')) {
+  if ( message.includes('iseligible = true')) {
     return 'success';
   }
-
+  
+  if (message.includes('no duplicate') || message.includes('duplicate not found')) {
+    return 'success';
+  }
   // Dedupe / Duplicate
   if (
     message.includes('duplicate') ||
@@ -372,21 +381,15 @@ const BreOffersSkeleton = () => (
   </div>
 );
 
-const BreOffersTab = ({ loading, error, data }) => {
+const BreOffersTab = ({ loading, data }) => {
   if (loading) return <BreOffersSkeleton />;
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center gap-2 py-12 border border-dashed border-rose-200 rounded-2xl bg-rose-50/50">
-        <ShieldX size={28} className="text-rose-300" />
-        <p className="text-sm text-rose-600">Couldn’t load BRE offers: {error}</p>
-      </div>
-    );
-  }
+  // Any error or missing data shows a single clean empty state — never a raw
+  // error/500 to the user. (Failures are still logged server-side.)
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 py-12 border border-dashed border-gray-200 rounded-2xl bg-gray-50/60">
         <Sparkles size={28} className="text-gray-300" />
-        <p className="text-sm text-gray-500">No BRE offer data for this lead.</p>
+        <p className="text-sm text-gray-500">No data available</p>
       </div>
     );
   }
@@ -583,8 +586,11 @@ const OfferLeadDetail = () => {
   const [breData, setBreData] = useState(null);
   const [breEligible, setBreEligible] = useState(false);
   const [breLoading, setBreLoading] = useState(false);
-  const [breError, setBreError] = useState('');
   const [breFetched, setBreFetched] = useState(false);
+  // Fetch guard is a ref (not state) so starting the offers fetch doesn't
+  // retrigger the lazy effect. Also set when eligibility returns cached data,
+  // so opening the tab skips the /bre-offers call entirely.
+  const breFetchStarted = useRef(false);
 
   // This page serves both /offer-leads (high) and /short-offer-leads (short), so
   // read the clicks from the matching table.
@@ -637,16 +643,27 @@ const OfferLeadDetail = () => {
     if (!phone) { setBreEligible(false); return; }
     let cancelled = false;
     getBreEligibility(phone)
-      .then((res) => { if (!cancelled) setBreEligible(Boolean(res?.data?.success && res?.data?.eligible)); })
+      .then((res) => {
+        if (cancelled) return;
+        const body = res?.data;
+        const ok = Boolean(body?.success && body?.eligible);
+        setBreEligible(ok);
+        // If the data is already cached in bre_offers, the eligibility response
+        // carries it — render from that and mark as fetched so opening the tab
+        // does NOT call /bre-offers again.
+        if (ok && body.cached && body.data) {
+          setBreData(body.data);
+          setBreFetched(true);
+          breFetchStarted.current = true;
+        }
+      })
       .catch(() => { if (!cancelled) setBreEligible(false); });
     return () => { cancelled = true; };
   }, [lead?.phone]);
 
-  // 2) Lazy-load the actual offers the first time the user opens the tab. This is
-  // where the payload is built and the BRE service is called.
-  // The fetch guard is a ref (not state) so starting it doesn't retrigger this
-  // effect and cancel its own in-flight request.
-  const breFetchStarted = useRef(false);
+  // 2) Lazy-load the actual offers the first time the user opens the tab — ONLY
+  // when not already provided by the cache (breFetchStarted set in effect 1).
+  // This is the only place the payload is built and the BRE service is called.
   useEffect(() => {
     if (activeTab !== 'BRE Offers' || breFetchStarted.current) return;
     const phone = lead?.phone;
@@ -654,24 +671,22 @@ const OfferLeadDetail = () => {
     breFetchStarted.current = true;
     setBreFetched(true);
     setBreLoading(true);
-    setBreError('');
     getBreOffers(phone)
       .then((res) => {
         const body = res?.data;
-        if (!body?.success) { setBreError('Request failed'); return; }
-        setBreData(body.eligible ? (body.data || null) : null);
-        if (body.offersError) setBreError(body.offersError);
+        // On any failure / empty / ineligible, leave data null so the tab shows
+        // the clean "No data available" state instead of a raw error.
+        setBreData(body?.success && body?.eligible ? (body.data || null) : null);
+        if (body?.offersError) console.error('BRE offers error:', body.offersError);
       })
-      .catch((err) => {
-        setBreError(err?.response?.data?.message || err?.message || 'Request failed');
-      })
+      .catch((err) => { console.error('BRE offers load failed:', err?.message || err); })
       .finally(() => setBreLoading(false));
   }, [activeTab, lead?.phone]);
 
   // Call-center sees a customer-facing "Shown Offers" tab (what was rendered to the
   // user) instead of "Offers" (which exposes internal rejection / dedupe responses).
   // "BRE Offers" is appended only when the lead exists in the BRE bureau dataset.
-  const tabs = ["Basic", isCC ? "Shown Offers" : "Offers", "Selected Lenders", ...(breEligible ? ["BRE Offers"] : [])];
+  const tabs = ["Basic", "Offers", "Selected Lenders", ...(breEligible ? ["BRE Offers"] : [])];
 
   // No row yet but we have an id (e.g. opened via direct link / refresh) — the
   // by-id fetch above is in flight, so show a loader instead of the error.
@@ -867,6 +882,24 @@ const OfferLeadDetail = () => {
               <Field Icon={Megaphone} label="UTM Campaign" value={lead.utm_campaign || 'N/A'} />
               <Field Icon={Clock} label="Created At" value={lead.createdAt ? new Date(lead.createdAt).toLocaleString() : 'N/A'} />
             </InfoSection>
+
+            {/* Frontend event tracking (offerLeads.tracking_events) — which UI
+                events the user did (e.g. InCred fake-offer modal shown) + when. */}
+            {lead.tracking_events && Object.keys(lead.tracking_events).some((k) => !k.endsWith('_at')) && (
+              <InfoSection Icon={MousePointerClick} title="Tracking Events" tint="bg-violet-50 text-violet-600">
+                {Object.keys(lead.tracking_events)
+                  .filter((k) => !k.endsWith('_at'))
+                  .map((k) => (
+                    <Field
+                      key={k}
+                      Icon={CheckCircle2}
+                      label={k.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase())}
+                      value={lead.tracking_events[`${k}_at`] || 'Yes'}
+                      valueClass="text-violet-700"
+                    />
+                  ))}
+              </InfoSection>
+            )}
 
             {/* Call-center feedback — this page is shared by high-ticket
                 (/offer-leads) and short-ticket (/short-offer-leads), so pick the
@@ -1065,7 +1098,7 @@ const OfferLeadDetail = () => {
         )}
 
         {activeTab === "BRE Offers" && (
-          <BreOffersTab loading={breLoading || !breFetched} error={breError} data={breData} />
+          <BreOffersTab loading={breLoading || !breFetched} data={breData} />
         )}
       </div>
     </div>
