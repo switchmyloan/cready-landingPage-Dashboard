@@ -1,7 +1,7 @@
 {
   "apps": [
     {
-      "name": "SML-Dashboard-Frontend[3002]",
+      "name": "Cready-LendingPage-CMS-Frontend[3002]",
       "script": "./start.sh",
       "interpreter": "bash",
       "cwd": "/home/ubuntu/creadyLendingPage/LMS/SML_money_view_dashboard",
