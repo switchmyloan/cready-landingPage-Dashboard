@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import LeadFeedback from '../../components/LeadFeedback/LeadFeedback';
-import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById } from '../../api-services/Modules/Leads';
+import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById, getOfferQueueStatus } from '../../api-services/Modules/Leads';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
 
@@ -587,6 +587,10 @@ const OfferLeadDetail = () => {
   const [breEligible, setBreEligible] = useState(false);
   const [breLoading, setBreLoading] = useState(false);
   const [breFetched, setBreFetched] = useState(false);
+
+  // Redis queue status — present only for leads submitted via the async endpoint.
+  // 'unknown' or null = synchronous submission (or Redis TTL elapsed after 1h).
+  const [queueStatus, setQueueStatus] = useState(null);
   // Fetch guard is a ref (not state) so starting the offers fetch doesn't
   // retrigger the lazy effect. Also set when eligibility returns cached data,
   // so opening the tab skips the /bre-offers call entirely.
@@ -619,6 +623,21 @@ const OfferLeadDetail = () => {
       .catch(() => { /* keep the state row on failure */ });
     return () => { cancelled = true; };
   }, [id, isShort]);
+
+  // Redis async queue status — only meaningful for leads submitted via
+  // /get-offer-kb-mv-async or /get-offer-short-ticket-async. Key expires after 1h.
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    getOfferQueueStatus(id)
+      .then((res) => {
+        if (cancelled) return;
+        const s = res?.data?.data?.status;
+        if (s && s !== 'unknown') setQueueStatus(s);
+      })
+      .catch(() => { /* Redis key expired or lead was sync — leave null */ });
+    return () => { cancelled = true; };
+  }, [id]);
 
   // Lenders this user actually clicked (selectedLenders / shortSelectedLenders),
   // keyed by phone — powers the "Selected Lenders" tab.
@@ -826,6 +845,22 @@ const OfferLeadDetail = () => {
                         <Clock size={12} /> {new Date(lead.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </span>
                     )}
+                    {queueStatus && (() => {
+                      const QUEUE_META = {
+                        queued:     { label: 'Queued',     cls: 'bg-amber-400/30 text-amber-100',   dot: 'bg-amber-300' },
+                        processing: { label: 'Processing', cls: 'bg-blue-400/30 text-blue-100',     dot: 'bg-blue-300 animate-pulse' },
+                        done:       { label: 'Done',       cls: 'bg-emerald-400/30 text-emerald-100', dot: 'bg-emerald-300' },
+                        failed:     { label: 'Failed',     cls: 'bg-rose-400/30 text-rose-100',     dot: 'bg-rose-300' },
+                      };
+                      const m = QUEUE_META[queueStatus];
+                      if (!m) return null;
+                      return (
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${m.cls}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${m.dot}`} />
+                          Queue: {m.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>

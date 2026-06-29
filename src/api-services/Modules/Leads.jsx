@@ -976,3 +976,11 @@ export const getLenderById = async id => Api().get(`/lender/${id}`);
 export const UpdateLender = async (id, formData) => {
     return Api().put(`/lender/${id}`, formData);
 };
+
+// Redis queue status for an async offer lead — polls the in-memory key written by
+// the BullMQ worker. Returns { status: 'queued'|'processing'|'done'|'failed'|'unknown', data }
+// Key expires after 1 hour, so 'unknown' means either sync submission or TTL elapsed.
+export const getOfferQueueStatus = async (offerLeadId) =>
+    Api().get(`/onSubmit/offer-status/${encodeURIComponent(offerLeadId)}`, {
+        skipAdminAppend: true,
+    });
