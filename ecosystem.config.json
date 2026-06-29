@@ -1,0 +1,16 @@
+{
+  "apps": [
+    {
+      "name": "SML-Dashboard-Frontend[3002]",
+      "script": "./start.sh",
+      "interpreter": "bash",
+      "cwd": "/home/ubuntu/creadyLendingPage/LMS/SML_money_view_dashboard",
+      "instances": 1,
+      "autorestart": true,
+      "watch": false,
+      "env": {
+        "NODE_ENV": "production"
+      }
+    }
+  ]
+}
