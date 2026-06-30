@@ -208,12 +208,7 @@ const useCountUp = (target, duration = 2000) => {
    API: pass `value` as a number and (optionally) `format` as a formatter
    function — the card animates 0→value (or prev→value) and re-runs the
    formatter on each frame. Legacy string `value` still renders as-is. */
-const KpiCard = ({ icon: Icon, label, value, format, sub, delta, deltaPositive, color = COLORS.brand, loading = false, featured: featuredProp = false, gradient, glow = 'shadow-purple-500/40' }) => {
-    // Any card with a `gradient` (or featured) renders the gradient-background
-    // variant. `grad` = Tailwind gradient stops for the bg; `glow` = the colored
-    // drop-shadow so each card's shadow matches its own hue.
-    const featured = featuredProp || !!gradient;
-    const grad = gradient || 'from-purple-600 via-violet-600 to-indigo-600';
+const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint = 'bg-white border-gray-200', iconClass = 'bg-purple-100 text-purple-600' }) => {
     const isNumeric = typeof value === 'number' && !isNaN(value);
     const animValue = useCountUp(isNumeric ? value : 0);
     const display = !isNumeric
@@ -222,81 +217,28 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, delta, deltaPositive, 
             ? format(animValue)
             : Math.round(animValue).toLocaleString('en-IN');
     return (
-    <div
-        className={`group relative rounded-2xl border shadow-sm p-5 overflow-hidden transition-all duration-300 hover:-translate-y-1 ${
-            featured
-                // Featured = full gradient background. Stands out while staying
-                // readable (white text). `grad` sets the hue, `glow` the shadow.
-                ? `text-white border-white/15 bg-gradient-to-br ${grad} shadow-lg ${glow} hover:shadow-2xl`
-                : 'bg-white border-gray-200/80 hover:shadow-lg hover:shadow-purple-500/10 hover:border-purple-300/60'
-        }`}
-    >
-        {/* Top accent stripe — only on the plain white cards */}
-        {!featured && (
-            <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${color}, ${COLORS.brand2}, ${color})` }} />
-        )}
-        {/* Decorative layers — glassy, premium finish */}
-        {featured ? (
-            <>
-                {/* Glossy top sheen for a glass look */}
-                <div className="pointer-events-none absolute inset-x-0 top-0 h-2/3 bg-gradient-to-b from-white/25 via-white/5 to-transparent" />
-                {/* Crisp inner edge highlight */}
-                <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
-                {/* Shine that sweeps across on hover */}
-                <div className="pointer-events-none absolute inset-y-0 -left-1/4 w-1/4 -skew-x-12 bg-white/25 blur-md opacity-0 -translate-x-10 group-hover:translate-x-[420%] group-hover:opacity-100 transition-all duration-700 ease-out" />
-                {/* Soft corner glows (hue-neutral so they suit every card) */}
-                <div className="pointer-events-none absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/15 blur-2xl" />
-                <div className="pointer-events-none absolute -bottom-12 -left-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
-                <Sparkles size={64} className="pointer-events-none absolute -bottom-3 -right-2 text-white/10 rotate-12" />
-            </>
-        ) : (
-            <div
-                className="absolute -top-12 -right-12 w-32 h-32 rounded-full opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-300"
-                style={{ background: `radial-gradient(circle, ${color}33, transparent 70%)` }}
-            />
-        )}
-
-        <div className="relative flex justify-between items-start">
-            <div className="flex items-center gap-2.5">
-                {/* Icon badge with ₹ sparkle — translucent on featured, gradient otherwise */}
-                <div
-                    className={`relative w-10 h-10 grid place-items-center rounded-xl shadow-md ring-1 ring-white/40 ${featured ? 'bg-white/20 backdrop-blur-sm' : ''}`}
-                    style={featured ? undefined : { background: `linear-gradient(135deg, ${color}, ${COLORS.brand2})` }}
-                >
-                    <Icon size={17} className="text-white drop-shadow" />
-                    <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow ring-2 ring-white">
-                        <span className="text-[7.5px] font-black text-amber-900 leading-none">₹</span>
-                    </div>
+        <div className={`relative rounded-2xl border p-5 transition-shadow hover:shadow-md ${tint}`}>
+            <div className="flex items-center justify-between gap-2">
+                <span className="text-[12.5px] font-semibold text-gray-700">{label}</span>
+                {/* Soft tinted icon chip (minimal — no gradient/glow) */}
+                <div className={`w-9 h-9 grid place-items-center rounded-xl shrink-0 ${iconClass}`}>
+                    <Icon size={17} />
                 </div>
-                <span className={`text-[12.5px] font-semibold tracking-tight ${featured ? 'text-white' : 'text-gray-700'}`}>{label}</span>
             </div>
-            {!loading && delta != null && (
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                    featured
-                        ? 'bg-white/20 text-white border-white/30'
-                        : deltaPositive
-                            ? 'bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 border-purple-200'
-                            : 'bg-gradient-to-r from-rose-50 to-red-50 text-rose-700 border-rose-200'
-                }`}>
-                    {deltaPositive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
-                    {Math.abs(delta).toFixed(1)}%
-                </span>
+            {loading ? (
+                <div className="mt-4 space-y-2">
+                    <div className="h-8 w-36 rounded-md bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:200%_100%] animate-shimmer" />
+                    {sub != null && (
+                        <div className="h-3 w-24 rounded bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:200%_100%] animate-shimmer" />
+                    )}
+                </div>
+            ) : (
+                <>
+                    <div className="text-[28px] font-bold tracking-tight leading-none mt-3 text-gray-900 tabular-nums">{display}</div>
+                    {sub && <div className="text-[12px] mt-1.5 text-gray-500">{sub}</div>}
+                </>
             )}
         </div>
-        {loading ? (
-            <div className="mt-4 space-y-2">
-                <div className={`h-8 w-36 rounded-md animate-shimmer bg-[length:200%_100%] ${featured ? 'bg-gradient-to-r from-white/20 via-white/40 to-white/20' : 'bg-gradient-to-r from-purple-100 via-violet-200 to-purple-100'}`} />
-                {sub != null && (
-                    <div className={`h-3 w-24 rounded animate-shimmer bg-[length:200%_100%] ${featured ? 'bg-gradient-to-r from-white/15 via-white/30 to-white/15' : 'bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100'}`} />
-                )}
-            </div>
-        ) : (
-            <>
-                <div className={`text-[30px] font-bold tracking-tight leading-none mt-4 tabular-nums ${featured ? 'text-white drop-shadow-sm' : 'text-gray-900'}`}>{display}</div>
-                {sub && <div className={`text-[12px] mt-1.5 ${featured ? 'text-white/85' : 'text-gray-500'}`}>{sub}</div>}
-            </>
-        )}
-    </div>
     );
 };
 
@@ -313,7 +255,7 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
     const [cur, setCur] = useState(null);
     const [prev, setPrev] = useState(null);
 
-    const { curRange, prevRange, curLabel, prevLabel, prevMon, dayInfo } = useMemo(() => {
+    const { curRange, prevRange, curLabel, prevLabel, dayInfo } = useMemo(() => {
         const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
@@ -327,7 +269,6 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
             prevRange: { fromDate: fmt(prevFrom), toDate: fmt(prevTo) },
             curLabel: `${MONTH_NAMES[m]} ${y}`,
             prevLabel: `${MONTH_NAMES[prevFrom.getMonth()]} ${prevFrom.getFullYear()}`,
-            prevMon: MONTH_NAMES[prevFrom.getMonth()],
             dayInfo: `1–${d}`,
         };
     }, []);
@@ -362,62 +303,40 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
     const allUp = upCount === metrics.length;
 
     return (
-        <section className="relative bg-white rounded-2xl border border-gray-200/80 shadow-sm p-5 mb-4 overflow-hidden">
-            {/* faint brand wash so the section reads as its own block */}
-            <div className="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-emerald-100/50 blur-3xl" />
-
-            <div className="relative flex items-center justify-between flex-wrap gap-2 mb-4">
+        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
                 <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 grid place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30">
-                        <CalendarDays size={17} />
+                    <div className="w-8 h-8 grid place-items-center rounded-lg bg-gray-100 text-gray-500">
+                        <CalendarDays size={16} />
                     </div>
                     <div>
-                        <h3 className="text-[15px] font-bold text-gray-900 leading-tight">Month-over-Month Comparison</h3>
-                        <p className="text-[11.5px] text-gray-500">
-                            <span className="font-semibold text-gray-700">{curLabel}</span> vs {prevLabel} · same period (days {dayInfo})
+                        <h3 className="text-[14px] font-semibold text-gray-900 leading-tight">Month-over-Month Comparison</h3>
+                        <p className="text-[11.5px] text-gray-400">
+                            {curLabel} vs {prevLabel} · same period (days {dayInfo})
                         </p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {!loading && cur && prev && (
-                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1 border ${
-                            allUp ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>
-                            <TrendingUp size={12} /> {upCount}/{metrics.length} up vs {prevMon}
-                        </span>
-                    )}
-                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-1">
-                        Month-to-date
+                {!loading && cur && prev && (
+                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2.5 py-1 ${
+                        allUp ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'
+                    }`}>
+                        <TrendingUp size={12} /> {upCount}/{metrics.length} up
                     </span>
-                </div>
+                )}
             </div>
 
-            <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6">
-                {/* Center "VS" medallion between the two cards (desktop only) */}
-                <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white border-2 border-emerald-200 shadow-lg items-center justify-center">
-                    <span className="text-[11px] font-extrabold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">VS</span>
-                </div>
-
-                {/* LEFT — THIS MONTH (green = current/positive) */}
-                <div className="relative rounded-2xl p-5 overflow-hidden text-white bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/40">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" />
-                    <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
-                    <div className="pointer-events-none absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/15 blur-2xl" />
-
-                    <div className="relative flex items-center justify-between mb-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {/* THIS MONTH */}
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
+                    <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 grid place-items-center rounded-lg bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
-                                <CalendarDays size={15} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/75 leading-none">This month</p>
-                                <h4 className="text-[17px] font-bold leading-tight mt-0.5">{curLabel}</h4>
-                            </div>
+                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">This month</span>
+                            <span className="text-[13px] font-semibold text-gray-900">{curLabel}</span>
                         </div>
-                        <span className="text-[10px] font-bold bg-white/20 rounded-full px-2 py-1">Days {dayInfo}</span>
+                        <span className="text-[10px] text-gray-400">Days {dayInfo}</span>
                     </div>
-
-                    <div className="relative divide-y divide-white/15">
+                    <div className="divide-y divide-gray-100">
                         {metrics.map((m) => {
                             const cVal = valOf(cur, m);
                             const pVal = valOf(prev, m);
@@ -426,22 +345,17 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
                             const pct = pVal > 0 ? (diff / pVal) * 100 : (cVal > 0 ? 100 : 0);
                             const up = diff >= 0;
                             return (
-                                <div key={m.key} className="flex items-center justify-between gap-2 py-3 first:pt-1 last:pb-1">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="w-7 h-7 grid place-items-center rounded-lg bg-white/15 shrink-0">
-                                            <m.Icon size={14} />
-                                        </div>
-                                        <span className="text-[12.5px] font-medium text-white/90 truncate">{m.label}</span>
-                                    </div>
+                                <div key={m.key} className="flex items-center justify-between gap-2 py-2.5">
+                                    <span className="text-[12.5px] text-gray-500 truncate">{m.label}</span>
                                     {loading ? (
-                                        <div className="h-5 w-20 rounded bg-white/20 animate-pulse" />
+                                        <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
                                     ) : (
                                         <div className="flex items-center gap-2 shrink-0">
-                                            <span className="text-[16px] font-bold tabular-nums">{m.fmt(cVal)}</span>
-                                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10.5px] font-bold ${
-                                                flat ? 'bg-white/25 text-white' : up ? 'bg-white text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                            <span className="text-[14px] font-semibold text-gray-900 tabular-nums">{m.fmt(cVal)}</span>
+                                            <span className={`inline-flex items-center justify-end gap-0.5 w-[54px] text-[11px] font-semibold ${
+                                                flat ? 'text-gray-400' : up ? 'text-emerald-600' : 'text-rose-500'
                                             }`}>
-                                                {flat ? <Minus size={10} /> : up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                                                {flat ? <Minus size={11} /> : up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
                                                 {Math.abs(pct).toFixed(1)}%
                                             </span>
                                         </div>
@@ -452,40 +366,26 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
                     </div>
                 </div>
 
-                {/* RIGHT — LAST MONTH (blue = past/baseline, clearly distinct) */}
-                <div className="relative rounded-2xl p-5 overflow-hidden text-white bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 shadow-lg shadow-blue-500/30">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" />
-                    <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
-                    <div className="pointer-events-none absolute -bottom-12 -left-10 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
-
-                    <div className="relative flex items-center justify-between mb-3">
+                {/* LAST MONTH */}
+                <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-4">
+                    <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 grid place-items-center rounded-lg bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
-                                <Calendar size={15} />
-                            </div>
-                            <div>
-                                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/75 leading-none">Last month</p>
-                                <h4 className="text-[17px] font-bold leading-tight mt-0.5">{prevLabel}</h4>
-                            </div>
+                            <span className="w-2 h-2 rounded-full bg-sky-500" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Last month</span>
+                            <span className="text-[13px] font-semibold text-gray-700">{prevLabel}</span>
                         </div>
-                        <span className="text-[10px] font-bold bg-white/20 rounded-full px-2 py-1">Days {dayInfo}</span>
+                        <span className="text-[10px] text-gray-400">Days {dayInfo}</span>
                     </div>
-
-                    <div className="relative divide-y divide-white/15">
+                    <div className="divide-y divide-gray-100">
                         {metrics.map((m) => {
                             const pVal = valOf(prev, m);
                             return (
-                                <div key={m.key} className="flex items-center justify-between gap-2 py-3 first:pt-1 last:pb-1">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                        <div className="w-7 h-7 grid place-items-center rounded-lg bg-white/15 shrink-0">
-                                            <m.Icon size={14} />
-                                        </div>
-                                        <span className="text-[12.5px] font-medium text-white/90 truncate">{m.label}</span>
-                                    </div>
+                                <div key={m.key} className="flex items-center justify-between gap-2 py-2.5">
+                                    <span className="text-[12.5px] text-gray-500 truncate">{m.label}</span>
                                     {loading ? (
-                                        <div className="h-5 w-20 rounded bg-white/20 animate-pulse" />
+                                        <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
                                     ) : (
-                                        <span className="text-[16px] font-bold tabular-nums shrink-0">{m.fmt(pVal)}</span>
+                                        <span className="text-[14px] font-semibold text-gray-700 tabular-nums shrink-0">{m.fmt(pVal)}</span>
                                     )}
                                 </div>
                             );
@@ -1930,30 +1830,30 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                     change via KpiCard's useCountUp hook. `value` is a raw
                     number; `format` runs every animation frame. */}
                 <KpiCard icon={Wallet} label="Total disbursed"
-                    gradient="from-violet-500 via-purple-500 to-fuchsia-500"
-                    glow="shadow-fuchsia-500/40"
+                    tint="bg-purple-50/60 border-purple-100"
+                    iconClass="bg-purple-100 text-purple-600"
                     loading={kpiLoading}
                     value={Math.round(kpis.totalAmount || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub={`across ${fmtNum(kpis.count)} disbursals · ${range}`} />
                 <KpiCard icon={Activity} label="Total disbursals"
-                    gradient="from-sky-500 via-blue-500 to-indigo-500"
-                    glow="shadow-blue-500/40"
+                    tint="bg-blue-50/60 border-blue-100"
+                    iconClass="bg-blue-100 text-blue-600"
                     loading={kpiLoading}
                     value={Number(kpis.count) || 0}
                     format={(n) => fmtNum(Math.round(n))}
                     sub={`in last ${range.toLowerCase()}`} />
                 <KpiCard icon={Banknote} label="Avg. ticket size"
-                    gradient="from-amber-500 via-orange-500 to-pink-500"
-                    glow="shadow-orange-500/40"
+                    tint="bg-orange-50/60 border-orange-100"
+                    iconClass="bg-orange-100 text-orange-600"
                     loading={kpiLoading}
                     value={Math.round(kpis.avgTicket || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="per disbursal" />
                 {/* Revenue Evaluation — Total disbursed × 3.25 ÷ 100. */}
                 <KpiCard icon={TrendingUp} label="Revenue Evaluation"
-                    gradient="from-emerald-500 via-teal-500 to-cyan-500"
-                    glow="shadow-emerald-500/40"
+                    tint="bg-emerald-50/60 border-emerald-100"
+                    iconClass="bg-emerald-100 text-emerald-600"
                     loading={kpiLoading}
                     value={Math.round((kpis.totalAmount || 0) * 3.25 / 100)}
                     format={(n) => fmtINRFull(Math.round(n))}
