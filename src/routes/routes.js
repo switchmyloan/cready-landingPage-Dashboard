@@ -287,6 +287,17 @@ export const routes = [
     order: 24,
     roles: ["super-admin", "short-page-admin", "management", "marketing"],
   },
+  // Campaign Team — replica of Cready RPM with its own role + sidebar group.
+  {
+    path: "/campaign",
+    label: "Campaign",
+    icon: "Megaphone",
+    showInSidebar: true,
+    group: "Campaign",
+    groupOrder: 2.5,
+    order: 25,
+    roles: ["super-admin", "campaign-team"],
+  },
   // {
   //   path: "/short-kb-lending-page",
   //   label: "Short KB Success Leads",

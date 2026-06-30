@@ -331,13 +331,14 @@ import {
   ClipboardList,
   ShieldCheck,
   Settings,
-  TrendingUp
+  TrendingUp,
+  Megaphone
 } from "lucide-react";
 
 const ICONS = {
   Home, FileText, Users, HelpCircle, Newspaper, MessageSquare,
   UserPlus, UserMinus, UserCheck, Building2, BookOpen, ClipboardList,
-  ShieldCheck, Settings, TrendingUp
+  ShieldCheck, Settings, TrendingUp, Megaphone
 };
 
 function Sidebar({ onClose, collapsed, onToggleCollapse }) {

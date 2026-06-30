@@ -43,6 +43,8 @@ import ShortUserTrack from './pages/LeadManagement/Short/ShortUserTrack';
 import ShortUserTrackDetail from './pages/LeadManagement/Short/ShortUserTrackDetail';
 import CreadyRpm from './pages/LeadManagement/Short/CreadyRpm';
 import CreadyRpmDetail from './pages/LeadManagement/Short/CreadyRpmDetail';
+import Campaign from './pages/LeadManagement/Campaign/Campaign';
+import CampaignDetail from './pages/LeadManagement/Campaign/CampaignDetail';
 import ShortKBLendingPage from './pages/LeadManagement/Short/ShortKBLendingPage';
 import ShortKBLendingPageDetail from './pages/LeadManagement/Short/ShortKBLendingPageDetail';
 import MVSuccessDetail from './pages/LeadManagement/MVSuccessDetail';
@@ -106,6 +108,10 @@ function App() {
             <Route path="short-user-track/:phone" element={<ShortUserTrackDetail />} />
             <Route path="cready-rpm" element={<CreadyRpm />} />
             <Route path="cready-rpm/:phone" element={<CreadyRpmDetail />} />
+
+            {/* Campaign Team — replica of Cready RPM, gated to the campaign-team role */}
+            <Route path="campaign" element={<Campaign />} />
+            <Route path="campaign/:phone" element={<CampaignDetail />} />
             <Route path="short-kb-lending-page" element={<ShortKBLendingPage />} />
             <Route path="short-kb-lending-page/:id" element={<ShortKBLendingPageDetail />} />
 

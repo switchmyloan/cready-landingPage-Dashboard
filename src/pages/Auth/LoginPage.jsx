@@ -226,6 +226,14 @@ function LoginPage() {
       password: "CallCntr2#Cr3ady!26$H",
     role: "call-center-65plus",
   },
+  // Campaign team — sees only the Campaign page (a Cready RPM replica).
+  {
+    id: 14,
+    name: "Campaign Team",
+    email: "campaign@cready.in",
+    password: "Camp@ign#Cr3ady!2026$T",
+    role: "campaign-team",
+  },
 ];
 
   const handleChange = (e) => {
@@ -294,6 +302,8 @@ function LoginPage() {
         foundUser.role === "call-center-65plus"
       ) {
         navigate("/offer-leads");
+      } else if (foundUser.role === "campaign-team") {
+        navigate("/campaign");
       } else {
         navigate("/");
       }
