@@ -207,7 +207,12 @@ const useCountUp = (target, duration = 2000) => {
    API: pass `value` as a number and (optionally) `format` as a formatter
    function — the card animates 0→value (or prev→value) and re-runs the
    formatter on each frame. Legacy string `value` still renders as-is. */
-const KpiCard = ({ icon: Icon, label, value, format, sub, delta, deltaPositive, color = COLORS.brand, loading = false }) => {
+const KpiCard = ({ icon: Icon, label, value, format, sub, delta, deltaPositive, color = COLORS.brand, loading = false, featured: featuredProp = false, gradient, glow = 'shadow-purple-500/40' }) => {
+    // Any card with a `gradient` (or featured) renders the gradient-background
+    // variant. `grad` = Tailwind gradient stops for the bg; `glow` = the colored
+    // drop-shadow so each card's shadow matches its own hue.
+    const featured = featuredProp || !!gradient;
+    const grad = gradient || 'from-purple-600 via-violet-600 to-indigo-600';
     const isNumeric = typeof value === 'number' && !isNaN(value);
     const animValue = useCountUp(isNumeric ? value : 0);
     const display = !isNumeric
@@ -217,35 +222,60 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, delta, deltaPositive, 
             : Math.round(animValue).toLocaleString('en-IN');
     return (
     <div
-        className="group relative bg-white rounded-2xl border border-gray-200/80 shadow-sm p-5 overflow-hidden hover:shadow-lg hover:shadow-purple-500/10 hover:-translate-y-0.5 hover:border-purple-300/60 transition-all duration-200"
+        className={`group relative rounded-2xl border shadow-sm p-5 overflow-hidden transition-all duration-300 hover:-translate-y-1 ${
+            featured
+                // Featured = full gradient background. Stands out while staying
+                // readable (white text). `grad` sets the hue, `glow` the shadow.
+                ? `text-white border-white/15 bg-gradient-to-br ${grad} shadow-lg ${glow} hover:shadow-2xl`
+                : 'bg-white border-gray-200/80 hover:shadow-lg hover:shadow-purple-500/10 hover:border-purple-300/60'
+        }`}
     >
-        {/* Top accent stripe */}
-        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${color}, ${COLORS.brand2}, ${color})` }} />
-        {/* Soft corner glow that brightens on hover */}
-        <div
-            className="absolute -top-12 -right-12 w-32 h-32 rounded-full opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-300"
-            style={{ background: `radial-gradient(circle, ${color}33, transparent 70%)` }}
-        />
+        {/* Top accent stripe — only on the plain white cards */}
+        {!featured && (
+            <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ background: `linear-gradient(90deg, ${color}, ${COLORS.brand2}, ${color})` }} />
+        )}
+        {/* Decorative layers — glassy, premium finish */}
+        {featured ? (
+            <>
+                {/* Glossy top sheen for a glass look */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-2/3 bg-gradient-to-b from-white/25 via-white/5 to-transparent" />
+                {/* Crisp inner edge highlight */}
+                <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
+                {/* Shine that sweeps across on hover */}
+                <div className="pointer-events-none absolute inset-y-0 -left-1/4 w-1/4 -skew-x-12 bg-white/25 blur-md opacity-0 -translate-x-10 group-hover:translate-x-[420%] group-hover:opacity-100 transition-all duration-700 ease-out" />
+                {/* Soft corner glows (hue-neutral so they suit every card) */}
+                <div className="pointer-events-none absolute -top-10 -right-10 w-36 h-36 rounded-full bg-white/15 blur-2xl" />
+                <div className="pointer-events-none absolute -bottom-12 -left-8 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+                <Sparkles size={64} className="pointer-events-none absolute -bottom-3 -right-2 text-white/10 rotate-12" />
+            </>
+        ) : (
+            <div
+                className="absolute -top-12 -right-12 w-32 h-32 rounded-full opacity-0 group-hover:opacity-100 blur-2xl transition-opacity duration-300"
+                style={{ background: `radial-gradient(circle, ${color}33, transparent 70%)` }}
+            />
+        )}
 
         <div className="relative flex justify-between items-start">
             <div className="flex items-center gap-2.5">
-                {/* Gradient icon badge with ₹ sparkle */}
+                {/* Icon badge with ₹ sparkle — translucent on featured, gradient otherwise */}
                 <div
-                    className="relative w-10 h-10 grid place-items-center rounded-xl shadow-md ring-1 ring-white/40"
-                    style={{ background: `linear-gradient(135deg, ${color}, ${COLORS.brand2})` }}
+                    className={`relative w-10 h-10 grid place-items-center rounded-xl shadow-md ring-1 ring-white/40 ${featured ? 'bg-white/20 backdrop-blur-sm' : ''}`}
+                    style={featured ? undefined : { background: `linear-gradient(135deg, ${color}, ${COLORS.brand2})` }}
                 >
                     <Icon size={17} className="text-white drop-shadow" />
                     <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow ring-2 ring-white">
                         <span className="text-[7.5px] font-black text-amber-900 leading-none">₹</span>
                     </div>
                 </div>
-                <span className="text-[12.5px] font-semibold text-gray-700 tracking-tight">{label}</span>
+                <span className={`text-[12.5px] font-semibold tracking-tight ${featured ? 'text-white' : 'text-gray-700'}`}>{label}</span>
             </div>
             {!loading && delta != null && (
                 <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border ${
-                    deltaPositive
-                        ? 'bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 border-purple-200'
-                        : 'bg-gradient-to-r from-rose-50 to-red-50 text-rose-700 border-rose-200'
+                    featured
+                        ? 'bg-white/20 text-white border-white/30'
+                        : deltaPositive
+                            ? 'bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 border-purple-200'
+                            : 'bg-gradient-to-r from-rose-50 to-red-50 text-rose-700 border-rose-200'
                 }`}>
                     {deltaPositive ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
                     {Math.abs(delta).toFixed(1)}%
@@ -254,15 +284,15 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, delta, deltaPositive, 
         </div>
         {loading ? (
             <div className="mt-4 space-y-2">
-                <div className="h-8 w-36 rounded-md bg-gradient-to-r from-purple-100 via-violet-200 to-purple-100 bg-[length:200%_100%] animate-shimmer" />
+                <div className={`h-8 w-36 rounded-md animate-shimmer bg-[length:200%_100%] ${featured ? 'bg-gradient-to-r from-white/20 via-white/40 to-white/20' : 'bg-gradient-to-r from-purple-100 via-violet-200 to-purple-100'}`} />
                 {sub != null && (
-                    <div className="h-3 w-24 rounded bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:200%_100%] animate-shimmer" />
+                    <div className={`h-3 w-24 rounded animate-shimmer bg-[length:200%_100%] ${featured ? 'bg-gradient-to-r from-white/15 via-white/30 to-white/15' : 'bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100'}`} />
                 )}
             </div>
         ) : (
             <>
-                <div className="text-[30px] font-bold tracking-tight leading-none mt-4 text-gray-900 tabular-nums">{display}</div>
-                {sub && <div className="text-[12px] text-gray-500 mt-1.5">{sub}</div>}
+                <div className={`text-[30px] font-bold tracking-tight leading-none mt-4 tabular-nums ${featured ? 'text-white drop-shadow-sm' : 'text-gray-900'}`}>{display}</div>
+                {sub && <div className={`text-[12px] mt-1.5 ${featured ? 'text-white/85' : 'text-gray-500'}`}>{sub}</div>}
             </>
         )}
     </div>
@@ -1697,28 +1727,39 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 {/* Numbers tick up from 0 → target on each reload / filter
                     change via KpiCard's useCountUp hook. `value` is a raw
                     number; `format` runs every animation frame. */}
                 <KpiCard icon={Wallet} label="Total disbursed"
+                    gradient="from-violet-500 via-purple-500 to-fuchsia-500"
+                    glow="shadow-fuchsia-500/40"
                     loading={kpiLoading}
                     value={Math.round(kpis.totalAmount || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
-                    sub={`across ${fmtNum(kpis.count)} disbursals · ${range}`}
-                    color={COLORS.pos} />
+                    sub={`across ${fmtNum(kpis.count)} disbursals · ${range}`} />
                 <KpiCard icon={Activity} label="Total disbursals"
+                    gradient="from-sky-500 via-blue-500 to-indigo-500"
+                    glow="shadow-blue-500/40"
                     loading={kpiLoading}
                     value={Number(kpis.count) || 0}
                     format={(n) => fmtNum(Math.round(n))}
-                    sub={`in last ${range.toLowerCase()}`}
-                    color={COLORS.accent} />
+                    sub={`in last ${range.toLowerCase()}`} />
                 <KpiCard icon={Banknote} label="Avg. ticket size"
+                    gradient="from-amber-500 via-orange-500 to-pink-500"
+                    glow="shadow-orange-500/40"
                     loading={kpiLoading}
                     value={Math.round(kpis.avgTicket || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
-                    sub="per disbursal"
-                    color={COLORS.brand2} />
+                    sub="per disbursal" />
+                {/* Revenue Evaluation — Total disbursed × 3.25 ÷ 100. */}
+                <KpiCard icon={TrendingUp} label="Revenue Evaluation"
+                    gradient="from-emerald-500 via-teal-500 to-cyan-500"
+                    glow="shadow-emerald-500/40"
+                    loading={kpiLoading}
+                    value={Math.round((kpis.totalAmount || 0) * 3.25 / 100)}
+                    format={(n) => fmtINRFull(Math.round(n))}
+                    sub="Estimated revenue · 3.25× ÷ 100" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
