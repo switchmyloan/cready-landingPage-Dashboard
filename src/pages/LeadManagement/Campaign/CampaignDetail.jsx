@@ -7,10 +7,10 @@ import {
   MousePointerClick, LayoutGrid, ExternalLink,
 } from 'lucide-react';
 
-// Campaign Team detail — replica of the Cready RPM detail page. Reuses the
-// existing /cready-rpm/detail endpoint (same dataset); only the page chrome
-// (back-button label) differs so the campaign team has its own route.
-import { getCreadyRpmDetail } from '../../../api-services/Modules/Leads';
+// Campaign Team detail — backed by the dedicated /campaign/detail endpoint
+// (no longer the shared /cready-rpm/detail dataset) so the campaign team's
+// diverging requirements are served independently.
+import { getCampaignDetail } from '../../../api-services/Modules/Campaign';
 import ToastNotification from '../../../components/Notification/ToastNotification';
 import LeadFeedback from '../../../components/LeadFeedback/LeadFeedback';
 
@@ -130,7 +130,7 @@ const CampaignDetail = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await getCreadyRpmDetail({ phone });
+        const res = await getCampaignDetail({ phone });
         if (!cancelled && res?.data?.success) setData(res.data.data);
         else if (!cancelled) ToastNotification.error('Failed to load details');
       } catch (err) {

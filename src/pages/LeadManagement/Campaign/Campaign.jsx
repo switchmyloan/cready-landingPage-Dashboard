@@ -1,160 +1,101 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import {
-  Users,
   MousePointerClick,
-  ShieldCheck,
-  FileCheck,
   Megaphone,
-  CalendarDays,
+  Send,
+  CheckCheck,
+  Eye,
+  XCircle,
   Wallet,
-  Search,
+  CalendarDays,
   RefreshCw,
   X,
 } from "lucide-react";
 
-// Campaign Team page — a replica of Cready RPM for the campaign team. It reuses
-// the existing /cready-rpm endpoints (no new backend), so it shows the same live
-// RapidMoney funnel. Kept as its own page so the campaign team can diverge later
-// (e.g. a Campaign filter dropdown) without touching the Short-Ticket view.
-import { getCreadyRpm } from "../../../api-services/Modules/Leads";
-import { shortUserTrackColumn } from "../../../components/TableHeader";
+// Campaign Team page — backed by its own dedicated /campaign endpoints. Focused
+// on the campaign-portal breakdown (public.campaignportal_campaigns from leadops)
+// grouped by lander & entity, with a per-row drill-down to the raw rows.
+import { getCampaign, getCampaignPortalDetail } from "../../../api-services/Modules/Campaign";
 import ToastNotification from "../../../components/Notification/ToastNotification";
-import ExportModal from "../../../components/ExportModal";
-import MainTable from "../../../components/Table/MainTable";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
-const debounce = (fn, delay) => {
-  let t;
-  return (...args) => {
-    clearTimeout(t);
-    t = setTimeout(() => fn(...args), delay);
-  };
-};
-
-// Filter-by-stage pills. Landed / OTP Verified / Form Submitted / Lender Selected
-// Click are real backend stages (clickable filters); Application Date and AF Paid
-// are placeholders ("soon") — their cards have data but they aren't table stages.
-const STAGES = [
-  { key: "", label: "Landed", Icon: Users, color: "blue" },
-  { key: "otp_verified", label: "OTP Verified", Icon: ShieldCheck, color: "amber" },
-  { key: "form_submitted", label: "Form Submitted", Icon: FileCheck, color: "purple" },
-  { key: "lender_clicked", label: "Lender Selected", Icon: MousePointerClick, color: "green" },
-  { key: "application", label: "Application Date Count", Icon: CalendarDays, color: "amber", placeholder: true },
-  { key: "afpaid", label: "AF Paid", Icon: Wallet, color: "purple", placeholder: true },
-];
+import MainTable from "../../../components/Table/MainTable";
 
 const COLOR_MAP = {
-  blue: {
-    iconBg: "bg-blue-100",
-    iconText: "text-blue-600",
-    pillActive: "bg-blue-600 text-white",
-    pillIdle: "border-blue-200 text-blue-700 hover:bg-blue-50",
-  },
-  amber: {
-    iconBg: "bg-amber-100",
-    iconText: "text-amber-600",
-    pillActive: "bg-amber-500 text-white",
-    pillIdle: "border-amber-200 text-amber-700 hover:bg-amber-50",
-  },
-  purple: {
-    iconBg: "bg-purple-100",
-    iconText: "text-purple-600",
-    pillActive: "bg-purple-600 text-white",
-    pillIdle: "border-purple-200 text-purple-700 hover:bg-purple-50",
-  },
-  green: {
-    iconBg: "bg-green-100",
-    iconText: "text-green-600",
-    pillActive: "bg-green-600 text-white",
-    pillIdle: "border-green-200 text-green-700 hover:bg-green-50",
-  },
-  slate: {
-    iconBg: "bg-slate-100",
-    iconText: "text-slate-600",
-    pillActive: "bg-slate-600 text-white",
-    pillIdle: "border-slate-200 text-slate-700 hover:bg-slate-50",
-  },
+  blue: { iconBg: "bg-blue-100", iconText: "text-blue-600" },
+  amber: { iconBg: "bg-amber-100", iconText: "text-amber-600" },
+  purple: { iconBg: "bg-purple-100", iconText: "text-purple-600" },
+  green: { iconBg: "bg-green-100", iconText: "text-green-600" },
+  slate: { iconBg: "bg-slate-100", iconText: "text-slate-600" },
+  rose: { iconBg: "bg-rose-100", iconText: "text-rose-600" },
 };
 
-const StatCards = ({ summary, loading }) => {
-  const landed = summary.total || 0;
-  const lenderSelected = summary.lender_clicked || 0;
-  const campaign = summary.campaign || {};
-  const application = summary.application || {};
-  const afPaid = summary.afPaid || {};
-  const otp = summary.otp_verified || 0;
-  const form = summary.form_submitted || 0;
-  const pct = (n) => (landed ? Math.round((n / landed) * 100) : 0);
+const fmtNum = (v) => (Number(v) || 0).toLocaleString();
 
-  // 5-step RapidMoney funnel. Only "Landed" and "Lender Selected Click" have real
-  // data today; Campaign Click / Application Date / AF Paid are placeholders
-  // ("Coming soon") until the backend feeds them.
+// price is a preformatted "₹<lakhs>" string per row; parse/sum/reformat so the
+// cards can be re-aggregated client-side when an entity filter is applied.
+const parsePrice = (p) => Number(String(p || "").replace(/[^0-9.]/g, "")) || 0;
+const formatPrice = (n) =>
+  "₹" + (Math.round(n * 10) / 10).toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+// Roll up a set of breakdown rows into the same shape as summary.campaign so the
+// headline cards can reflect the selected entity (or all entities).
+const aggregateCampaign = (rows) => {
+  const acc = { total: 0, sent: 0, delivered: 0, read: 0, clicked: 0, failed: 0 };
+  let priceSum = 0;
+  for (const r of rows) {
+    acc.total += Number(r.total) || 0;
+    acc.sent += Number(r.sent) || 0;
+    acc.delivered += Number(r.delivered) || 0;
+    acc.read += Number(r.read) || 0;
+    acc.clicked += Number(r.clicked) || 0;
+    acc.failed += Number(r.failed) || 0;
+    priceSum += parsePrice(r.price);
+  }
+  return { ...acc, price: formatPrice(priceSum) };
+};
+
+// Stable, readable badge color per entity (hash → palette).
+const ENTITY_PALETTE = [
+  "bg-indigo-100 text-indigo-700 ring-indigo-200",
+  "bg-blue-100 text-blue-700 ring-blue-200",
+  "bg-emerald-100 text-emerald-700 ring-emerald-200",
+  "bg-amber-100 text-amber-700 ring-amber-200",
+  "bg-purple-100 text-purple-700 ring-purple-200",
+  "bg-rose-100 text-rose-700 ring-rose-200",
+  "bg-cyan-100 text-cyan-700 ring-cyan-200",
+  "bg-teal-100 text-teal-700 ring-teal-200",
+];
+const entityColor = (entity) => {
+  const s = String(entity || "");
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return ENTITY_PALETTE[h % ENTITY_PALETTE.length];
+};
+
+// Headline KPIs = the campaign-portal totals (the same rollup as the breakdown
+// grid: Total / Sent / Delivered / Read / Clicked / Failed / Spend), sourced from
+// summary.campaign so the cards always match the grid below.
+const StatCards = ({ campaign = {}, loading }) => {
+  const total = Number(campaign.total) || 0;
+  const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+  const num = (k) => Number(campaign[k]) || 0;
+
   const cards = [
-    {
-      key: "campaign",
-      label: "Campaign Click",
-      value: campaign.clicked || 0,
-      Icon: Megaphone,
-      color: "slate",
-      breakdown: campaign, // hover → total/sent/delivered/clicked/failed
-    },
-    {
-      key: "landed",
-      label: "Landed",
-      value: landed,
-      Icon: Users,
-      color: "blue",
-      isBase: true,
-    },
-    {
-      key: "otp",
-      label: "OTP Verified",
-      value: otp,
-      Icon: ShieldCheck,
-      color: "amber",
-      pct: pct(otp),
-    },
-    {
-      key: "form",
-      label: "Form Submitted",
-      value: form,
-      Icon: FileCheck,
-      color: "purple",
-      pct: pct(form),
-    },
-    {
-      key: "lender",
-      label: "Lender Selected",
-      value: lenderSelected,
-      Icon: MousePointerClick,
-      color: "green",
-      pct: pct(lenderSelected),
-    },
-    {
-      key: "application",
-      label: "Application Date Count",
-      value: application.count || 0,
-      Icon: CalendarDays,
-      color: "amber",
-    },
-    {
-      key: "afpaid",
-      label: "AF Paid",
-      value: afPaid.count || 0,
-      Icon: Wallet,
-      color: "purple",
-    },
+    { key: "total", label: "Total", value: total, Icon: Megaphone, color: "slate", isBase: true },
+    { key: "sent", label: "Sent", value: num("sent"), Icon: Send, color: "blue", pct: pct(num("sent")) },
+    { key: "delivered", label: "Delivered", value: num("delivered"), Icon: CheckCheck, color: "green", pct: pct(num("delivered")) },
+    { key: "read", label: "Read", value: num("read"), Icon: Eye, color: "amber", pct: pct(num("read")) },
+    { key: "clicked", label: "Clicked", value: num("clicked"), Icon: MousePointerClick, color: "purple", pct: pct(num("clicked")) },
+    { key: "failed", label: "Failed", value: num("failed"), Icon: XCircle, color: "rose", pct: pct(num("failed")) },
+    { key: "price", label: "Spend", value: campaign.price || "₹0", Icon: Wallet, color: "green", isPrice: true },
   ];
 
   if (loading) {
     return (
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
         {cards.map((_, i) => (
-          <div
-            key={i}
-            className="p-3 bg-white rounded-lg border border-gray-200 animate-pulse"
-          >
+          <div key={i} className="p-3 bg-white rounded-lg border border-gray-200 animate-pulse">
             <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
             <div className="h-7 bg-gray-300 rounded w-2/3" />
           </div>
@@ -165,7 +106,8 @@ const StatCards = ({ summary, loading }) => {
 
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
-      {cards.map(({ key, label, Icon, color, value, pct, placeholder, isBase, breakdown }) => {
+      {cards.map((card) => {
+        const { key, label, Icon, color, value, pct, isBase, isPrice } = card;
         const c = COLOR_MAP[color];
         return (
           <div
@@ -173,71 +115,22 @@ const StatCards = ({ summary, loading }) => {
             className="group relative flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition"
           >
             <div className="min-w-0">
-              <p className="text-[11px] font-medium text-gray-500 leading-tight min-h-[26px] flex items-start">
-                {label}
+              <p className="text-[11px] font-medium text-gray-500 leading-tight min-h-[26px] flex items-start">{label}</p>
+              <p className={`mt-0.5 text-xl font-bold ${isPrice ? "text-emerald-600" : "text-gray-900"}`}>
+                {isPrice ? value : value.toLocaleString()}
               </p>
-              {placeholder ? (
-                <>
-                  <p className="mt-0.5 text-xl font-bold text-gray-300">—</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Coming soon</p>
-                </>
-              ) : (
-                <>
-                  <p className="mt-0.5 text-xl font-bold text-gray-900">
-                    {value.toLocaleString()}
-                  </p>
-                  {!isBase && pct !== undefined && (
-                    <p className="text-[10px] text-gray-500 mt-0.5">
-                      <span
-                        className={`font-semibold ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
-                      >
-                        {pct}%
-                      </span>{" "}
-                      of landed
-                    </p>
-                  )}
-                  {breakdown && (
-                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:ring-indigo-600 transition-colors">
-                      <MousePointerClick size={10} className="animate-pulse group-hover:animate-none" />
-                      Hover for details
-                    </span>
-                  )}
-                </>
+              {!isBase && !isPrice && pct !== undefined && (
+                <p className="text-[10px] text-gray-500 mt-0.5">
+                  <span className={`font-semibold ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}>
+                    {pct}%
+                  </span>{" "}
+                  of total
+                </p>
               )}
             </div>
-            <div
-              className={`p-1.5 rounded-lg ${c.iconBg} ${c.iconText} shrink-0 ml-1.5`}
-            >
+            <div className={`p-1.5 rounded-lg ${c.iconBg} ${c.iconText} shrink-0 ml-1.5`}>
               <Icon size={16} />
             </div>
-
-            {/* Hover breakdown — Campaign Click card (total/sent/delivered/clicked/failed) */}
-            {breakdown && (
-              <div className="pointer-events-none absolute left-3 top-full mt-1 z-20 hidden group-hover:block bg-gray-900 text-white text-[11px] rounded-lg px-3 py-2 shadow-xl min-w-[160px]">
-                {[
-                  ["Total", "total"],
-                  ["Sent", "sent"],
-                  ["Delivered", "delivered"],
-                  ["Read", "read"],
-                  ["Clicked", "clicked"],
-                  ["Failed", "failed"],
-                ].map(([lbl, k]) => (
-                  <div key={k} className="flex items-center justify-between gap-4 py-0.5">
-                    <span className="text-gray-300">{lbl}</span>
-                    <span className="font-semibold tabular-nums">
-                      {(Number(breakdown[k]) || 0).toLocaleString()}
-                    </span>
-                  </div>
-                ))}
-                {/* Price — preformatted ₹ string (wc_credit, in ₹ lakh) */}
-                <div className="flex items-center justify-between gap-4 py-0.5 mt-0.5 pt-1 border-t border-white/15">
-                  <span className="text-gray-300">Price</span>
-                  <span className="font-semibold tabular-nums text-emerald-300">
-                    {breakdown.price || "₹0"}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
         );
       })}
@@ -245,223 +138,205 @@ const StatCards = ({ summary, loading }) => {
   );
 };
 
-const FilterBar = ({
-  search,
-  onSearchChange,
-  dateType,
-  onDateTypeChange,
-  startDate,
-  endDate,
-  onDateRangeChange,
-  stage,
-  onStageChange,
-  stageCounts,
-  onRefresh,
-  onClearAll,
-  hasFilters,
-}) => {
-  const [rng, setRng] = useState({
-    start: startDate || "",
-    end: endDate || "",
-  });
-  const [searchValue, setSearchValue] = useState(search || "");
-  // Custom-range inputs stay hidden until "Custom" is picked, so the date filter
-  // is compact by default. Auto-open when a range is active, close when cleared.
+// Compact date filter — drives the cards, the breakdown grid and the drill-down
+// (the leadops query is date-scoped).
+const DateFilter = ({ dateType, onDateTypeChange, startDate, endDate, onDateRangeChange, onRefresh }) => {
+  const [rng, setRng] = useState({ start: startDate || "", end: endDate || "" });
   const [showCustom, setShowCustom] = useState(!!(startDate && endDate));
 
   useEffect(() => {
     setRng({ start: startDate || "", end: endDate || "" });
     setShowCustom(!!(startDate && endDate));
   }, [startDate, endDate]);
-  useEffect(() => {
-    setSearchValue(search || "");
-  }, [search]);
 
   const applyRange = () => {
     if (rng.start && rng.end) onDateRangeChange(rng.start, rng.end);
   };
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-      <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-          Filter by Stage
-        </p>
-        <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto">
-          {STAGES.map(({ key, label, Icon, color, placeholder }) => {
-            const c = COLOR_MAP[color];
-            const active = stage === key;
-            const count = key === "" ? stageCounts.total : stageCounts[key];
-            // Placeholder steps have no data yet → disabled, "soon" badge.
-            if (placeholder) {
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  disabled
-                  title="Coming soon"
-                  className="inline-flex shrink-0 items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium border bg-white border-gray-200 text-gray-400 cursor-not-allowed whitespace-nowrap opacity-70"
-                >
-                  <Icon size={12} />
-                  <span>{label}</span>
-                  <span className="inline-flex items-center justify-center h-4 px-1 rounded-full text-[9px] font-bold bg-gray-100 text-gray-400">
-                    soon
-                  </span>
-                </button>
-              );
-            }
-            return (
-              <button
-                key={key || "all"}
-                type="button"
-                onClick={() => onStageChange(key)}
-                className={`inline-flex shrink-0 items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium border whitespace-nowrap transition ${
-                  active
-                    ? `${c.pillActive} border-transparent`
-                    : `bg-white ${c.pillIdle}`
-                }`}
-              >
-                <Icon size={12} />
-                <span>{label}</span>
-                <span
-                  className={`inline-flex items-center justify-center min-w-0 h-4 px-1 rounded-full text-[9px] font-bold ${
-                    active
-                      ? "bg-white/25 text-white"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
-                >
-                  {(Number(count) || 0).toLocaleString()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mr-1">Date</span>
+      <div className="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5">
+        {[
+          { v: "", l: "All" },
+          { v: "today", l: "Today" },
+          { v: "yesterday", l: "Yest" },
+        ].map(({ v, l }) => {
+          const active = !showCustom && dateType === v;
+          return (
+            <button
+              key={l}
+              type="button"
+              onClick={() => { onDateTypeChange(v); setShowCustom(false); }}
+              className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition ${
+                active ? "bg-white text-purple-700 shadow-sm ring-1 ring-purple-100" : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
+              }`}
+            >
+              {l}
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          onClick={() => setShowCustom((s) => !s)}
+          className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition ${
+            showCustom ? "bg-white text-purple-700 shadow-sm ring-1 ring-purple-100" : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
+          }`}
+        >
+          <CalendarDays size={12} /> Custom
+        </button>
       </div>
 
-      <div className="my-3 border-t border-gray-100" />
-
-      {/* Single horizontal filter row — mirrors the Short User Track:
-          Search | Date | Custom | Refresh/Clear. */}
-      <div className="flex items-end gap-2.5 overflow-x-auto pb-1">
-        {/* Search */}
-        <div className="w-[260px] shrink-0">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
-            Search
-          </label>
-          <div className="relative">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              placeholder="Name, phone or email…"
-              value={searchValue}
-              onChange={(e) => {
-                setSearchValue(e.target.value);
-                onSearchChange(e.target.value);
-              }}
-              className="w-full pl-9 pr-3 py-1.5 rounded-md border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
-            />
-          </div>
-        </div>
-
-        {/* Date — presets + collapsible custom range (compact by default) */}
-        <div className="shrink-0">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
-            Date
-          </label>
-          <div className="flex items-center gap-2">
-            {/* Presets + a "Custom" toggle that reveals the range inputs */}
-            <div className="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5">
-              {[
-                { v: "", l: "All" },
-                { v: "today", l: "Today" },
-                { v: "yesterday", l: "Yest" },
-              ].map(({ v, l }) => {
-                const active = !showCustom && dateType === v;
-                return (
-                  <button
-                    key={l}
-                    type="button"
-                    onClick={() => { onDateTypeChange(v); setShowCustom(false); }}
-                    className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition ${
-                      active
-                        ? "bg-white text-purple-700 shadow-sm ring-1 ring-purple-100"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
-                    }`}
-                  >
-                    {l}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={() => setShowCustom((s) => !s)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-xs font-semibold transition ${
-                  showCustom
-                    ? "bg-white text-purple-700 shadow-sm ring-1 ring-purple-100"
-                    : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
-                }`}
-              >
-                <CalendarDays size={12} /> Custom
-              </button>
-            </div>
-
-            {/* Range inputs — only when Custom is open */}
-            {showCustom && (
-              <div className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2 py-1 transition focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400">
-                <input
-                  type="date"
-                  value={rng.start}
-                  max={rng.end || undefined}
-                  onChange={(e) =>
-                    setRng((prev) => ({ ...prev, start: e.target.value }))
-                  }
-                  className="w-[104px] bg-transparent text-xs text-gray-700 outline-none"
-                />
-                <span className="text-gray-300">→</span>
-                <input
-                  type="date"
-                  value={rng.end}
-                  min={rng.start || undefined}
-                  onChange={(e) =>
-                    setRng((prev) => ({ ...prev, end: e.target.value }))
-                  }
-                  className="w-[104px] bg-transparent text-xs text-gray-700 outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={applyRange}
-                  disabled={!rng.start || !rng.end}
-                  className="ml-0.5 rounded-md bg-gradient-to-r from-purple-600 to-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:from-purple-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Go
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Inline actions — Refresh + Clear */}
-        <div className="flex items-center gap-1.5 shrink-0">
+      {showCustom && (
+        <div className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-2 py-1 transition focus-within:border-purple-400 focus-within:ring-1 focus-within:ring-purple-400">
+          <input
+            type="date"
+            value={rng.start}
+            max={rng.end || undefined}
+            onChange={(e) => setRng((p) => ({ ...p, start: e.target.value }))}
+            className="w-[104px] bg-transparent text-xs text-gray-700 outline-none"
+          />
+          <span className="text-gray-300">→</span>
+          <input
+            type="date"
+            value={rng.end}
+            min={rng.start || undefined}
+            onChange={(e) => setRng((p) => ({ ...p, end: e.target.value }))}
+            className="w-[104px] bg-transparent text-xs text-gray-700 outline-none"
+          />
           <button
             type="button"
-            onClick={onRefresh}
-            className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-            title="Refresh data"
+            onClick={applyRange}
+            disabled={!rng.start || !rng.end}
+            className="ml-0.5 rounded-md bg-gradient-to-r from-purple-600 to-violet-600 px-2.5 py-1 text-xs font-semibold text-white transition hover:from-purple-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            <RefreshCw size={12} /> Refresh
+            Go
           </button>
-          {hasFilters && (
-            <button
-              type="button"
-              onClick={onClearAll}
-              className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-md border border-red-300 bg-red-50 text-red-700 hover:bg-red-100"
-              title="Clear all filters"
-            >
-              <X size={12} /> Clear
-            </button>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onRefresh}
+        className="inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-medium rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+        title="Refresh data"
+      >
+        <RefreshCw size={12} /> Refresh
+      </button>
+    </div>
+  );
+};
+
+// Entity filter — selecting an entity re-scopes both the breakdown grid and the
+// headline cards to that entity (client-side; the breakdown already holds rows
+// for every entity).
+const EntityFilter = ({ value, options, onChange }) => (
+  <div className="flex items-center gap-2">
+    <span className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Entity</span>
+    <div className="inline-flex items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-100 p-0.5 flex-wrap">
+      <button
+        type="button"
+        onClick={() => onChange("")}
+        className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition ${
+          !value ? "bg-white text-purple-700 shadow-sm ring-1 ring-purple-100" : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
+        }`}
+      >
+        All
+      </button>
+      {options.map((o) => (
+        <button
+          key={o}
+          type="button"
+          onClick={() => onChange(o)}
+          className={`px-2.5 py-1.5 rounded-md text-xs font-semibold transition ${
+            value === o ? "bg-white text-purple-700 shadow-sm ring-1 ring-purple-100" : "text-gray-600 hover:text-gray-900 hover:bg-white/60"
+          }`}
+        >
+          {o}
+        </button>
+      ))}
+    </div>
+  </div>
+);
+
+// ── Drill-down modal: raw campaignportal_campaigns rows for one (entity, lander) ──
+const fmtCellValue = (key, val) => {
+  if (val === null || val === undefined || val === "") return "—";
+  if (typeof val === "number") return val.toLocaleString();
+  if (/(^|_)(date|at)$|date|created|updated/i.test(key)) {
+    const d = new Date(val);
+    if (!Number.isNaN(d.getTime())) {
+      return d.toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    }
+  }
+  if (/^\d+(\.\d+)?$/.test(String(val))) return Number(val).toLocaleString();
+  return String(val);
+};
+const prettyLabel = (k) => String(k).replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
+
+// Columns hidden from the drill-down (noisy / not useful in the popup).
+const isHiddenDetailCol = (k) => k.replace(/[^a-z]/gi, "").toLowerCase() === "extrajson";
+
+const PortalDetailModal = ({ open, onClose, entity, lander, dateLabel, rows, loading }) => {
+  if (!open) return null;
+  const cols = rows.length ? Object.keys(rows[0]).filter((k) => !isHiddenDetailCol(k)) : [];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[85vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
+              <Megaphone size={16} />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-sm font-semibold text-gray-900 leading-tight truncate">
+                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ring-1 mr-1.5 ${entityColor(entity)}`}>
+                  {entity || "—"}
+                </span>
+                <span className="text-gray-400">/</span> {lander || "—"}
+              </h2>
+              <p className="text-[11px] text-gray-500 leading-tight">
+                Campaign-portal rows · {dateLabel} · {loading ? "…" : `${rows.length} ${rows.length === 1 ? "row" : "rows"}`}
+              </p>
+            </div>
+          </div>
+          <button type="button" onClick={onClose} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700">
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="overflow-auto p-4">
+          {loading ? (
+            <div className="py-16 text-center text-sm text-gray-500">Loading rows…</div>
+          ) : rows.length === 0 ? (
+            <div className="py-16 text-center text-sm text-gray-500">No campaign-portal rows for this selection.</div>
+          ) : (
+            <table className="min-w-full text-xs">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  {cols.map((c) => (
+                    <th key={c} className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap border-b border-gray-200">
+                      {prettyLabel(c)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r, i) => (
+                  <tr key={i} className="hover:bg-purple-50/40">
+                    {cols.map((c) => (
+                      <td key={c} className="px-3 py-2 text-gray-700 whitespace-nowrap tabular-nums">
+                        {fmtCellValue(c, r[c])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       </div>
@@ -469,256 +344,169 @@ const FilterBar = ({
   );
 };
 
-// Persist filters + pagination across navigation (View → detail → back) so the
-// user returns to the same filtered list instead of a reset-to-default one.
-// sessionStorage scopes this to the current browser tab so it clears on close.
-const FILTERS_STORAGE_KEY = "campaign:filters:v1";
-
-const loadPersistedState = () => {
-  try {
-    const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== "object") return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
 const Campaign = () => {
-  const navigate = useNavigate();
-
-  // Hydrate filters / pagination from sessionStorage when returning from a
-  // detail page (computed once on first render).
-  const persisted = useMemo(() => loadPersistedState(), []);
-
-  const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [firstLoad, setFirstLoad] = useState(!persisted);
-  const [totalCount, setTotalCount] = useState(0);
-  const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [exportLoading, setExportLoading] = useState(false);
+  const [firstLoad, setFirstLoad] = useState(true);
+  const [summary, setSummary] = useState({ campaign: { breakdown: [] } });
+  // Default the dashboard to today's data (not all-time) on first load.
+  const [query, setQuery] = useState({ filter_date: "today", startDate: null, endDate: null });
 
-  const DEFAULT_QUERY = {
-    page_no: 1,
-    limit: 10,
-    search: "",
-    filter_date: "",
-    startDate: null,
-    endDate: null,
-    stage: "",
-  };
+  // Client-side table state for the breakdown grid (data is already fetched).
+  const [table, setTable] = useState({ pageIndex: 0, pageSize: 10, search: "" });
+  const [selectedEntity, setSelectedEntity] = useState("");
 
-  const [query, setQuery] = useState(() =>
-    persisted?.query && typeof persisted.query === "object"
-      ? { ...DEFAULT_QUERY, ...persisted.query }
-      : DEFAULT_QUERY
-  );
+  // Drill-down modal state.
+  const [detail, setDetail] = useState({ open: false, entity: null, lander: null, rows: [], loading: false });
 
-  // Persist filter + pagination state on every change so back-navigation from
-  // the detail page restores exactly where the user left off.
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({ query }));
-    } catch {
-      // sessionStorage can throw in private-mode browsers; silently ignore.
-    }
-  }, [query]);
-
-  const [summary, setSummary] = useState({
-    total: 0,
-    landed_only: 0,
-    otp_verified: 0,
-    form_submitted: 0,
-    lender_clicked: 0,
-  });
-
-  const fetchUsers = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getCreadyRpm({
+      const res = await getCampaign({
         type: query.filter_date || undefined,
         fromDate: query.startDate || undefined,
         toDate: query.endDate || undefined,
-        perPage: query.limit,
-        currentPage: query.page_no,
-        search: query.search,
-        stage: query.stage || undefined,
+        perPage: 1,
+        currentPage: 1,
       });
-
-      if (res?.data?.success) {
-        setRawData(res.data.data || []);
-        setTotalCount(res.data.pagination?.total || 0);
-        if (res.data.summary) {
-          setSummary(res.data.summary);
-        }
+      if (res?.data?.success && res.data.summary) {
+        setSummary(res.data.summary);
       } else {
-        ToastNotification.error("Failed to load users");
+        ToastNotification.error("Failed to load campaign data");
       }
     } catch (err) {
       console.error(err);
-      ToastNotification.error("Failed to load users");
+      ToastNotification.error("Failed to load campaign data");
     } finally {
       setLoading(false);
       setFirstLoad(false);
     }
-  }, [
-    query.filter_date,
-    query.startDate,
-    query.endDate,
-    query.limit,
-    query.page_no,
-    query.search,
-    query.stage,
-  ]);
+  }, [query.filter_date, query.startDate, query.endDate]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
-
-  const debouncedSearch = useMemo(
-    () =>
-      debounce(
-        (term) =>
-          setQuery((prev) =>
-            prev.search === term
-              ? prev
-              : { ...prev, search: term, page_no: 1 },
-          ),
-        300,
-      ),
-    [],
-  );
+    fetchData();
+  }, [fetchData]);
 
   const onDateTypeChange = useCallback(
-    (v) =>
-      setQuery((prev) => ({
-        ...prev,
-        filter_date: v,
-        startDate: null,
-        endDate: null,
-        page_no: 1,
-      })),
-    [],
+    (v) => setQuery((prev) => ({ ...prev, filter_date: v, startDate: null, endDate: null })),
+    []
   );
   const onDateRangeChange = useCallback(
-    (s, e) =>
-      setQuery((prev) => ({
-        ...prev,
-        startDate: s,
-        endDate: e,
-        filter_date: "",
-        page_no: 1,
-      })),
-    [],
-  );
-  const onStageChange = useCallback(
-    (stage) => setQuery((prev) => ({ ...prev, stage, page_no: 1 })),
-    [],
-  );
-  const onPageChange = useCallback(
-    (p) =>
-      setQuery((prev) => ({
-        ...prev,
-        page_no: p.pageIndex + 1,
-        limit: p.pageSize,
-      })),
-    [],
-  );
-  const onClearAll = useCallback(
-    () =>
-      setQuery((prev) => ({
-        ...prev,
-        page_no: 1,
-        search: "",
-        filter_date: "",
-        startDate: null,
-        endDate: null,
-        stage: "",
-      })),
-    [],
+    (s, e) => setQuery((prev) => ({ ...prev, startDate: s, endDate: e, filter_date: "" })),
+    []
   );
 
-  const hasFilters = !!(
-    query.search ||
-    query.filter_date ||
-    query.startDate ||
-    query.endDate ||
-    query.stage
+  const dateLabel = useMemo(() => {
+    if (query.filter_date === "today") return "Today";
+    if (query.filter_date === "yesterday") return "Yesterday";
+    if (query.startDate && query.endDate) return `${query.startDate} → ${query.endDate}`;
+    return "All dates";
+  }, [query.filter_date, query.startDate, query.endDate]);
+
+  // Drill-down: load the raw rows for the clicked (entity, lander) within the
+  // current date scope.
+  const handleView = useCallback(
+    async (row) => {
+      setDetail({ open: true, entity: row.entity, lander: row.lander, rows: [], loading: true });
+      try {
+        const res = await getCampaignPortalDetail({
+          entity: row.entity,
+          lander: row.lander,
+          type: query.filter_date || undefined,
+          fromDate: query.startDate || undefined,
+          toDate: query.endDate || undefined,
+        });
+        if (res?.data?.success) {
+          setDetail((d) => ({ ...d, rows: res.data.data || [], loading: false }));
+        } else {
+          ToastNotification.error("Failed to load detail");
+          setDetail((d) => ({ ...d, loading: false }));
+        }
+      } catch (err) {
+        console.error(err);
+        ToastNotification.error("Failed to load detail");
+        setDetail((d) => ({ ...d, loading: false }));
+      }
+    },
+    [query.filter_date, query.startDate, query.endDate]
   );
 
-  const handleView = (row) => {
-    navigate(`/campaign/${encodeURIComponent(row.phone)}`, {
-      state: { row },
-    });
-  };
+  // Client-side entity filter + search + pagination over the (small) breakdown set.
+  const allRows = useMemo(() => (Array.isArray(summary.campaign?.breakdown) ? summary.campaign.breakdown : []), [summary]);
 
-  const handleExport = () => setExportModalOpen(true);
+  const entityOptions = useMemo(() => {
+    const set = new Set();
+    for (const r of allRows) if (r.entity) set.add(r.entity);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [allRows]);
 
-  const handleExportSubmit = async ({
-    startDate,
-    endDate,
-    mode,
-    otp,
-    hashedOtp,
-  }) => {
-    setExportLoading(true);
-    let urlParams = new URLSearchParams({ mode: "download", otp, hashedOtp });
-    let downloadFileName;
+  const entityRows = useMemo(
+    () => (selectedEntity ? allRows.filter((r) => r.entity === selectedEntity) : allRows),
+    [allRows, selectedEntity]
+  );
 
-    const now = new Date();
-    const date = now
-      .toLocaleDateString("en-US", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      })
-      .replace(/ /g, "-");
-    const time = now
-      .toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })
-      .replace(/:/g, "-")
-      .replace(" ", "");
+  // Headline cards follow the entity filter (all entities → backend rollup).
+  const campaignView = useMemo(
+    () => (selectedEntity ? aggregateCampaign(entityRows) : summary.campaign || {}),
+    [selectedEntity, entityRows, summary]
+  );
 
-    if (mode === "today" || mode === "yesterday") {
-      urlParams.append("type", mode);
-      downloadFileName = `Campaign_${date}_${time}.csv`;
-    } else if (mode === "range" && startDate && endDate) {
-      urlParams.append("fromDate", startDate);
-      urlParams.append("toDate", endDate);
-      downloadFileName = `Campaign_${startDate}_to_${endDate}.csv`;
-    } else {
-      ToastNotification.error("Please select valid export filter.");
-      setExportLoading(false);
-      return;
-    }
+  const filteredRows = useMemo(() => {
+    const t = table.search.trim().toLowerCase();
+    if (!t) return entityRows;
+    return entityRows.filter(
+      (r) => String(r.entity || "").toLowerCase().includes(t) || String(r.lander || "").toLowerCase().includes(t)
+    );
+  }, [entityRows, table.search]);
 
-    if (query.search) urlParams.append("search", query.search);
-    if (query.stage) urlParams.append("stage", query.stage);
+  const onEntityChange = useCallback((e) => {
+    setSelectedEntity(e);
+    setTable((s) => ({ ...s, pageIndex: 0 }));
+  }, []);
+  const pageRows = useMemo(() => {
+    // Clamp the page so a shrunk result set (e.g. after searching from a later
+    // page) never renders an empty slice.
+    const lastPage = Math.max(0, Math.ceil(filteredRows.length / table.pageSize) - 1);
+    const idx = Math.min(table.pageIndex, lastPage);
+    return filteredRows.slice(idx * table.pageSize, (idx + 1) * table.pageSize);
+  }, [filteredRows, table.pageIndex, table.pageSize]);
 
-    try {
-      ToastNotification.success("Starting CSV download...");
-      // Reuses the existing Cready RPM export endpoint (same dataset).
-      const url = `${import.meta.env.VITE_API_URL}/cready-rpm/export?${urlParams.toString()}`;
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = downloadFileName;
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      ToastNotification.success("Download started!");
-    } catch (err) {
-      console.error(err);
-      ToastNotification.error("Export failed!");
-    } finally {
-      setExportLoading(false);
-      setExportModalOpen(false);
-    }
-  };
+  const onPageChange = useCallback((p) => setTable((s) => ({ ...s, pageIndex: p.pageIndex, pageSize: p.pageSize })), []);
+  const onSearch = useCallback((term) => setTable((s) => ({ ...s, search: term || "", pageIndex: 0 })), []);
 
   const columns = useMemo(
-    () => shortUserTrackColumn({ handleEdit: handleView }),
-    [],
+    () => [
+      {
+        header: "Entity",
+        accessorKey: "entity",
+        cell: ({ getValue }) => (
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold ring-1 ${entityColor(getValue())}`}>
+            {getValue() || "—"}
+          </span>
+        ),
+      },
+      { header: "Lander", accessorKey: "lander", cell: ({ getValue }) => <span className="font-medium text-gray-800">{getValue() || "—"}</span> },
+      { header: "Total", accessorKey: "total", cell: ({ getValue }) => <span className="tabular-nums text-gray-700">{fmtNum(getValue())}</span> },
+      { header: "Sent", accessorKey: "sent", cell: ({ getValue }) => <span className="tabular-nums text-gray-700">{fmtNum(getValue())}</span> },
+      { header: "Delivered", accessorKey: "delivered", cell: ({ getValue }) => <span className="tabular-nums text-gray-700">{fmtNum(getValue())}</span> },
+      { header: "Read", accessorKey: "read", cell: ({ getValue }) => <span className="tabular-nums text-gray-700">{fmtNum(getValue())}</span> },
+      { header: "Clicked", accessorKey: "clicked", cell: ({ getValue }) => <span className="tabular-nums font-semibold text-gray-900">{fmtNum(getValue())}</span> },
+      { header: "Failed", accessorKey: "failed", cell: ({ getValue }) => <span className="tabular-nums text-gray-700">{fmtNum(getValue())}</span> },
+      { header: "Price", accessorKey: "price", cell: ({ getValue }) => <span className="tabular-nums font-semibold text-emerald-600">{getValue() || "₹0"}</span> },
+      {
+        header: "Actions",
+        accessorKey: "actions",
+        cell: ({ row }) => (
+          <button
+            onClick={() => handleView(row.original)}
+            className="p-2 rounded-lg hover:bg-purple-100 text-purple-600 transition"
+            title="View campaign-portal rows"
+          >
+            <Eye size={18} />
+          </button>
+        ),
+      },
+    ],
+    [handleView]
   );
 
   if (firstLoad) {
@@ -728,20 +516,11 @@ const Campaign = () => {
         <PremiumPageLoader
           theme="sky"
           title="Loading Campaign"
-          brandLabel="Live RapidMoney Funnel"
-          icon={Users}
-          phrases={[
-            'Tracking user journeys…',
-            'Mapping funnel stages…',
-            'Computing conversion rates…',
-            'Polishing the table…',
-          ]}
-          tiles={[
-            { label: 'Total users' },
-            { label: 'OTP verified' },
-            { label: 'Submitted' },
-          ]}
-          progressLabel="Preparing your funnel"
+          brandLabel="Campaign Portal Breakdown"
+          icon={Megaphone}
+          phrases={["Pulling campaign-portal stats…", "Grouping by lander & entity…", "Crunching delivery numbers…", "Polishing the dashboard…"]}
+          tiles={[{ label: "Sent" }, { label: "Delivered" }, { label: "Clicked" }]}
+          progressLabel="Preparing your dashboard"
         />
       </div>
     );
@@ -750,53 +529,63 @@ const Campaign = () => {
   return (
     <div className="min-w-0 w-full max-w-full overflow-x-hidden">
       <Toaster />
-      <ExportModal
-        open={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        onSubmit={handleExportSubmit}
-        isSubmitting={exportLoading}
-      />
 
       <div className="mb-4">
         <h1 className="text-xl font-bold text-gray-900">Campaign</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Campaign team view of the RapidMoney short-ticket funnel — who landed on
-          the page, verified OTP, submitted the form, and clicked a lender. Grouped
-          by phone number.
+          Campaign-portal performance broken down by lander &amp; entity — total, sent, delivered, read, clicked,
+          failed and spend. Click a row to drill into the raw rows.
         </p>
       </div>
 
-      <StatCards summary={summary} loading={loading} />
+      {selectedEntity && (
+        <div className="-mt-1 mb-2 flex items-center gap-1.5 text-[11px] text-gray-500">
+          <span>Totals scoped to entity</span>
+          <span className={`inline-flex items-center px-2 py-0.5 rounded-full font-semibold ring-1 ${entityColor(selectedEntity)}`}>
+            {selectedEntity}
+          </span>
+          <button type="button" onClick={() => onEntityChange("")} className="text-purple-600 hover:underline font-medium">
+            show all
+          </button>
+        </div>
+      )}
 
-      <FilterBar
-        search={query.search}
-        onSearchChange={debouncedSearch}
-        dateType={query.filter_date}
-        onDateTypeChange={onDateTypeChange}
-        startDate={query.startDate}
-        endDate={query.endDate}
-        onDateRangeChange={onDateRangeChange}
-        stage={query.stage}
-        onStageChange={onStageChange}
-        stageCounts={summary}
-        onRefresh={fetchUsers}
-        onClearAll={onClearAll}
-        hasFilters={hasFilters}
-      />
+      <StatCards campaign={campaignView} loading={loading} />
+
+      <div className="flex items-center gap-x-6 gap-y-2 flex-wrap mb-4">
+        <DateFilter
+          dateType={query.filter_date}
+          onDateTypeChange={onDateTypeChange}
+          startDate={query.startDate}
+          endDate={query.endDate}
+          onDateRangeChange={onDateRangeChange}
+          onRefresh={fetchData}
+        />
+        {entityOptions.length > 0 && (
+          <EntityFilter value={selectedEntity} options={entityOptions} onChange={onEntityChange} />
+        )}
+      </div>
 
       <MainTable
         columns={columns}
-        data={rawData}
-        totalDataCount={totalCount}
+        data={pageRows}
+        totalDataCount={filteredRows.length}
         loading={loading}
         onPageChange={onPageChange}
-        onSearch={debouncedSearch}
-        onRefresh={fetchUsers}
-        onExport={handleExport}
-        headerActionsInline
-        title="Campaign"
-        initialPagination={{ pageIndex: Math.max(0, query.page_no - 1), pageSize: query.limit }}
-        initialSearch={query.search}
+        onSearch={onSearch}
+        onRefresh={fetchData}
+        title="Campaign Breakdown"
+        initialPagination={{ pageIndex: table.pageIndex, pageSize: table.pageSize }}
+      />
+
+      <PortalDetailModal
+        open={detail.open}
+        onClose={() => setDetail((d) => ({ ...d, open: false }))}
+        entity={detail.entity}
+        lander={detail.lander}
+        dateLabel={dateLabel}
+        rows={detail.rows}
+        loading={detail.loading}
       />
     </div>
   );
