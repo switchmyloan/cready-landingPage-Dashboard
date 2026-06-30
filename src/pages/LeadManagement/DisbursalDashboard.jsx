@@ -8,6 +8,7 @@ import {
     Activity, ArrowUpRight, ArrowDownRight, ArrowUpDown, Layers, Wallet,
     Banknote, Timer, Calendar, FileDown, Building2, IndianRupee,
     TrendingUp, Hash, X, Sparkles, ChevronDown, Check,
+    CalendarDays, Minus,
 } from 'lucide-react';
 import {
     getDisbursalKpis, getDisbursalTrend, getDisbursalTrendShort,
@@ -296,6 +297,203 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, delta, deltaPositive, 
             </>
         )}
     </div>
+    );
+};
+
+/* MONTH-OVER-MONTH COMPARISON
+   Self-contained section: current month-to-date vs the SAME elapsed window of
+   last month (days 1–today), so it's a fair like-for-like and not partial-vs-
+   full. Independent of the top range selector; reuses getDisbursalKpis with
+   range:'Custom' + explicit month dates (no new backend). Respects the active
+   scope + utm filters so it stays consistent with the rest of the dashboard. */
+const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+const MonthComparison = ({ scope, utmSource, utmMedium }) => {
+    const [loading, setLoading] = useState(true);
+    const [cur, setCur] = useState(null);
+    const [prev, setPrev] = useState(null);
+
+    const { curRange, prevRange, curLabel, prevLabel, prevMon, dayInfo } = useMemo(() => {
+        const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
+        const curFrom = new Date(y, m, 1);
+        // Days in last month → clamp today's day-of-month so e.g. 31st maps to the 30th.
+        const lastMonthDays = new Date(y, m, 0).getDate();
+        const prevFrom = new Date(y, m - 1, 1);
+        const prevTo = new Date(y, m - 1, Math.min(d, lastMonthDays));
+        return {
+            curRange: { fromDate: fmt(curFrom), toDate: fmt(today) },
+            prevRange: { fromDate: fmt(prevFrom), toDate: fmt(prevTo) },
+            curLabel: `${MONTH_NAMES[m]} ${y}`,
+            prevLabel: `${MONTH_NAMES[prevFrom.getMonth()]} ${prevFrom.getFullYear()}`,
+            prevMon: MONTH_NAMES[prevFrom.getMonth()],
+            dayInfo: `1–${d}`,
+        };
+    }, []);
+
+    useEffect(() => {
+        const controller = new AbortController();
+        setLoading(true);
+        Promise.all([
+            getDisbursalKpis({ range: 'Custom', ...curRange, scope, utmSource, utmMedium, signal: controller.signal }),
+            getDisbursalKpis({ range: 'Custom', ...prevRange, scope, utmSource, utmMedium, signal: controller.signal }),
+        ])
+            .then(([a, b]) => {
+                if (controller.signal.aborted) return;
+                setCur(a?.data?.data || {});
+                setPrev(b?.data?.data || {});
+            })
+            .catch(e => { if (!controller.signal.aborted) console.error(e); })
+            .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+        return () => controller.abort();
+    }, [curRange, prevRange, scope, utmSource, utmMedium]);
+
+    const metrics = [
+        { key: 'totalAmount', label: 'Total disbursed', Icon: Wallet,     fmt: (n) => fmtINRFull(Math.round(n)) },
+        { key: 'count',       label: 'Disbursals',      Icon: Activity,   fmt: (n) => fmtNum(Math.round(n)) },
+        { key: 'avgTicket',   label: 'Avg. ticket size', Icon: Banknote,  fmt: (n) => fmtINRFull(Math.round(n)) },
+        { key: 'revenue',     label: 'Revenue Evaluation', Icon: TrendingUp, fmt: (n) => fmtINRFull(Math.round(n)), derive: (k) => (k.totalAmount || 0) * 3.25 / 100 },
+    ];
+
+    const valOf = (src, m) => (src ? (m.derive ? m.derive(src) : (src[m.key] || 0)) : 0);
+    // Header summary — how many metrics are up vs last month (drives the pill).
+    const upCount = (cur && prev) ? metrics.filter(m => valOf(cur, m) >= valOf(prev, m)).length : 0;
+    const allUp = upCount === metrics.length;
+
+    return (
+        <section className="relative bg-white rounded-2xl border border-gray-200/80 shadow-sm p-5 mb-4 overflow-hidden">
+            {/* faint brand wash so the section reads as its own block */}
+            <div className="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-emerald-100/50 blur-3xl" />
+
+            <div className="relative flex items-center justify-between flex-wrap gap-2 mb-4">
+                <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 grid place-items-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30">
+                        <CalendarDays size={17} />
+                    </div>
+                    <div>
+                        <h3 className="text-[15px] font-bold text-gray-900 leading-tight">Month-over-Month Comparison</h3>
+                        <p className="text-[11.5px] text-gray-500">
+                            <span className="font-semibold text-gray-700">{curLabel}</span> vs {prevLabel} · same period (days {dayInfo})
+                        </p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                    {!loading && cur && prev && (
+                        <span className={`inline-flex items-center gap-1 text-[11px] font-bold rounded-full px-2.5 py-1 border ${
+                            allUp ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}>
+                            <TrendingUp size={12} /> {upCount}/{metrics.length} up vs {prevMon}
+                        </span>
+                    )}
+                    <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-full px-2.5 py-1">
+                        Month-to-date
+                    </span>
+                </div>
+            </div>
+
+            <div className="relative grid grid-cols-1 lg:grid-cols-2 gap-3 lg:gap-6">
+                {/* Center "VS" medallion between the two cards (desktop only) */}
+                <div className="hidden lg:flex absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-white border-2 border-emerald-200 shadow-lg items-center justify-center">
+                    <span className="text-[11px] font-extrabold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent">VS</span>
+                </div>
+
+                {/* LEFT — THIS MONTH (green = current/positive) */}
+                <div className="relative rounded-2xl p-5 overflow-hidden text-white bg-gradient-to-br from-emerald-500 via-emerald-600 to-teal-600 shadow-lg shadow-emerald-500/40">
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" />
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
+                    <div className="pointer-events-none absolute -top-10 -right-10 w-32 h-32 rounded-full bg-white/15 blur-2xl" />
+
+                    <div className="relative flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 grid place-items-center rounded-lg bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
+                                <CalendarDays size={15} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/75 leading-none">This month</p>
+                                <h4 className="text-[17px] font-bold leading-tight mt-0.5">{curLabel}</h4>
+                            </div>
+                        </div>
+                        <span className="text-[10px] font-bold bg-white/20 rounded-full px-2 py-1">Days {dayInfo}</span>
+                    </div>
+
+                    <div className="relative divide-y divide-white/15">
+                        {metrics.map((m) => {
+                            const cVal = valOf(cur, m);
+                            const pVal = valOf(prev, m);
+                            const diff = cVal - pVal;
+                            const flat = Math.abs(diff) < 1e-9;
+                            const pct = pVal > 0 ? (diff / pVal) * 100 : (cVal > 0 ? 100 : 0);
+                            const up = diff >= 0;
+                            return (
+                                <div key={m.key} className="flex items-center justify-between gap-2 py-3 first:pt-1 last:pb-1">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className="w-7 h-7 grid place-items-center rounded-lg bg-white/15 shrink-0">
+                                            <m.Icon size={14} />
+                                        </div>
+                                        <span className="text-[12.5px] font-medium text-white/90 truncate">{m.label}</span>
+                                    </div>
+                                    {loading ? (
+                                        <div className="h-5 w-20 rounded bg-white/20 animate-pulse" />
+                                    ) : (
+                                        <div className="flex items-center gap-2 shrink-0">
+                                            <span className="text-[16px] font-bold tabular-nums">{m.fmt(cVal)}</span>
+                                            <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10.5px] font-bold ${
+                                                flat ? 'bg-white/25 text-white' : up ? 'bg-white text-emerald-700' : 'bg-rose-100 text-rose-700'
+                                            }`}>
+                                                {flat ? <Minus size={10} /> : up ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                                                {Math.abs(pct).toFixed(1)}%
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* RIGHT — LAST MONTH (blue = past/baseline, clearly distinct) */}
+                <div className="relative rounded-2xl p-5 overflow-hidden text-white bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-600 shadow-lg shadow-blue-500/30">
+                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/20 to-transparent" />
+                    <div className="pointer-events-none absolute inset-0 rounded-2xl ring-1 ring-inset ring-white/20" />
+                    <div className="pointer-events-none absolute -bottom-12 -left-10 w-32 h-32 rounded-full bg-white/10 blur-2xl" />
+
+                    <div className="relative flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 grid place-items-center rounded-lg bg-white/20 backdrop-blur-sm ring-1 ring-white/30">
+                                <Calendar size={15} />
+                            </div>
+                            <div>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/75 leading-none">Last month</p>
+                                <h4 className="text-[17px] font-bold leading-tight mt-0.5">{prevLabel}</h4>
+                            </div>
+                        </div>
+                        <span className="text-[10px] font-bold bg-white/20 rounded-full px-2 py-1">Days {dayInfo}</span>
+                    </div>
+
+                    <div className="relative divide-y divide-white/15">
+                        {metrics.map((m) => {
+                            const pVal = valOf(prev, m);
+                            return (
+                                <div key={m.key} className="flex items-center justify-between gap-2 py-3 first:pt-1 last:pb-1">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                        <div className="w-7 h-7 grid place-items-center rounded-lg bg-white/15 shrink-0">
+                                            <m.Icon size={14} />
+                                        </div>
+                                        <span className="text-[12.5px] font-medium text-white/90 truncate">{m.label}</span>
+                                    </div>
+                                    {loading ? (
+                                        <div className="h-5 w-20 rounded bg-white/20 animate-pulse" />
+                                    ) : (
+                                        <span className="text-[16px] font-bold tabular-nums shrink-0">{m.fmt(pVal)}</span>
+                                    )}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            </div>
+        </section>
     );
 };
 
@@ -1761,6 +1959,10 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="Estimated revenue · 3.25× ÷ 100" />
             </div>
+
+            {/* Separate month-over-month comparison section — independent of the
+                range selector above (always current month vs last month). */}
+            <MonthComparison scope={scope} utmSource={utmSource} utmMedium={utmMedium} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
                 <div className="lg:col-span-2"><TrendChart range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} /></div>
