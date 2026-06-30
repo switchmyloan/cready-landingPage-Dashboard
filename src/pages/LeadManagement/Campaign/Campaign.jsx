@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import {
   MousePointerClick,
@@ -10,13 +11,12 @@ import {
   Wallet,
   CalendarDays,
   RefreshCw,
-  X,
 } from "lucide-react";
 
 // Campaign Team page — backed by its own dedicated /campaign endpoints. Focused
 // on the campaign-portal breakdown (public.campaignportal_campaigns from leadops)
 // grouped by lander & entity, with a per-row drill-down to the raw rows.
-import { getCampaign, getCampaignPortalDetail } from "../../../api-services/Modules/Campaign";
+import { getCampaign } from "../../../api-services/Modules/Campaign";
 import ToastNotification from "../../../components/Notification/ToastNotification";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
 import MainTable from "../../../components/Table/MainTable";
@@ -259,92 +259,8 @@ const EntityFilter = ({ value, options, onChange }) => (
   </div>
 );
 
-// ── Drill-down modal: raw campaignportal_campaigns rows for one (entity, lander) ──
-const fmtCellValue = (key, val) => {
-  if (val === null || val === undefined || val === "") return "—";
-  if (typeof val === "number") return val.toLocaleString();
-  if (/(^|_)(date|at)$|date|created|updated/i.test(key)) {
-    const d = new Date(val);
-    if (!Number.isNaN(d.getTime())) {
-      return d.toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric" });
-    }
-  }
-  if (/^\d+(\.\d+)?$/.test(String(val))) return Number(val).toLocaleString();
-  return String(val);
-};
-const prettyLabel = (k) => String(k).replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase());
-
-// Columns hidden from the drill-down (noisy / not useful in the popup).
-const isHiddenDetailCol = (k) => k.replace(/[^a-z]/gi, "").toLowerCase() === "extrajson";
-
-const PortalDetailModal = ({ open, onClose, entity, lander, dateLabel, rows, loading }) => {
-  if (!open) return null;
-  const cols = rows.length ? Object.keys(rows[0]).filter((k) => !isHiddenDetailCol(k)) : [];
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-6xl max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-gray-100">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 shrink-0">
-              <Megaphone size={16} />
-            </span>
-            <div className="min-w-0">
-              <h2 className="text-sm font-semibold text-gray-900 leading-tight truncate">
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ring-1 mr-1.5 ${entityColor(entity)}`}>
-                  {entity || "—"}
-                </span>
-                <span className="text-gray-400">/</span> {lander || "—"}
-              </h2>
-              <p className="text-[11px] text-gray-500 leading-tight">
-                Campaign-portal rows · {dateLabel} · {loading ? "…" : `${rows.length} ${rows.length === 1 ? "row" : "rows"}`}
-              </p>
-            </div>
-          </div>
-          <button type="button" onClick={onClose} className="p-1.5 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-700">
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Body */}
-        <div className="overflow-auto p-4">
-          {loading ? (
-            <div className="py-16 text-center text-sm text-gray-500">Loading rows…</div>
-          ) : rows.length === 0 ? (
-            <div className="py-16 text-center text-sm text-gray-500">No campaign-portal rows for this selection.</div>
-          ) : (
-            <table className="min-w-full text-xs">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  {cols.map((c) => (
-                    <th key={c} className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wide whitespace-nowrap border-b border-gray-200">
-                      {prettyLabel(c)}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {rows.map((r, i) => (
-                  <tr key={i} className="hover:bg-purple-50/40">
-                    {cols.map((c) => (
-                      <td key={c} className="px-3 py-2 text-gray-700 whitespace-nowrap tabular-nums">
-                        {fmtCellValue(c, r[c])}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
-
 const Campaign = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [firstLoad, setFirstLoad] = useState(true);
   const [summary, setSummary] = useState({ campaign: { breakdown: [] } });
@@ -354,9 +270,6 @@ const Campaign = () => {
   // Client-side table state for the breakdown grid (data is already fetched).
   const [table, setTable] = useState({ pageIndex: 0, pageSize: 10, search: "" });
   const [selectedEntity, setSelectedEntity] = useState("");
-
-  // Drill-down modal state.
-  const [detail, setDetail] = useState({ open: false, entity: null, lander: null, rows: [], loading: false });
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -395,39 +308,19 @@ const Campaign = () => {
     []
   );
 
-  const dateLabel = useMemo(() => {
-    if (query.filter_date === "today") return "Today";
-    if (query.filter_date === "yesterday") return "Yesterday";
-    if (query.startDate && query.endDate) return `${query.startDate} → ${query.endDate}`;
-    return "All dates";
-  }, [query.filter_date, query.startDate, query.endDate]);
-
-  // Drill-down: load the raw rows for the clicked (entity, lander) within the
-  // current date scope.
+  // Drill-down: navigate to a dedicated page, carrying the (entity, lander) +
+  // current date scope in the URL so the page is refresh-safe.
   const handleView = useCallback(
-    async (row) => {
-      setDetail({ open: true, entity: row.entity, lander: row.lander, rows: [], loading: true });
-      try {
-        const res = await getCampaignPortalDetail({
-          entity: row.entity,
-          lander: row.lander,
-          type: query.filter_date || undefined,
-          fromDate: query.startDate || undefined,
-          toDate: query.endDate || undefined,
-        });
-        if (res?.data?.success) {
-          setDetail((d) => ({ ...d, rows: res.data.data || [], loading: false }));
-        } else {
-          ToastNotification.error("Failed to load detail");
-          setDetail((d) => ({ ...d, loading: false }));
-        }
-      } catch (err) {
-        console.error(err);
-        ToastNotification.error("Failed to load detail");
-        setDetail((d) => ({ ...d, loading: false }));
-      }
+    (row) => {
+      const params = new URLSearchParams();
+      if (row.entity) params.set("entity", row.entity);
+      if (row.lander) params.set("lander", row.lander);
+      if (query.filter_date) params.set("type", query.filter_date);
+      if (query.startDate) params.set("fromDate", query.startDate);
+      if (query.endDate) params.set("toDate", query.endDate);
+      navigate(`/campaign/portal-detail?${params.toString()}`);
     },
-    [query.filter_date, query.startDate, query.endDate]
+    [navigate, query.filter_date, query.startDate, query.endDate]
   );
 
   // Client-side entity filter + search + pagination over the (small) breakdown set.
@@ -576,16 +469,6 @@ const Campaign = () => {
         onRefresh={fetchData}
         title="Campaign Breakdown"
         initialPagination={{ pageIndex: table.pageIndex, pageSize: table.pageSize }}
-      />
-
-      <PortalDetailModal
-        open={detail.open}
-        onClose={() => setDetail((d) => ({ ...d, open: false }))}
-        entity={detail.entity}
-        lander={detail.lander}
-        dateLabel={dateLabel}
-        rows={detail.rows}
-        loading={detail.loading}
       />
     </div>
   );

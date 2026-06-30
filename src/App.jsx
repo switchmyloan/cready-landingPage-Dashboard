@@ -45,6 +45,7 @@ import CreadyRpm from './pages/LeadManagement/Short/CreadyRpm';
 import CreadyRpmDetail from './pages/LeadManagement/Short/CreadyRpmDetail';
 import Campaign from './pages/LeadManagement/Campaign/Campaign';
 import CampaignDetail from './pages/LeadManagement/Campaign/CampaignDetail';
+import CampaignPortalDetail from './pages/LeadManagement/Campaign/CampaignPortalDetail';
 import ShortKBLendingPage from './pages/LeadManagement/Short/ShortKBLendingPage';
 import ShortKBLendingPageDetail from './pages/LeadManagement/Short/ShortKBLendingPageDetail';
 import MVSuccessDetail from './pages/LeadManagement/MVSuccessDetail';
@@ -111,6 +112,7 @@ function App() {
 
             {/* Campaign Team — replica of Cready RPM, gated to the campaign-team role */}
             <Route path="campaign" element={<Campaign />} />
+            <Route path="campaign/portal-detail" element={<CampaignPortalDetail />} />
             <Route path="campaign/:phone" element={<CampaignDetail />} />
             <Route path="short-kb-lending-page" element={<ShortKBLendingPage />} />
             <Route path="short-kb-lending-page/:id" element={<ShortKBLendingPageDetail />} />
