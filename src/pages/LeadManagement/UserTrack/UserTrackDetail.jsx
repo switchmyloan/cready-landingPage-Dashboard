@@ -145,6 +145,7 @@ const UserTrackDetail = () => {
   const profile = data?.profile || {};
   const timeline = data?.timeline || [];
   const lenders = data?.lenders || [];
+  const trackingEvents = data?.tracking_events || {};
   const attempts = summary.attempts_count || 0;
   const lendersCount = summary.lenders_count || 0;
   const displayName = 
@@ -319,6 +320,25 @@ const UserTrackDetail = () => {
               <Field label="UTM Content"  value={profile.utm_content} />
             </div>
           </Section>
+
+          {/* Frontend event tracking (latest offerLeads.tracking_events) — which
+              UI events the user did (e.g. InCred fake-offer modal shown) + when. */}
+          {Object.keys(trackingEvents).some((k) => !k.endsWith('_at')) && (
+            <Section title="Tracking Events">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                {Object.keys(trackingEvents)
+                  .filter((k) => !k.endsWith('_at'))
+                  .map((k) => (
+                    <Field
+                      key={k}
+                      Icon={MousePointerClick}
+                      label={k.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase())}
+                      value={trackingEvents[`${k}_at`] ? formatDateTime(trackingEvents[`${k}_at`]) : 'Yes'}
+                    />
+                  ))}
+              </div>
+            </Section>
+          )}
 
           {/* Timeline */}
           <Section title={`Timeline (${timeline.length} events)`}>

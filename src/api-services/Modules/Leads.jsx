@@ -155,6 +155,7 @@ export const getOfferLeads = async ({
   utmSource,
   feedbackStatus,
   distinct,
+  trackingEvent,
 } = {}) => {
     return Api().get(`/offer-leads`, {
         params: {
@@ -179,6 +180,7 @@ export const getOfferLeads = async ({
             utmSource,
             feedbackStatus,
             distinct,
+            trackingEvent,
         },
         skipAdminAppend: true,
     });
@@ -540,6 +542,7 @@ export const getUserTrack = async ({
   source,
   viewAllClicked,
   feedbackStatus,
+  trackingEvent,
 } = {}) => {
     return Api().get(`/user-track`, {
         params: {
@@ -555,6 +558,7 @@ export const getUserTrack = async ({
             source,
             viewAllClicked,
             feedbackStatus,
+            trackingEvent,
         },
         skipAdminAppend: true,
     });

@@ -125,6 +125,7 @@ const OfferLeads = () => {
     utmMedium: '',
     utmSource: '',
     feedbackStatus: '',
+    trackingEvent: '',
   };
 
   const [query, setQuery] = useState(() => {
@@ -263,6 +264,7 @@ const OfferLeads = () => {
         utmMedium: query.utmMedium || undefined,
         utmSource: query.utmSource || undefined,
         feedbackStatus: query.feedbackStatus || undefined,
+        trackingEvent: query.trackingEvent || undefined,
         // Customer-care view: one row per phone (latest by createdAt).
         distinct: isCallCenter ? 'true' : undefined,
       });
@@ -290,7 +292,7 @@ const OfferLeads = () => {
     query.dobFromDate, query.dobToDate, query.loanPurpose,
     query.minMonthlyIncome, query.maxMonthlyIncome, query.lender,
     query.disbStatus, query.city, query.employmentType, query.utmMedium, query.utmSource,
-    query.feedbackStatus, salaryBand, isCallCenter,
+    query.feedbackStatus, query.trackingEvent, salaryBand, isCallCenter,
   ]);
 
   useEffect(() => {
@@ -388,6 +390,7 @@ const OfferLeads = () => {
       employmentType: '',
       utmMedium: '',
       utmSource: '',
+      trackingEvent: '',
     }));
   }, [salaryBand]);
 
@@ -417,6 +420,10 @@ const OfferLeads = () => {
 
   const handleFeedbackFilter = useCallback((newFeedback) => {
     setQuery(prev => ({ ...prev, feedbackStatus: newFeedback, page_no: 1 }));
+  }, []);
+
+  const handleTrackingFilter = useCallback((newTracking) => {
+    setQuery(prev => ({ ...prev, trackingEvent: newTracking, page_no: 1 }));
   }, []);
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -819,6 +826,34 @@ const OfferLeads = () => {
             </div>
           </div>
 
+          {/* Tracking event */}
+          <div className="flex flex-col gap-1 min-w-0">
+            <label className="text-[11px] font-bold tracking-[0.08em] uppercase text-gray-500">
+              Tracking
+            </label>
+            <div className="flex items-center gap-1.5">
+              <select
+                value={query.trackingEvent}
+                onChange={(e) => handleTrackingFilter(e.target.value)}
+                className="flex-1 min-w-0 border border-gray-200 bg-white rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 transition"
+              >
+                <option value="">All Tracking</option>
+                <option value="incred_pending_modal_shown">Incred Pending Modal Shown</option>
+                <option value="incred_pending_modal_apply_clicked">Incred Pending Modal — Apply</option>
+                <option value="incred_offer_model_clicked">Incred Offer Model Clicked</option>
+              </select>
+              {query.trackingEvent && (
+                <button
+                  onClick={() => handleTrackingFilter('')}
+                  className="text-[11px] px-2 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition flex-shrink-0"
+                  title="Clear tracking filter"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Feedback */}
           <div className="flex flex-col gap-1 min-w-0">
             <label className="text-[11px] font-bold tracking-[0.08em] uppercase text-gray-500">
@@ -859,7 +894,7 @@ const OfferLeads = () => {
       </div>
 
       <MainTable
-        columns={offerLeadsColumn({ handleEdit })}
+        columns={offerLeadsColumn({ handleEdit, showTracking: true })}
         data={rawData}
         totalDataCount={filteredCount}
         loading={loading}

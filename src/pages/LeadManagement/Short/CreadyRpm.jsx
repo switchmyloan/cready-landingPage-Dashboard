@@ -9,6 +9,7 @@ import {
   Megaphone,
   CalendarDays,
   Wallet,
+  IndianRupee,
   Search,
   RefreshCw,
   X,
@@ -141,11 +142,19 @@ const StatCards = ({ summary, loading }) => {
       Icon: Wallet,
       color: "purple",
     },
+    {
+      key: "afamount",
+      label: "AF Amount",
+      // AF Amount = AF Paid count × ₹150 (preformatted ₹ string).
+      value: `₹${((afPaid.count || 0) * 150).toLocaleString("en-IN")}`,
+      Icon: IndianRupee,
+      color: "green",
+    },
   ];
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-4">
         {cards.map((_, i) => (
           <div
             key={i}
@@ -160,7 +169,7 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-4">
       {cards.map(({ key, label, Icon, color, value, pct, placeholder, isBase, breakdown }) => {
         const c = COLOR_MAP[color];
         return (

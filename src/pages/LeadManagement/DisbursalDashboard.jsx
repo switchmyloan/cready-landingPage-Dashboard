@@ -292,7 +292,7 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
 
     const metrics = [
         { key: 'totalAmount', label: 'Total disbursed', Icon: Wallet,     fmt: (n) => fmtINRFull(Math.round(n)) },
-        { key: 'count',       label: 'Disbursals',      Icon: Activity,   fmt: (n) => fmtNum(Math.round(n)) },
+        { key: 'count',       label: 'Total Disbursals',      Icon: Activity,   fmt: (n) => fmtNum(Math.round(n)) },
         { key: 'avgTicket',   label: 'Avg. ticket size', Icon: Banknote,  fmt: (n) => fmtINRFull(Math.round(n)) },
         { key: 'revenue',     label: 'Revenue Evaluation', Icon: TrendingUp, fmt: (n) => fmtINRFull(Math.round(n)), derive: (k) => (k.totalAmount || 0) * 3.25 / 100 },
     ];
@@ -339,26 +339,13 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
                     <div className="divide-y divide-gray-100">
                         {metrics.map((m) => {
                             const cVal = valOf(cur, m);
-                            const pVal = valOf(prev, m);
-                            const diff = cVal - pVal;
-                            const flat = Math.abs(diff) < 1e-9;
-                            const pct = pVal > 0 ? (diff / pVal) * 100 : (cVal > 0 ? 100 : 0);
-                            const up = diff >= 0;
                             return (
                                 <div key={m.key} className="flex items-center justify-between gap-2 py-2.5">
                                     <span className="text-[12.5px] text-gray-500 truncate">{m.label}</span>
                                     {loading ? (
                                         <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
                                     ) : (
-                                        <div className="flex items-center gap-2 shrink-0">
-                                            <span className="text-[14px] font-semibold text-gray-900 tabular-nums">{m.fmt(cVal)}</span>
-                                            <span className={`inline-flex items-center justify-end gap-0.5 w-[54px] text-[11px] font-semibold ${
-                                                flat ? 'text-gray-400' : up ? 'text-emerald-600' : 'text-rose-500'
-                                            }`}>
-                                                {flat ? <Minus size={11} /> : up ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
-                                                {Math.abs(pct).toFixed(1)}%
-                                            </span>
-                                        </div>
+                                        <span className="text-[14px] font-semibold text-gray-900 tabular-nums shrink-0">{m.fmt(cVal)}</span>
                                     )}
                                 </div>
                             );

@@ -79,7 +79,46 @@ const colorFromString = (str) => {
 
 // ---------- Offer Leads columns ----------
 
-export const offerLeadsColumn = ({ handleEdit }) => [
+// tracking_events is a JSON object like { incred_pending_modal_shown: true,
+// incred_pending_modal_shown_at: '...' }. Real events are the keys WITHOUT the
+// `_at` timestamp suffix. Rendered as a compact count badge (names on hover).
+const trackingEventNames = (te) => {
+  if (!te || typeof te !== 'object') return [];
+  return Object.keys(te)
+    .filter((k) => !k.endsWith('_at'))
+    .map((k) => k.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()));
+};
+
+const TrackingEventsCell = ({ value }) => {
+  const names = trackingEventNames(value);
+  if (!names.length) {
+    return (
+      <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-400">
+        0
+      </span>
+    );
+  }
+  // Single event → show its name inline; multiple → "N events". Native `title`
+  // tooltip lists every event reliably (daisyUI tooltip gets clipped in the
+  // table's horizontal scroll container).
+  const label = names.length === 1 ? names[0] : `${names.length} events`;
+  return (
+    <span
+      title={names.join(', ')}
+      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200 max-w-[200px] truncate cursor-help"
+    >
+      {label}
+    </span>
+  );
+};
+
+const trackingEventsColumn = {
+  header: 'Tracking',
+  accessorKey: 'tracking_events',
+  cell: ({ getValue }) => <TrackingEventsCell value={getValue()} />,
+};
+
+export const offerLeadsColumn = ({ handleEdit, showTracking = false }) => [
   {
     header: 'Name',
     accessorKey: 'name',
@@ -217,6 +256,8 @@ export const offerLeadsColumn = ({ handleEdit }) => [
       );
     },
   },
+  // Tracking events count badge — High Offer Leads only (passed showTracking).
+  ...(showTracking ? [trackingEventsColumn] : []),
   {
     header: 'Actions',
     accessorKey: 'actions',
@@ -2438,6 +2479,8 @@ export const userTrackColumn = ({ handleEdit }) => [
     },
   },
 
+  // Tracking events count badge (latest offerLeads.tracking_events for the phone).
+  trackingEventsColumn,
   {
     header: 'Action',
     id: 'actions-user-track',

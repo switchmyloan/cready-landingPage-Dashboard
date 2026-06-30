@@ -224,6 +224,8 @@ const FilterBar = ({
   onViewAllClickedChange,
   feedbackStatus,
   onFeedbackChange,
+  trackingEvent,
+  onTrackingChange,
   onRefresh,
   onClearAll,
   hasFilters,
@@ -471,6 +473,23 @@ const FilterBar = ({
           </select>
         </div>
 
+        {/* Tracking event select */}
+        <div className="basis-[160px] shrink-0">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+            Tracking
+          </label>
+          <select
+            value={trackingEvent || ""}
+            onChange={(e) => onTrackingChange(e.target.value)}
+            className="w-full px-1.5 py-1.5 rounded-md border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
+          >
+            <option value="">All Tracking</option>
+            <option value="incred_pending_modal_shown">Incred Pending Modal Shown</option>
+            <option value="incred_pending_modal_apply_clicked">Incred Pending Modal — Apply</option>
+            <option value="incred_offer_model_clicked">Incred Offer Model Clicked</option>
+          </select>
+        </div>
+
         {/* Inline actions — no label */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
@@ -690,6 +709,7 @@ const UserTrack = () => {
     source: "",
     viewAllClicked: "",
     feedbackStatus: "",
+    trackingEvent: "",
   };
 
   const [query, setQuery] = useState(() =>
@@ -741,6 +761,7 @@ const UserTrack = () => {
         source: query.source || undefined,
         viewAllClicked: query.viewAllClicked || undefined,
         feedbackStatus: query.feedbackStatus || undefined,
+        trackingEvent: query.trackingEvent || undefined,
       });
 
       if (res?.data?.success) {
@@ -771,6 +792,7 @@ const UserTrack = () => {
     query.source,
     query.viewAllClicked,
     query.feedbackStatus,
+    query.trackingEvent,
   ]);
 
   useEffect(() => {
@@ -867,6 +889,10 @@ const UserTrack = () => {
     (feedbackStatus) => setQuery((prev) => ({ ...prev, feedbackStatus, page_no: 1 })),
     [],
   );
+  const onTrackingChange = useCallback(
+    (trackingEvent) => setQuery((prev) => ({ ...prev, trackingEvent, page_no: 1 })),
+    [],
+  );
   const onPageChange = useCallback(
     (p) =>
       setQuery((prev) => ({
@@ -891,6 +917,7 @@ const UserTrack = () => {
         source: "",
         viewAllClicked: "",
         feedbackStatus: "",
+        trackingEvent: "",
       })),
     [],
   );
@@ -905,7 +932,8 @@ const UserTrack = () => {
     query.medium ||
     query.source ||
     query.viewAllClicked ||
-    query.feedbackStatus
+    query.feedbackStatus ||
+    query.trackingEvent
   );
 
   const handleView = (row) => {
@@ -1028,6 +1056,8 @@ const UserTrack = () => {
         onViewAllClickedChange={onViewAllClickedChange}
         feedbackStatus={query.feedbackStatus}
         onFeedbackChange={onFeedbackChange}
+        trackingEvent={query.trackingEvent}
+        onTrackingChange={onTrackingChange}
         onRefresh={fetchUsers}
         onClearAll={onClearAll}
         hasFilters={hasFilters}
