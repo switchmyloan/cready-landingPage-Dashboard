@@ -16,6 +16,15 @@ export const getDisbursalKpis = async ({ range = '7D', fromDate, toDate, scope, 
         signal,
     });
 
+// Lightweight KPI aggregate (DB-side SUM/COUNT/AVG, no 100k-row grid fetch).
+// Used by the month-over-month comparison so it loads fast.
+export const getDisbursalKpisFast = async ({ range = 'Custom', fromDate, toDate, scope, utmSource, utmMedium, signal } = {}) =>
+    Api().get(`${base}/kpis-fast`, {
+        params: { range, fromDate, toDate, scope, utmSource, utmMedium },
+        skipAdminAppend: true,
+        signal,
+    });
+
 export const getDisbursalTrend = async ({ range = '30D', granularity = 'daily', fromDate, toDate, scope, utmSource, utmMedium, signal } = {}) =>
     Api().get(`${base}/trend`, {
         params: { range, granularity, fromDate, toDate, scope, utmSource, utmMedium },

@@ -11,7 +11,7 @@ import {
     CalendarDays, Minus,
 } from 'lucide-react';
 import {
-    getDisbursalKpis, getDisbursalTrend, getDisbursalTrendShort,
+    getDisbursalKpis, getDisbursalKpisFast, getDisbursalTrend, getDisbursalTrendShort,
     getDisbursalLenderStats, getDisbursalLenderStatsShort,
     getDisbursalLenderBreakdown,
     getDisbursalEmploymentMix, getDisbursalEmploymentMixShort,
@@ -250,22 +250,19 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint 
    scope + utm filters so it stays consistent with the rest of the dashboard. */
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-const MonthComparison = ({ scope, utmSource, utmMedium }) => {
-    const [loading, setLoading] = useState(true);
-    const [cur, setCur] = useState(null);
+const MonthComparison = ({ scope, utmSource, utmMedium, currentKpis, currentLoading }) => {
     const [prev, setPrev] = useState(null);
+    const [prevLoading, setPrevLoading] = useState(true);
 
-    const { curRange, prevRange, curLabel, prevLabel, dayInfo } = useMemo(() => {
+    const { prevRange, curLabel, prevLabel, dayInfo } = useMemo(() => {
         const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
         const today = new Date(); today.setHours(0, 0, 0, 0);
         const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
-        const curFrom = new Date(y, m, 1);
         // Days in last month → clamp today's day-of-month so e.g. 31st maps to the 30th.
         const lastMonthDays = new Date(y, m, 0).getDate();
         const prevFrom = new Date(y, m - 1, 1);
         const prevTo = new Date(y, m - 1, Math.min(d, lastMonthDays));
         return {
-            curRange: { fromDate: fmt(curFrom), toDate: fmt(today) },
             prevRange: { fromDate: fmt(prevFrom), toDate: fmt(prevTo) },
             curLabel: `${MONTH_NAMES[m]} ${y}`,
             prevLabel: `${MONTH_NAMES[prevFrom.getMonth()]} ${prevFrom.getFullYear()}`,
@@ -273,22 +270,20 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
         };
     }, []);
 
+    // "This month" reuses the top KPI cards' already-loaded data (no extra call).
+    // Only "last month" is fetched — fast + Redis-cached via /disbursal/kpis-fast.
     useEffect(() => {
         const controller = new AbortController();
-        setLoading(true);
-        Promise.all([
-            getDisbursalKpis({ range: 'Custom', ...curRange, scope, utmSource, utmMedium, signal: controller.signal }),
-            getDisbursalKpis({ range: 'Custom', ...prevRange, scope, utmSource, utmMedium, signal: controller.signal }),
-        ])
-            .then(([a, b]) => {
-                if (controller.signal.aborted) return;
-                setCur(a?.data?.data || {});
-                setPrev(b?.data?.data || {});
-            })
+        setPrevLoading(true);
+        getDisbursalKpisFast({ range: 'Custom', ...prevRange, scope, utmSource, utmMedium, signal: controller.signal })
+            .then((b) => { if (!controller.signal.aborted) setPrev(b?.data?.data || {}); })
             .catch(e => { if (!controller.signal.aborted) console.error(e); })
-            .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+            .finally(() => { if (!controller.signal.aborted) setPrevLoading(false); });
         return () => controller.abort();
-    }, [curRange, prevRange, scope, utmSource, utmMedium]);
+    }, [prevRange, scope, utmSource, utmMedium]);
+
+    const cur = currentKpis || null;
+    const curLoading = !!currentLoading;
 
     const metrics = [
         { key: 'totalAmount', label: 'Total disbursed', Icon: Wallet,     fmt: (n) => fmtINRFull(Math.round(n)) },
@@ -316,7 +311,7 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
                         </p>
                     </div>
                 </div>
-                {!loading && cur && prev && (
+                {!curLoading && !prevLoading && cur && prev && (
                     <span className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2.5 py-1 ${
                         allUp ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'
                     }`}>
@@ -342,7 +337,7 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
                             return (
                                 <div key={m.key} className="flex items-center justify-between gap-2 py-2.5">
                                     <span className="text-[12.5px] text-gray-500 truncate">{m.label}</span>
-                                    {loading ? (
+                                    {curLoading ? (
                                         <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
                                     ) : (
                                         <span className="text-[14px] font-semibold text-gray-900 tabular-nums shrink-0">{m.fmt(cVal)}</span>
@@ -369,7 +364,7 @@ const MonthComparison = ({ scope, utmSource, utmMedium }) => {
                             return (
                                 <div key={m.key} className="flex items-center justify-between gap-2 py-2.5">
                                     <span className="text-[12.5px] text-gray-500 truncate">{m.label}</span>
-                                    {loading ? (
+                                    {prevLoading ? (
                                         <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
                                     ) : (
                                         <span className="text-[14px] font-semibold text-gray-700 tabular-nums shrink-0">{m.fmt(pVal)}</span>
@@ -1849,7 +1844,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
 
             {/* Separate month-over-month comparison section — independent of the
                 range selector above (always current month vs last month). */}
-            <MonthComparison scope={scope} utmSource={utmSource} utmMedium={utmMedium} />
+            <MonthComparison scope={scope} utmSource={utmSource} utmMedium={utmMedium} currentKpis={kpis} currentLoading={kpiLoading} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
                 <div className="lg:col-span-2"><TrendChart range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} /></div>
