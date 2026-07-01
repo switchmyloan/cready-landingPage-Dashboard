@@ -1723,33 +1723,36 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 Skeleton only until each source first reports (then value stays
                 while that section refetches, like its own header does). */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                {/* All 4 cards read from the monitoring grid's own lifted totals
+                    (gridStats: RPM-excluded, same rows shown in the table), so the
+                    cards ALWAYS equal the grid's "N disbursals / Total in view". */}
                 <KpiCard icon={Wallet} label="Total disbursed"
                     tint="bg-purple-50/60 border-purple-100"
                     iconClass="bg-purple-100 text-purple-600"
-                    loading={!trendTotals || (trendTotals.loading && !trendTotals.amount)}
-                    value={Math.round(trendTotals?.amount || 0)}
+                    loading={!gridStats || (gridStats.loading && !gridStats.totalAmount)}
+                    value={Math.round(gridStats?.totalAmount || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
-                    sub={`across ${fmtNum(empTotals?.count || 0)} disbursals · ${range}`} />
+                    sub={`across ${fmtNum(gridStats?.count || 0)} disbursals · ${range}`} />
                 <KpiCard icon={Activity} label="Total disbursals"
                     tint="bg-blue-50/60 border-blue-100"
                     iconClass="bg-blue-100 text-blue-600"
-                    loading={!empTotals || (empTotals.loading && !empTotals.count)}
-                    value={Number(empTotals?.count) || 0}
+                    loading={!gridStats || (gridStats.loading && !gridStats.count)}
+                    value={Number(gridStats?.count) || 0}
                     format={(n) => fmtNum(Math.round(n))}
                     sub={`in last ${range.toLowerCase()}`} />
                 <KpiCard icon={Banknote} label="Avg. ticket size"
                     tint="bg-orange-50/60 border-orange-100"
                     iconClass="bg-orange-100 text-orange-600"
-                    loading={(!trendTotals || (trendTotals.loading && !trendTotals.amount)) || (!empTotals || (empTotals.loading && !empTotals.count))}
-                    value={Math.round(empTotals?.count ? (trendTotals?.amount || 0) / empTotals.count : 0)}
+                    loading={!gridStats || (gridStats.loading && !gridStats.count)}
+                    value={Math.round(gridStats?.avgTicket || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="per disbursal" />
                 {/* Revenue Evaluation — Total disbursed × 3.25 ÷ 100. */}
                 <KpiCard icon={TrendingUp} label="Revenue Evaluation"
                     tint="bg-emerald-50/60 border-emerald-100"
                     iconClass="bg-emerald-100 text-emerald-600"
-                    loading={!trendTotals || (trendTotals.loading && !trendTotals.amount)}
-                    value={Math.round((trendTotals?.amount || 0) * 3.25 / 100)}
+                    loading={!gridStats || (gridStats.loading && !gridStats.totalAmount)}
+                    value={Math.round((gridStats?.totalAmount || 0) * 3.25 / 100)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="Estimated revenue · 3.25× ÷ 100" />
             </div>
