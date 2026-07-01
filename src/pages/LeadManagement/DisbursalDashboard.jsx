@@ -8,10 +8,9 @@ import {
     Activity, ArrowUpRight, ArrowDownRight, ArrowUpDown, Layers, Wallet,
     Banknote, Timer, Calendar, FileDown, Building2, IndianRupee,
     TrendingUp, Hash, X, Sparkles, ChevronDown, Check,
-    CalendarDays, Minus,
 } from 'lucide-react';
 import {
-    getDisbursalKpis, getDisbursalKpisFast, getDisbursalTrend, getDisbursalTrendShort,
+    getDisbursalKpis, getDisbursalTrend, getDisbursalTrendShort,
     getDisbursalLenderStats, getDisbursalLenderStatsShort,
     getDisbursalLenderBreakdown,
     getDisbursalEmploymentMix, getDisbursalEmploymentMixShort,
@@ -239,143 +238,6 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint 
                 </>
             )}
         </div>
-    );
-};
-
-/* MONTH-OVER-MONTH COMPARISON
-   Self-contained section: current month-to-date vs the SAME elapsed window of
-   last month (days 1–today), so it's a fair like-for-like and not partial-vs-
-   full. Independent of the top range selector; reuses getDisbursalKpis with
-   range:'Custom' + explicit month dates (no new backend). Respects the active
-   scope + utm filters so it stays consistent with the rest of the dashboard. */
-const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const MonthComparison = ({ scope, utmSource, utmMedium, currentKpis, currentLoading }) => {
-    const [prev, setPrev] = useState(null);
-    const [prevLoading, setPrevLoading] = useState(true);
-
-    const { prevRange, curLabel, prevLabel, dayInfo } = useMemo(() => {
-        const fmt = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
-        const today = new Date(); today.setHours(0, 0, 0, 0);
-        const y = today.getFullYear(), m = today.getMonth(), d = today.getDate();
-        // Days in last month → clamp today's day-of-month so e.g. 31st maps to the 30th.
-        const lastMonthDays = new Date(y, m, 0).getDate();
-        const prevFrom = new Date(y, m - 1, 1);
-        const prevTo = new Date(y, m - 1, Math.min(d, lastMonthDays));
-        return {
-            prevRange: { fromDate: fmt(prevFrom), toDate: fmt(prevTo) },
-            curLabel: `${MONTH_NAMES[m]} ${y}`,
-            prevLabel: `${MONTH_NAMES[prevFrom.getMonth()]} ${prevFrom.getFullYear()}`,
-            dayInfo: `1–${d}`,
-        };
-    }, []);
-
-    // "This month" reuses the top KPI cards' already-loaded data (no extra call).
-    // Only "last month" is fetched — fast + Redis-cached via /disbursal/kpis-fast.
-    useEffect(() => {
-        const controller = new AbortController();
-        setPrevLoading(true);
-        getDisbursalKpisFast({ range: 'Custom', ...prevRange, scope, utmSource, utmMedium, signal: controller.signal })
-            .then((b) => { if (!controller.signal.aborted) setPrev(b?.data?.data || {}); })
-            .catch(e => { if (!controller.signal.aborted) console.error(e); })
-            .finally(() => { if (!controller.signal.aborted) setPrevLoading(false); });
-        return () => controller.abort();
-    }, [prevRange, scope, utmSource, utmMedium]);
-
-    const cur = currentKpis || null;
-    const curLoading = !!currentLoading;
-
-    const metrics = [
-        { key: 'totalAmount', label: 'Total disbursed', Icon: Wallet,     fmt: (n) => fmtINRFull(Math.round(n)) },
-        { key: 'count',       label: 'Total Disbursals',      Icon: Activity,   fmt: (n) => fmtNum(Math.round(n)) },
-        { key: 'avgTicket',   label: 'Avg. ticket size', Icon: Banknote,  fmt: (n) => fmtINRFull(Math.round(n)) },
-        { key: 'revenue',     label: 'Revenue Evaluation', Icon: TrendingUp, fmt: (n) => fmtINRFull(Math.round(n)), derive: (k) => (k.totalAmount || 0) * 3.25 / 100 },
-    ];
-
-    const valOf = (src, m) => (src ? (m.derive ? m.derive(src) : (src[m.key] || 0)) : 0);
-    // Header summary — how many metrics are up vs last month (drives the pill).
-    const upCount = (cur && prev) ? metrics.filter(m => valOf(cur, m) >= valOf(prev, m)).length : 0;
-    const allUp = upCount === metrics.length;
-
-    return (
-        <section className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5 mb-4">
-            <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 grid place-items-center rounded-lg bg-gray-100 text-gray-500">
-                        <CalendarDays size={16} />
-                    </div>
-                    <div>
-                        <h3 className="text-[14px] font-semibold text-gray-900 leading-tight">Month-over-Month Comparison</h3>
-                        <p className="text-[11.5px] text-gray-400">
-                            {curLabel} vs {prevLabel} · same period (days {dayInfo})
-                        </p>
-                    </div>
-                </div>
-                {!curLoading && !prevLoading && cur && prev && (
-                    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold rounded-full px-2.5 py-1 ${
-                        allUp ? 'text-emerald-700 bg-emerald-50' : 'text-amber-700 bg-amber-50'
-                    }`}>
-                        <TrendingUp size={12} /> {upCount}/{metrics.length} up
-                    </span>
-                )}
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                {/* THIS MONTH */}
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50/50 p-4">
-                    <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">This month</span>
-                            <span className="text-[13px] font-semibold text-gray-900">{curLabel}</span>
-                        </div>
-                        <span className="text-[10px] text-gray-400">Days {dayInfo}</span>
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                        {metrics.map((m) => {
-                            const cVal = valOf(cur, m);
-                            return (
-                                <div key={m.key} className="flex items-center justify-between gap-2 py-2.5">
-                                    <span className="text-[12.5px] text-gray-500 truncate">{m.label}</span>
-                                    {curLoading ? (
-                                        <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
-                                    ) : (
-                                        <span className="text-[14px] font-semibold text-gray-900 tabular-nums shrink-0">{m.fmt(cVal)}</span>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                {/* LAST MONTH */}
-                <div className="rounded-xl border border-sky-100 bg-sky-50/50 p-4">
-                    <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-2">
-                            <span className="w-2 h-2 rounded-full bg-sky-500" />
-                            <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Last month</span>
-                            <span className="text-[13px] font-semibold text-gray-700">{prevLabel}</span>
-                        </div>
-                        <span className="text-[10px] text-gray-400">Days {dayInfo}</span>
-                    </div>
-                    <div className="divide-y divide-gray-100">
-                        {metrics.map((m) => {
-                            const pVal = valOf(prev, m);
-                            return (
-                                <div key={m.key} className="flex items-center justify-between gap-2 py-2.5">
-                                    <span className="text-[12.5px] text-gray-500 truncate">{m.label}</span>
-                                    {prevLoading ? (
-                                        <div className="h-4 w-20 rounded bg-gray-100 animate-pulse" />
-                                    ) : (
-                                        <span className="text-[14px] font-semibold text-gray-700 tabular-nums shrink-0">{m.fmt(pVal)}</span>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            </div>
-        </section>
     );
 };
 
@@ -1868,10 +1730,6 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="Estimated revenue · 3.25× ÷ 100" />
             </div>
-
-            {/* Separate month-over-month comparison section — independent of the
-                range selector above (always current month vs last month). */}
-            <MonthComparison scope={scope} utmSource={utmSource} utmMedium={utmMedium} currentKpis={gridStats} currentLoading={!gridStats || gridStats.loading} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
                 <div className="lg:col-span-2"><TrendChart range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} /></div>
