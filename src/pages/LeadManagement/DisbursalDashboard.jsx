@@ -242,7 +242,7 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint 
 };
 
 /* TREND CHART */
-const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium }) => {
+const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTotals }) => {
     const [granularity, setGranularity] = useState('daily');
     const [metric, setMetric] = useState('amount');
     const [data, setData] = useState([]);
@@ -273,6 +273,17 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium }) =>
     const total = chartData.reduce((s, d) => s + (d[seriesKey] || 0), 0);
     const avg = chartData.length ? total / chartData.length : 0;
     const peak = chartData.reduce((m, d) => (d[seriesKey] > (m?.[seriesKey] ?? -Infinity) ? d : m), chartData[0]);
+
+    // Range total AMOUNT in raw rupees (independent of the metric toggle) — lifted
+    // up so the dashboard's "Total disbursed" / Revenue boxes read it. Bucket
+    // amounts arrive in Cr (getTrend divides by 1e7), so multiply back.
+    const amountTotalRaw = useMemo(
+        () => chartData.reduce((s, d) => s + (d.amount || 0), 0) * 1e7,
+        [chartData]
+    );
+    useEffect(() => {
+        if (typeof onTotals === 'function') onTotals({ loading, amount: amountTotalRaw });
+    }, [onTotals, loading, amountTotalRaw]);
 
     return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -379,7 +390,7 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium }) =>
 };
 
 /* EMPLOYMENT MIX (replaces Product Mix from PDF — we don't have product column) */
-const EmploymentMix = ({ range, scope, fromDate, toDate, utmSource, utmMedium }) => {
+const EmploymentMix = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTotals }) => {
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
     // Cready brand palette for the Employment Mix donut — purple/violet/indigo
@@ -401,6 +412,12 @@ const EmploymentMix = ({ range, scope, fromDate, toDate, utmSource, utmMedium })
     }, [range, scope, fromDate, toDate, utmSource, utmMedium]);
 
     const total = data.reduce((s, d) => s + d.value, 0);
+
+    // Lift the total disbursal COUNT up so the dashboard's "Total disbursals" box
+    // reads it (same number shown in the donut centre).
+    useEffect(() => {
+        if (typeof onTotals === 'function') onTotals({ loading, count: total });
+    }, [onTotals, loading, total]);
 
     return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 h-full flex flex-col">
@@ -1202,6 +1219,10 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     // from these so they reflect the grid's current view with no extra API call.
     // `kpis` (via /kpis) is still fetched for the Month-over-Month section.
     const [gridStats, setGridStats] = useState(null);
+    // KPI boxes source AMOUNT from the Disbursal-trend section and COUNT from the
+    // Employment-mix section (both already loaded on the page → no extra API call).
+    const [trendTotals, setTrendTotals] = useState(null); // { loading, amount }  raw ₹
+    const [empTotals, setEmpTotals] = useState(null);     // { loading, count }
     const [lenderStats, setLenderStats] = useState([]);
     const [kpiLoading, setKpiLoading] = useState(true);
     const [lenderLoading, setLenderLoading] = useState(true);
@@ -1694,46 +1715,48 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 </div>
             </div>
 
-            {/* KPI boxes are derived ENTIRELY from the Disbursal-monitoring grid
-                below (gridStats: count + amount) — no dedicated /kpis API call.
-                totalAmount/count come from the grid; avgTicket = amount/count;
-                revenue = totalAmount × 3.25 ÷ 100. Numbers tick up via KpiCard's
-                useCountUp hook; loading follows the grid's own loading state. */}
+            {/* KPI boxes are derived from sections already on the page — no dedicated
+                /kpis API call:
+                  • AMOUNT  ← Disbursal-trend section (trendTotals.amount, raw ₹)
+                  • COUNT   ← Employment-mix section  (empTotals.count)
+                  • Avg ticket = amount ÷ count · Revenue = amount × 3.25 ÷ 100
+                Skeleton only until each source first reports (then value stays
+                while that section refetches, like its own header does). */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 <KpiCard icon={Wallet} label="Total disbursed"
                     tint="bg-purple-50/60 border-purple-100"
                     iconClass="bg-purple-100 text-purple-600"
-                    loading={!gridStats || gridStats.loading}
-                    value={Math.round(gridStats?.totalAmount || 0)}
+                    loading={!trendTotals || (trendTotals.loading && !trendTotals.amount)}
+                    value={Math.round(trendTotals?.amount || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
-                    sub={`across ${fmtNum(gridStats?.count || 0)} disbursals · ${range}`} />
+                    sub={`across ${fmtNum(empTotals?.count || 0)} disbursals · ${range}`} />
                 <KpiCard icon={Activity} label="Total disbursals"
                     tint="bg-blue-50/60 border-blue-100"
                     iconClass="bg-blue-100 text-blue-600"
-                    loading={!gridStats || gridStats.loading}
-                    value={Number(gridStats?.count) || 0}
+                    loading={!empTotals || (empTotals.loading && !empTotals.count)}
+                    value={Number(empTotals?.count) || 0}
                     format={(n) => fmtNum(Math.round(n))}
                     sub={`in last ${range.toLowerCase()}`} />
                 <KpiCard icon={Banknote} label="Avg. ticket size"
                     tint="bg-orange-50/60 border-orange-100"
                     iconClass="bg-orange-100 text-orange-600"
-                    loading={!gridStats || gridStats.loading}
-                    value={Math.round(gridStats?.avgTicket || 0)}
+                    loading={(!trendTotals || (trendTotals.loading && !trendTotals.amount)) || (!empTotals || (empTotals.loading && !empTotals.count))}
+                    value={Math.round(empTotals?.count ? (trendTotals?.amount || 0) / empTotals.count : 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="per disbursal" />
                 {/* Revenue Evaluation — Total disbursed × 3.25 ÷ 100. */}
                 <KpiCard icon={TrendingUp} label="Revenue Evaluation"
                     tint="bg-emerald-50/60 border-emerald-100"
                     iconClass="bg-emerald-100 text-emerald-600"
-                    loading={!gridStats || gridStats.loading}
-                    value={Math.round((gridStats?.totalAmount || 0) * 3.25 / 100)}
+                    loading={!trendTotals || (trendTotals.loading && !trendTotals.amount)}
+                    value={Math.round((trendTotals?.amount || 0) * 3.25 / 100)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="Estimated revenue · 3.25× ÷ 100" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
-                <div className="lg:col-span-2"><TrendChart range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} /></div>
-                <div><EmploymentMix range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} /></div>
+                <div className="lg:col-span-2"><TrendChart range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} onTotals={setTrendTotals} /></div>
+                <div><EmploymentMix range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} onTotals={setEmpTotals} /></div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
