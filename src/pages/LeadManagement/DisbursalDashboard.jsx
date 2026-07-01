@@ -847,7 +847,7 @@ const LenderChart = ({ kind, data, loading, onLenderClick }) => {
 };
 
 /* TRANSACTIONS TABLE */
-const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMedium }) => {
+const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onStats }) => {
     const [page, setPage] = useState(1);
     const [perPage, setPerPage] = useState(10);
     const [search, setSearch] = useState('');
@@ -947,6 +947,20 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
         return () => controller.abort();
     }, [fetchData]);
     useEffect(() => { setPage(1); }, [lenderFilter, empFilter, effRange, effFromDate, effToDate, utmSource, utmMedium]);
+
+    // Report the grid's current totals up so the dashboard KPI cards render
+    // straight from the monitoring grid (no separate /kpis fetch). Reflects the
+    // grid's active filters (lender / employment / date / scope; RPM-excluded for
+    // high-ticket). avgTicket is derived here so all four cards share one source.
+    useEffect(() => {
+        if (typeof onStats !== 'function') return;
+        onStats({
+            loading,
+            count: total,
+            totalAmount: filteredAmount,
+            avgTicket: total ? filteredAmount / total : 0,
+        });
+    }, [onStats, loading, total, filteredAmount]);
 
     const totalPages = Math.max(1, Math.ceil(total / perPage));
 
@@ -1322,6 +1336,10 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     const [utmMedium, setUtmMedium] = useState('');
     const [utmMediumOptions, setUtmMediumOptions] = useState([]);
     const [kpis, setKpis] = useState({ totalAmount: 0, count: 0, avgTicket: 0, avgProcMin: 0 });
+    // Live totals lifted up from the monitoring grid — the top KPI cards render
+    // from these so they reflect the grid's current view with no extra API call.
+    // `kpis` (via /kpis) is still fetched for the Month-over-Month section.
+    const [gridStats, setGridStats] = useState(null);
     const [lenderStats, setLenderStats] = useState([]);
     const [kpiLoading, setKpiLoading] = useState(true);
     const [lenderLoading, setLenderLoading] = useState(true);
@@ -1432,26 +1450,33 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
         return () => { cancelled = true; };
     }, [scope]);
 
+    // The dedicated /kpis request is disabled — the top KPI cards now read straight
+    // from the Disbursal-monitoring grid (gridStats via onStats), so this extra
+    // network call is unnecessary. We keep the effect only to drop the first-load
+    // loader + stamp "Updated" once the filters are valid; NO API call is made.
     useEffect(() => {
         if (customIncomplete) return;
-        // Cancel previous KPI request on filter change to avoid stale overwrite.
-        const controller = new AbortController();
-        setKpiLoading(true);
-        getDisbursalKpis({ range, scope, fromDate, toDate, utmSource, utmMedium, signal: controller.signal })
-            .then(res => {
-                if (!controller.signal.aborted) {
-                    setKpis(res?.data?.data || {});
-                    setLastRefreshedAt(Date.now()); // stamp "Updated X ago" on success
-                }
-            })
-            .catch(e => { if (!controller.signal.aborted) console.error(e); })
-            .finally(() => {
-                if (!controller.signal.aborted) {
-                    setKpiLoading(false);
-                    setFirstLoad(false);  // first KPI fetch done — drop loader
-                }
-            });
-        return () => controller.abort();
+        // --- COMMENTED: unnecessary /kpis fetch (cards come from the grid now) ---
+        // const controller = new AbortController();
+        // setKpiLoading(true);
+        // getDisbursalKpis({ range, scope, fromDate, toDate, utmSource, utmMedium, signal: controller.signal })
+        //     .then(res => {
+        //         if (!controller.signal.aborted) {
+        //             setKpis(res?.data?.data || {});
+        //             setLastRefreshedAt(Date.now()); // stamp "Updated X ago" on success
+        //         }
+        //     })
+        //     .catch(e => { if (!controller.signal.aborted) console.error(e); })
+        //     .finally(() => {
+        //         if (!controller.signal.aborted) {
+        //             setKpiLoading(false);
+        //             setFirstLoad(false);  // first KPI fetch done — drop loader
+        //         }
+        //     });
+        // return () => controller.abort();
+        setKpiLoading(false);
+        setFirstLoad(false);            // drop the first-load loader (no /kpis needed)
+        setLastRefreshedAt(Date.now()); // stamp "Updated X ago"
     }, [range, scope, fromDate, toDate, utmSource, utmMedium, customIncomplete]);
 
     useEffect(() => {
@@ -1807,44 +1832,46 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 </div>
             </div>
 
+            {/* KPI boxes are derived ENTIRELY from the Disbursal-monitoring grid
+                below (gridStats: count + amount) — no dedicated /kpis API call.
+                totalAmount/count come from the grid; avgTicket = amount/count;
+                revenue = totalAmount × 3.25 ÷ 100. Numbers tick up via KpiCard's
+                useCountUp hook; loading follows the grid's own loading state. */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                {/* Numbers tick up from 0 → target on each reload / filter
-                    change via KpiCard's useCountUp hook. `value` is a raw
-                    number; `format` runs every animation frame. */}
                 <KpiCard icon={Wallet} label="Total disbursed"
                     tint="bg-purple-50/60 border-purple-100"
                     iconClass="bg-purple-100 text-purple-600"
-                    loading={kpiLoading}
-                    value={Math.round(kpis.totalAmount || 0)}
+                    loading={!gridStats || gridStats.loading}
+                    value={Math.round(gridStats?.totalAmount || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
-                    sub={`across ${fmtNum(kpis.count)} disbursals · ${range}`} />
+                    sub={`across ${fmtNum(gridStats?.count || 0)} disbursals · ${range}`} />
                 <KpiCard icon={Activity} label="Total disbursals"
                     tint="bg-blue-50/60 border-blue-100"
                     iconClass="bg-blue-100 text-blue-600"
-                    loading={kpiLoading}
-                    value={Number(kpis.count) || 0}
+                    loading={!gridStats || gridStats.loading}
+                    value={Number(gridStats?.count) || 0}
                     format={(n) => fmtNum(Math.round(n))}
                     sub={`in last ${range.toLowerCase()}`} />
                 <KpiCard icon={Banknote} label="Avg. ticket size"
                     tint="bg-orange-50/60 border-orange-100"
                     iconClass="bg-orange-100 text-orange-600"
-                    loading={kpiLoading}
-                    value={Math.round(kpis.avgTicket || 0)}
+                    loading={!gridStats || gridStats.loading}
+                    value={Math.round(gridStats?.avgTicket || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="per disbursal" />
                 {/* Revenue Evaluation — Total disbursed × 3.25 ÷ 100. */}
                 <KpiCard icon={TrendingUp} label="Revenue Evaluation"
                     tint="bg-emerald-50/60 border-emerald-100"
                     iconClass="bg-emerald-100 text-emerald-600"
-                    loading={kpiLoading}
-                    value={Math.round((kpis.totalAmount || 0) * 3.25 / 100)}
+                    loading={!gridStats || gridStats.loading}
+                    value={Math.round((gridStats?.totalAmount || 0) * 3.25 / 100)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="Estimated revenue · 3.25× ÷ 100" />
             </div>
 
             {/* Separate month-over-month comparison section — independent of the
                 range selector above (always current month vs last month). */}
-            <MonthComparison scope={scope} utmSource={utmSource} utmMedium={utmMedium} currentKpis={kpis} currentLoading={kpiLoading} />
+            <MonthComparison scope={scope} utmSource={utmSource} utmMedium={utmMedium} currentKpis={gridStats} currentLoading={!gridStats || gridStats.loading} />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
                 <div className="lg:col-span-2"><TrendChart range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} /></div>
@@ -1856,7 +1883,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 <LenderChart kind="count" data={lenderStats} loading={lenderLoading} onLenderClick={setSelectedLender} />
             </div>
 
-            <TransactionsTable range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} />
+            <TransactionsTable range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} onStats={setGridStats} />
 
             {selectedLender && (
                 <LenderBreakdownModal
