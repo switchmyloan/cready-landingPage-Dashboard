@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import LeadFeedback from '../../components/LeadFeedback/LeadFeedback';
-import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById, getOfferQueueStatus } from '../../api-services/Modules/Leads';
+import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById, getOfferQueueStatus, searchLeadGeneration } from '../../api-services/Modules/Leads';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
 
@@ -591,6 +591,10 @@ const OfferLeadDetail = () => {
   // Redis queue status — present only for leads submitted via the async endpoint.
   // 'unknown' or null = synchronous submission (or Redis TTL elapsed after 1h).
   const [queueStatus, setQueueStatus] = useState(null);
+
+  // Bureau pincode from the leads-generation PI lookup (ClickHouse), matched by
+  // phone. Shown as a separate field next to the lead's own pincode on the Basic tab.
+  const [bureauPincode, setBureauPincode] = useState(null);
   // Fetch guard is a ref (not state) so starting the offers fetch doesn't
   // retrigger the lazy effect. Also set when eligibility returns cached data,
   // so opening the tab skips the /bre-offers call entirely.
@@ -638,6 +642,22 @@ const OfferLeadDetail = () => {
       .catch(() => { /* Redis key expired or lead was sync — leave null */ });
     return () => { cancelled = true; };
   }, [id]);
+
+  // Bureau pincode — POST /leadsGeneration { phone } -> { data: { leads: [{ pincode }] } }.
+  // Keyed by phone; leaves null (shows "N/A") when the phone isn't in the bureau set.
+  useEffect(() => {
+    const phone = lead?.phone;
+    if (!phone) { setBureauPincode(null); return; }
+    let cancelled = false;
+    searchLeadGeneration(phone)
+      .then((res) => {
+        if (cancelled) return;
+        const first = res?.data?.data?.leads?.[0];
+        setBureauPincode(first?.pincode || null);
+      })
+      .catch(() => { if (!cancelled) setBureauPincode(null); });
+    return () => { cancelled = true; };
+  }, [lead?.phone]);
 
   // Lenders this user actually clicked (selectedLenders / shortSelectedLenders),
   // keyed by phone — powers the "Selected Lenders" tab.
@@ -900,6 +920,7 @@ const OfferLeadDetail = () => {
               <Field Icon={Calendar} label="Date of Birth" value={lead.dob || 'N/A'} />
               <Field Icon={CreditCard} label="PAN No" value={lead.pan_no || 'N/A'} />
               <Field Icon={MapPin} label="Pincode" value={lead.pincode || 'N/A'} />
+              <Field Icon={MapPin} label="Bureau Pincode" value={bureauPincode || 'N/A'} valueClass="text-indigo-700" />
               <Field Icon={Briefcase} label="Profile" value={lead.profile || 'N/A'} valueClass="text-gray-800 capitalize" />
             </InfoSection>
 

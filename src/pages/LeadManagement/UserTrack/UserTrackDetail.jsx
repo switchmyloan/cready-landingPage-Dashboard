@@ -7,7 +7,7 @@ import {
   MousePointerClick, LayoutGrid,
 } from 'lucide-react';
 
-import { getUserTrackDetail } from '../../../api-services/Modules/Leads';
+import { getUserTrackDetail, searchLeadGeneration } from '../../../api-services/Modules/Leads';
 import ToastNotification from '../../../components/Notification/ToastNotification';
 import LeadFeedback from '../../../components/LeadFeedback/LeadFeedback';
 
@@ -121,6 +121,23 @@ const UserTrackDetail = () => {
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
+  // Bureau pincode from the leads-generation PI lookup (ClickHouse), matched by phone.
+  const [bureauPincode, setBureauPincode] = useState(null);
+
+  // Bureau pincode — POST /leadsGeneration { phone } -> { data: { leads: [{ pincode }] } }.
+  // Leaves null (shows "N/A") when the phone isn't in the bureau set.
+  useEffect(() => {
+    if (!phone) { setBureauPincode(null); return; }
+    let cancelled = false;
+    searchLeadGeneration(phone)
+      .then((res) => {
+        if (cancelled) return;
+        const first = res?.data?.data?.leads?.[0];
+        setBureauPincode(first?.pincode || null);
+      })
+      .catch(() => { if (!cancelled) setBureauPincode(null); });
+    return () => { cancelled = true; };
+  }, [phone]);
 
   useEffect(() => {
     if (!phone) return;
@@ -302,6 +319,7 @@ const UserTrackDetail = () => {
               <Field label="DOB"          value={profile.dob} Icon={CalendarDays} />
               <Field label="Gender"       value={profile.gender} />
               <Field label="Pincode"      value={profile.pincode} Icon={MapPin} />
+              <Field label="Bureau Pincode" value={bureauPincode} Icon={MapPin} copyable />
               <Field label="Profession"   value={profile.profession} Icon={Briefcase} />
               <Field label="Salary"       value={formatINR(profile.salary)} Icon={IndianRupee} />
               <Field label="Loan Amount"  value={formatINR(profile.loanAmount)} Icon={IndianRupee} />

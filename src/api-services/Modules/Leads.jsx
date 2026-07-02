@@ -799,6 +799,15 @@ export const getOfferLeadById = async (id) => {
     });
 };
 
+// Bureau PI lookup (ClickHouse Cready_Scrub_PI_Cibil_Equifax) by phone.
+// Returns { statusCode, data: { found, count, leads: [{ pincode, pan, dob, ... }] } }.
+// The offer-lead detail page uses leads[0].pincode as the "Bureau Pincode".
+export const searchLeadGeneration = async (phone) => {
+    return Api().post(`/leadsGeneration`, { phone }, {
+        skipAdminAppend: true,
+    });
+};
+
 // ---------- Lead Feedback (call-center disposition, keyed by phone) ----------
 // skipAdminAppend is required — otherwise the request interceptor rewrites the
 // URL to /lead-feedback/admin/... and breaks the route match.
