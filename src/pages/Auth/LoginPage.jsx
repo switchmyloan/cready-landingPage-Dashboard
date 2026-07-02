@@ -234,6 +234,13 @@ function LoginPage() {
     password: "Camp@ign#Cr3ady!2026$T",
     role: "campaign-team",
   },
+  {
+    id: 15,
+    name: "dev",
+    email: "developer@cready.in",
+    password: "Dev@gnCr3aday!2026",
+    role: "dev",
+  },
 ];
 
   const handleChange = (e) => {
@@ -304,7 +311,11 @@ function LoginPage() {
         navigate("/offer-leads");
       } else if (foundUser.role === "campaign-team") {
         navigate("/campaign");
-      } else {
+      } else if (foundUser.role === "dev") {
+        navigate("/disbursal-dashboard");
+      } else if(foundUser.role == "super-admin"){
+        navigate("/disbursal-dashboard")
+      }else {
         navigate("/");
       }
     } else {

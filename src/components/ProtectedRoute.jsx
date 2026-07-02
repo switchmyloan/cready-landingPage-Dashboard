@@ -39,7 +39,11 @@ export default function ProtectedRoute() {
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
   const currentRoute = routes.find((r) => r.path === pathname);
 
-  if (currentRoute?.roles && !currentRoute.roles.includes(user?.role)) {
+  // `dev` is a super-role — full access to EVERY module (bypasses the per-route
+  // role gate, including any routes added later). No need to list it per route.
+  const isDev = user?.role === "dev";
+
+  if (currentRoute?.roles && !isDev && !currentRoute.roles.includes(user?.role)) {
     // Logged in but this route isn't allowed for the role → bounce to the first
     // route the role CAN open (so a call-center agent lands on Offer Leads, not the
     // login screen). Falls back to /login if the role has no allowed route.

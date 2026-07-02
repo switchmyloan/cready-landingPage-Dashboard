@@ -350,8 +350,8 @@ function Sidebar({ onClose, collapsed, onToggleCollapse }) {
   const buttonRefs = useRef({});
   const sidebarRef = useRef(null);
 
-  // Filter routes based on user role
-  const allowedRoutes = routes.filter(r => r.roles?.includes(user?.role));
+  // Filter routes based on user role. `dev` is a super-role → sees every module.
+  const allowedRoutes = routes.filter(r => user?.role === 'dev' || r.roles?.includes(user?.role));
 
   // Close dropdown if location is not inside the group's children
   useEffect(() => {

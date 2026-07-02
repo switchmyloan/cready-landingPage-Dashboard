@@ -74,7 +74,7 @@ export const routes = [
     group: "Lead Management",
     groupOrder: 1,
     order: 2,
-    roles: ["super-admin", "mv-admin"],
+    roles: ["mv-admin"],
   },
   {
     path: "/business-loans",
@@ -84,7 +84,7 @@ export const routes = [
     group: "Lead Management",
     groupOrder: 1,
     order: 3,
-    roles: ["super-admin"],
+    roles: ["dev"],
   },
   {
     path: "/mv-ivr-logs",
@@ -94,7 +94,7 @@ export const routes = [
     group: "Lead Management",
     groupOrder: 1,
     order: 4,
-    roles: ["admin", "super-admin"],
+    roles: ["admin", "dev"],
   },
   {
     path: "/cr-zype-success-leads",
@@ -104,7 +104,7 @@ export const routes = [
     group: "Lead Management",
     groupOrder: 1,
     order: 5,
-    roles: ["super-admin"],
+    roles: ["dev"],
   },
   {
     path: "/kb-success-leads",
@@ -114,7 +114,7 @@ export const routes = [
     group: "Lead Management",
     groupOrder: 1,
     order: 6,
-    roles: ["super-admin", "kb-admin"],
+    roles: ["dev", "kb-admin"],
   },
   // {
   //   path: "/kb-mumbai-success-leads",
