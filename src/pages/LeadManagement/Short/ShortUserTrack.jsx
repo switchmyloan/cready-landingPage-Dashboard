@@ -46,13 +46,13 @@ const STAGES = [
   },
   {
     key: "otp_verified",
-    label: "OTP Verified",
+    label: "OTP Verified Pending",
     Icon: ShieldCheck,
     color: "amber",
   },
   {
     key: "form_submitted",
-    label: "Form Submitted",
+    label: "Form Not Submitted",
     Icon: FileCheck,
     color: "purple",
   },
@@ -122,7 +122,7 @@ const StatCards = ({ summary, loading }) => {
     },
     {
       key: "otp",
-      label: "OTP Verified",
+      label: "OTP Verified Pending",
       value: otp,
       Icon: ShieldCheck,
       color: "amber",
@@ -130,7 +130,7 @@ const StatCards = ({ summary, loading }) => {
     },
     {
       key: "form_submitted",
-      label: "Form Submitted",
+      label: "Form Not Submitted",
       value: form,
       Icon: FileCheck,
       color: "purple",
@@ -812,7 +812,7 @@ const ShortUserTrack = () => {
           ]}
           tiles={[
             { label: 'Total users' },
-            { label: 'OTP verified' },
+            { label: 'OTP verified Pending' },
             { label: 'Submitted' },
           ]}
           progressLabel="Preparing your funnel"
