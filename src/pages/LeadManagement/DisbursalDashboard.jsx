@@ -642,6 +642,13 @@ const isRapidMoneyLender = (name) => {
     return n === 'rpm' || n === 'rapidmoney';
 };
 
+// Hero is a HIGH-ticket lender; hide it from the SHORT disbursal view only
+// (it stays itemised in the high-ticket view). Matches "Hero" / "HeroFinCorp".
+const isHeroLender = (name) => {
+    const n = String(name || '').toLowerCase().replace(/[\s_-]/g, '');
+    return n === 'hero' || n === 'herofincorp';
+};
+
 /* LENDER LIST (used for both amount & count) */
 const LenderChart = ({ kind, data, loading, onLenderClick }) => {
     const isAmount = kind === 'amount';
@@ -765,11 +772,9 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
         getDisbursalFilterOptions({ scope })
             .then(res => {
                 const opts = res?.data?.data || { lenders: [], employmentTypes: [] };
-                // Hide RapidMoney (RPM) from the lender filter dropdown in the
-                // HIGH-ticket view (short scope keeps it — it's a short lender).
-                if (scope !== 'short') {
-                    opts.lenders = (opts.lenders || []).filter(l => !isRapidMoneyLender(l));
-                }
+                // Hide RapidMoney (RPM) from the lender filter dropdown — both
+                // high-ticket AND short disbursal exclude it (RPM = Cready RPM module).
+                opts.lenders = (opts.lenders || []).filter(l => !isRapidMoneyLender(l) && !(scope === 'short' && isHeroLender(l)));
                 setFilterOptions(opts);
             })
             .catch(e => console.error(e));
@@ -799,19 +804,14 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 if (signal?.aborted) return;
                 const d = res?.data?.data || {};
                 let allRows = d.data || [];
-                if (scope !== 'short') {
-                    // Hide RapidMoney (RPM) from the HIGH-ticket transactions table and
-                    // recompute the count + "Total in view" from the RPM-excluded set so
-                    // the header numbers stay consistent with the visible rows.
-                    allRows = allRows.filter(r => !isRapidMoneyLender(r.lender));
-                    setRows(allRows);
-                    setTotal(allRows.length);
-                    setFilteredAmount(allRows.reduce((s, r) => s + (Number(r.disb_amt) || 0), 0));
-                } else {
-                    setRows(allRows);
-                    setTotal(d.pagination?.total || 0);
-                    setFilteredAmount(d.filteredAmount || 0);
-                }
+                // Exclude RapidMoney (RPM) from BOTH high-ticket and short disbursal,
+                // then recompute the count + "Total in view" from the RPM-excluded set
+                // so the header numbers (and KPI cards via onStats) stay consistent
+                // with the visible rows.
+                allRows = allRows.filter(r => !isRapidMoneyLender(r.lender) && !(scope === 'short' && isHeroLender(r.lender)));
+                setRows(allRows);
+                setTotal(allRows.length);
+                setFilteredAmount(allRows.reduce((s, r) => s + (Number(r.disb_amt) || 0), 0));
             })
             .catch(e => { if (!signal?.aborted) console.error(e); })
             .finally(() => { if (!signal?.aborted) setLoading(false); });
@@ -913,6 +913,8 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 utmMedium,
             });
             let allRows = res?.data?.data?.data || [];
+            // Exclude RapidMoney (RPM) — and Hero for short — so the CSV matches the grid.
+            allRows = allRows.filter(r => !isRapidMoneyLender(r.lender) && !(scope === 'short' && isHeroLender(r.lender)));
 
             const q = String(search || '').trim().toLowerCase();
             if (q) {
