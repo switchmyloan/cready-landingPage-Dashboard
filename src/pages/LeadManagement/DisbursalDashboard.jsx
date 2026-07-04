@@ -642,12 +642,13 @@ const isRapidMoneyLender = (name) => {
     return n === 'rpm' || n === 'rapidmoney';
 };
 
-// Hero is a HIGH-ticket lender; hide it from the SHORT disbursal view only
-// (it stays itemised in the high-ticket view). Matches "Hero" / "HeroFinCorp".
-const isHeroLender = (name) => {
-    const n = String(name || '').toLowerCase().replace(/[\s_-]/g, '');
-    return n === 'hero' || n === 'herofincorp';
-};
+// The SHORT disbursal view — grid, filter dropdown, CSV, charts — hides ONLY
+// Hero (a high-ticket lender) and RapidMoney (tracked in the Cready RPM module);
+// every other lender is shown. Matches the blacklist in
+// get_disbursement_grid_short_v3 + the charts.
+const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney']);
+const isShortWhitelistLender = (name) =>
+    !SHORT_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
 /* LENDER LIST (used for both amount & count) */
 const LenderChart = ({ kind, data, loading, onLenderClick }) => {
@@ -774,7 +775,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 const opts = res?.data?.data || { lenders: [], employmentTypes: [] };
                 // Hide RapidMoney (RPM) from the lender filter dropdown — both
                 // high-ticket AND short disbursal exclude it (RPM = Cready RPM module).
-                opts.lenders = (opts.lenders || []).filter(l => !isRapidMoneyLender(l) && !(scope === 'short' && isHeroLender(l)));
+                opts.lenders = (opts.lenders || []).filter(l => scope === 'short' ? isShortWhitelistLender(l) : !isRapidMoneyLender(l));
                 setFilterOptions(opts);
             })
             .catch(e => console.error(e));
@@ -808,7 +809,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 // then recompute the count + "Total in view" from the RPM-excluded set
                 // so the header numbers (and KPI cards via onStats) stay consistent
                 // with the visible rows.
-                allRows = allRows.filter(r => !isRapidMoneyLender(r.lender) && !(scope === 'short' && isHeroLender(r.lender)));
+                allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : !isRapidMoneyLender(r.lender));
                 setRows(allRows);
                 setTotal(allRows.length);
                 setFilteredAmount(allRows.reduce((s, r) => s + (Number(r.disb_amt) || 0), 0));
@@ -913,8 +914,8 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 utmMedium,
             });
             let allRows = res?.data?.data?.data || [];
-            // Exclude RapidMoney (RPM) — and Hero for short — so the CSV matches the grid.
-            allRows = allRows.filter(r => !isRapidMoneyLender(r.lender) && !(scope === 'short' && isHeroLender(r.lender)));
+            // Exclude RapidMoney (RPM) — for both scopes — so the CSV matches the grid.
+            allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : !isRapidMoneyLender(r.lender));
 
             const q = String(search || '').trim().toLowerCase();
             if (q) {
@@ -1376,9 +1377,9 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
             .then(res => {
                 if (controller.signal.aborted) return;
                 let rows = res?.data?.data || [];
-                // Hide RapidMoney (RPM) from the HIGH-ticket disbursal view — it's a
-                // short-ticket lender; the short scope keeps it.
-                if (scope !== 'short') rows = rows.filter(d => !isRapidMoneyLender(d.name));
+                // Show ONLY whitelisted lenders per scope (short vs high) — mirrors the
+                // grid SP + charts so the "by lender" cards never itemise the wrong side.
+                rows = rows.filter(d => scope === 'short' ? isShortWhitelistLender(d.name) : !isRapidMoneyLender(d.name));
                 setLenderStats(rows);
             })
             .catch(e => { if (!controller.signal.aborted) console.error(e); })

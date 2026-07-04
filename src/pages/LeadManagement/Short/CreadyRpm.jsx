@@ -13,9 +13,22 @@ import {
   Search,
   RefreshCw,
   X,
+  TrendingUp,
+  Loader2,
 } from "lucide-react";
+import {
+  ResponsiveContainer,
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+} from "recharts";
 
-import { getCreadyRpm } from "../../../api-services/Modules/Leads";
+import { getCreadyRpm, getCreadyRpmAfPaidTrend } from "../../../api-services/Modules/Leads";
 import { shortUserTrackColumn } from "../../../components/TableHeader";
 import ToastNotification from "../../../components/Notification/ToastNotification";
 import ExportModal from "../../../components/ExportModal";
@@ -74,7 +87,291 @@ const COLOR_MAP = {
   },
 };
 
+// Short month labels for the AF-trend axis / range header. Parse the ISO
+// 'YYYY-MM-DD' by hand so there's no UTC off-by-one from new Date().
+const AF_MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const fmtDay = (iso) => {
+  if (!iso) return "";
+  const [, m, d] = String(iso).split("-");
+  return `${d} ${AF_MONTHS[Number(m) - 1] || ""}`;
+};
+
+// Local (browser) ISO date helpers for the modal's date-range presets.
+const pad2 = (n) => String(n).padStart(2, "0");
+const isoOf = (dt) => `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+const todayISO = () => isoOf(new Date());
+const daysAgoISO = (n) => {
+  const dt = new Date();
+  dt.setDate(dt.getDate() - n);
+  return isoOf(dt);
+};
+
+const AF_PRESETS = [
+  { k: "today", label: "Today" },
+  { k: "yest", label: "Yesterday" },
+  { k: "7d", label: "7 Days" },
+  { k: "30d", label: "30 Days" },
+  { k: "90d", label: "90 Days" },
+];
+
+const AfTooltip = ({ active, payload }) => {
+  if (!active || !payload || !payload.length) return null;
+  const p = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-lg">
+      <p className="font-semibold text-gray-900">{p.label}</p>
+      <p className="mt-0.5 text-gray-600">
+        AF Paid: <span className="font-semibold text-purple-600">{p.count}</span>
+      </p>
+      <p className="text-gray-600">
+        Amount:{" "}
+        <span className="font-semibold text-green-600">
+          ₹{Number(p.amount).toLocaleString("en-IN")}
+        </span>
+      </p>
+    </div>
+  );
+};
+
+// Date-wise AF Paid trend, shown when the AF Paid / AF Amount card is clicked.
+// Fetches its own data (the dashboard's custom range if one is set, else the
+// last 30 days). Degrades to an empty state if the RapidMoney replica is down.
+const AfPaidTrendModal = ({ open, onClose }) => {
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
+  const [preset, setPreset] = useState("today"); // 'today' | 'yest' | '7d' | '30d' | '90d' | 'custom'
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  // Every time the modal opens, default to Today (a fresh AF snapshot). The user
+  // can then switch presets or pick a custom range.
+  useEffect(() => {
+    if (!open) return;
+    setPreset("today");
+    setCustomFrom("");
+    setCustomTo("");
+  }, [open]);
+
+  // Effective ISO range sent to the API. A partial custom range (only one date)
+  // falls back to null → the backend then uses its own last-30-days window.
+  const { effFrom, effTo } = useMemo(() => {
+    if (preset === "custom") {
+      return { effFrom: customFrom || null, effTo: customTo || null };
+    }
+    if (preset === "today") {
+      const t = todayISO();
+      return { effFrom: t, effTo: t };
+    }
+    if (preset === "yest") {
+      const y = daysAgoISO(1);
+      return { effFrom: y, effTo: y };
+    }
+    const n = preset === "7d" ? 7 : preset === "90d" ? 90 : 30;
+    return { effFrom: daysAgoISO(n - 1), effTo: todayISO() };
+  }, [preset, customFrom, customTo]);
+
+  // A single-day range (Today / Yesterday / one-day custom) is shown hour-wise
+  // so the curve has shape; multi-day ranges stay date-wise.
+  const granularity = effFrom && effTo && effFrom === effTo ? "hour" : "day";
+
+  useEffect(() => {
+    if (!open) return undefined;
+    let cancelled = false;
+    setLoading(true);
+    getCreadyRpmAfPaidTrend({
+      fromDate: effFrom || undefined,
+      toDate: effTo || undefined,
+      granularity,
+    })
+      .then((res) => {
+        if (!cancelled) setData(res?.data || null);
+      })
+      .catch(() => {
+        if (!cancelled) setData({ series: [], totalCount: 0, totalAmount: 0 });
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, effFrom, effTo, granularity]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  const series = data?.series || [];
+  const hasData = series.some((d) => (d.count || 0) > 0);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-5xl rounded-2xl bg-white shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-start justify-between border-b border-gray-100 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <div className="rounded-lg bg-purple-50 p-2 text-purple-600">
+              <TrendingUp size={18} />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-gray-900">
+                AF Paid — Date-wise trend
+              </h3>
+              <p className="text-xs text-gray-500">
+                {data?.from
+                  ? data.from === data.to
+                    ? `${fmtDay(data.from)}${data.granularity === "hour" ? " · hour-wise" : ""}`
+                    : `${fmtDay(data.from)} – ${fmtDay(data.to)}`
+                  : "Daily AF collected"}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Date filter — presets + custom range (independent of the dashboard). */}
+        <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 px-5 py-3">
+          {AF_PRESETS.map((p) => (
+            <button
+              key={p.k}
+              onClick={() => setPreset(p.k)}
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition ${
+                preset === p.k
+                  ? "border-purple-600 bg-purple-600 text-white"
+                  : "border-gray-200 bg-white text-gray-600 hover:border-purple-300"
+              }`}
+            >
+              {p.label}
+            </button>
+          ))}
+          <span className="mx-1 h-4 w-px bg-gray-200" />
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              value={customFrom}
+              max={customTo || todayISO()}
+              onChange={(e) => {
+                setCustomFrom(e.target.value);
+                setPreset("custom");
+              }}
+              className={`rounded-md border px-2 py-1 text-xs text-gray-700 ${
+                preset === "custom" ? "border-purple-300" : "border-gray-200"
+              }`}
+            />
+            <span className="text-xs text-gray-400">–</span>
+            <input
+              type="date"
+              value={customTo}
+              min={customFrom || undefined}
+              max={todayISO()}
+              onChange={(e) => {
+                setCustomTo(e.target.value);
+                setPreset("custom");
+              }}
+              className={`rounded-md border px-2 py-1 text-xs text-gray-700 ${
+                preset === "custom" ? "border-purple-300" : "border-gray-200"
+              }`}
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 px-5 py-3">
+          <div className="rounded-xl bg-purple-50 px-4 py-3">
+            <p className="text-[11px] font-medium text-purple-700">Total AF Paid</p>
+            <p className="text-xl font-bold text-gray-900">
+              {(data?.totalCount || 0).toLocaleString()}
+            </p>
+          </div>
+          <div className="rounded-xl bg-green-50 px-4 py-3">
+            <p className="text-[11px] font-medium text-green-700">Total AF Amount</p>
+            <p className="text-xl font-bold text-gray-900">
+              ₹{(data?.totalAmount || 0).toLocaleString("en-IN")}
+            </p>
+          </div>
+        </div>
+
+        <div className="px-3 pb-5 pt-1">
+          {loading ? (
+            <div className="flex h-80 items-center justify-center text-gray-400">
+              <Loader2 className="animate-spin" size={22} />
+            </div>
+          ) : hasData ? (
+            <ResponsiveContainer width="100%" height={380}>
+              {data?.granularity === "hour" ? (
+                // Single day (Today / Yesterday) → hour-wise smooth area line.
+                <AreaChart data={series} margin={{ top: 10, right: 12, left: -8, bottom: 4 }}>
+                  <defs>
+                    <linearGradient id="afPaidGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    interval="preserveStartEnd"
+                    minTickGap={16}
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#6b7280" }} width={32} />
+                  <Tooltip content={<AfTooltip />} cursor={{ stroke: "#8b5cf6", strokeOpacity: 0.3, strokeWidth: 1 }} />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    fill="url(#afPaidGrad)"
+                    dot={false}
+                    activeDot={{ r: 4 }}
+                  />
+                </AreaChart>
+              ) : (
+                // Multi-day range → date-wise bar graph.
+                <BarChart data={series} margin={{ top: 10, right: 12, left: -8, bottom: 4 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 11, fill: "#6b7280" }}
+                    interval="preserveStartEnd"
+                    minTickGap={16}
+                  />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#6b7280" }} width={32} />
+                  <Tooltip content={<AfTooltip />} cursor={{ fill: "rgba(139,92,246,0.08)" }} />
+                  <Bar dataKey="count" fill="#8b5cf6" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                </BarChart>
+              )}
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-80 flex-col items-center justify-center text-gray-400">
+              <CalendarDays size={28} className="mb-2 opacity-40" />
+              <p className="text-sm">Is period me koi AF Paid nahi mila</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const StatCards = ({ summary, loading }) => {
+  const [afOpen, setAfOpen] = useState(false);
   const landed = summary.total || 0;
   const lenderSelected = summary.lender_clicked || 0;
   const campaign = summary.campaign || {};
@@ -134,6 +431,7 @@ const StatCards = ({ summary, loading }) => {
       value: application.count || 0,
       Icon: CalendarDays,
       color: "amber",
+      pct: pct(application.count || 0),
     },
     {
       key: "afpaid",
@@ -141,6 +439,9 @@ const StatCards = ({ summary, loading }) => {
       value: afPaid.count || 0,
       Icon: Wallet,
       color: "purple",
+      pct: pct(afPaid.count || 0),
+      clickable: true,
+      onClick: () => setAfOpen(true),
     },
     {
       key: "afamount",
@@ -149,6 +450,8 @@ const StatCards = ({ summary, loading }) => {
       value: `₹${((afPaid.count || 0) * 150).toLocaleString("en-IN")}`,
       Icon: IndianRupee,
       color: "green",
+      // clickable: true,
+      // onClick: () => setAfOpen(true),
     },
   ];
 
@@ -169,13 +472,31 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
+    <>
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-4">
-      {cards.map(({ key, label, Icon, color, value, pct, placeholder, isBase, breakdown }) => {
+      {cards.map(({ key, label, Icon, color, value, pct, placeholder, isBase, breakdown, clickable, onClick }) => {
         const c = COLOR_MAP[color];
         return (
           <div
             key={key}
-            className="group relative flex items-start justify-between p-3 bg-white rounded-lg border border-gray-200 hover:shadow-md transition"
+            onClick={clickable ? onClick : undefined}
+            role={clickable ? "button" : undefined}
+            tabIndex={clickable ? 0 : undefined}
+            onKeyDown={
+              clickable
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onClick();
+                    }
+                  }
+                : undefined
+            }
+            className={`group relative flex items-start justify-between p-3 bg-white rounded-lg border transition hover:shadow-md ${
+              clickable
+                ? "cursor-pointer border-purple-200 ring-1 ring-transparent hover:border-purple-400 hover:ring-purple-100"
+                : "border-gray-200"
+            }`}
           >
             <div className="min-w-0">
               <p className="text-[11px] font-medium text-gray-500 leading-tight min-h-[26px] flex items-start">
@@ -202,9 +523,15 @@ const StatCards = ({ summary, loading }) => {
                     </p>
                   )}
                   {breakdown && (
-                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 group-hover:bg-indigo-600 group-hover:text-white group-hover:ring-indigo-600 transition-colors">
-                      <MousePointerClick size={10} className="animate-pulse group-hover:animate-none" />
-                      Hover for details
+                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-indigo-600 bg-indigo-50 ring-1 ring-indigo-100 whitespace-nowrap group-hover:bg-indigo-600 group-hover:text-white group-hover:ring-indigo-600 transition-colors">
+                      <MousePointerClick size={10} className="shrink-0 animate-pulse group-hover:animate-none" />
+                      <span>Hover for details</span>
+                    </span>
+                  )}
+                  {clickable && (
+                    <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-purple-600 bg-purple-50 ring-1 ring-purple-100 whitespace-nowrap group-hover:bg-purple-600 group-hover:text-white group-hover:ring-purple-600 transition-colors">
+                      <TrendingUp size={10} className="shrink-0" />
+                      <span>View trend</span>
                     </span>
                   )}
                 </>
@@ -247,6 +574,8 @@ const StatCards = ({ summary, loading }) => {
         );
       })}
     </div>
+      <AfPaidTrendModal open={afOpen} onClose={() => setAfOpen(false)} />
+    </>
   );
 };
 

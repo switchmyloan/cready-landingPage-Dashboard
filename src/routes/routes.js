@@ -136,7 +136,26 @@ export const routes = [
   //   order: 8,
   //   roles: ["super-admin", "kb-banglore"],
   // },
-
+ {
+    path: "/kb-lending-page",
+    label: "KB Success Leads",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 20,
+    roles: ["super-admin", "kb-admin", "mv-page", "mv-page-admin", "management"],
+  },
+  {
+    path: "/mv-success-leads",
+    label: "MV Success Leads",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 20,
+    roles: ["super-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
+  },
   {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
@@ -186,26 +205,6 @@ export const routes = [
     groupOrder: 1.5,
     order: 10.5,
     roles: ["super-admin", "mv-page", "mv-page-admin", "management"],
-  },
-    {
-    path: "/kb-lending-page",
-    label: "High KB Success Leads",
-    icon: "ClipboardList",
-    showInSidebar: true,
-    group: "High Ticket",
-    groupOrder: 1.5,
-    order: 11,
-    roles: ["super-admin", "kb-admin", "mv-page", "mv-page-admin", "management"],
-  },
-  {
-    path: "/mv-success-leads",
-    label: "High MV Success Leads",
-    icon: "ClipboardList",
-    showInSidebar: true,
-    group: "High Ticket",
-    groupOrder: 1.5,
-    order: 11.5,
-    roles: ["super-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
   },
   {
     path: "/draft-leads-new",
@@ -285,7 +284,7 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 24,
-    roles: ["super-admin", "short-page-admin", "management", "marketing"],
+    roles: ["super-admin", "short-page-admin", "management", "marketing", "campaign-team"],
   },
   // Campaign Team — replica of Cready RPM with its own role + sidebar group.
   {

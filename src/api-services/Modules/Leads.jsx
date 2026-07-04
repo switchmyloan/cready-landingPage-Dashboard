@@ -222,6 +222,7 @@ export const getMvSuccessFromOfferLeads = async ({
   status,
   utmMedium,
   utmSource,
+  scope,
 } = {}) => {
     return Api().get(`/offer-leads/mv-success-track`, {
         params: {
@@ -234,6 +235,7 @@ export const getMvSuccessFromOfferLeads = async ({
             status,
             utmMedium,
             utmSource,
+            scope,
         },
         skipAdminAppend: true,
     });
@@ -665,6 +667,15 @@ export const getCreadyRpmDistinctMediums = async () => {
 export const getCreadyRpmDetail = async ({ phone } = {}) => {
     return Api().get(`/cready-rpm/detail`, {
         params: { phone },
+        skipAdminAppend: true,
+    });
+};
+
+// AF Paid trend for the Cready RPM dashboard (shown on AF card click).
+// granularity='hour' returns a 24-hour breakdown for a single day; else daily.
+export const getCreadyRpmAfPaidTrend = async ({ type, fromDate, toDate, granularity } = {}) => {
+    return Api().get(`/cready-rpm/af-paid-trend`, {
+        params: { type, fromDate, toDate, granularity },
         skipAdminAppend: true,
     });
 };
