@@ -642,23 +642,13 @@ const isRapidMoneyLender = (name) => {
     return n === 'rpm' || n === 'rapidmoney';
 };
 
-// Hero is a HIGH-ticket lender; hide it from the SHORT disbursal view only
-// (it stays itemised in the high-ticket view). Matches "Hero" / "HeroFinCorp".
-const isHeroLender = (name) => {
-    const n = String(name || '').toLowerCase().replace(/[\s_-]/g, '');
-    return n === 'hero' || n === 'herofincorp';
-};
-
-// Real short-ticket lenders (the app's priorityOrder minus RapidMoney, which is
-// tracked in the Cready RPM module). The SHORT disbursal view — grid, filter
-// dropdown, CSV — shows ONLY these; everything else (MoneyView/Vivifi/Hero/etc.)
-// is hidden. Matches the whitelist in get_disbursement_grid_short_v3 + the charts.
-const SHORT_LENDER_WHITELIST = new Set([
-    'ramfincorp', 'kreditbee', 'truebalance', 'mpokket', 'creditplus',
-    'lendingplate', 'smartcoin', 'cashvia', 'speedoloan', 'fintechcloud',
-]);
+// The SHORT disbursal view — grid, filter dropdown, CSV, charts — hides ONLY
+// Hero (a high-ticket lender) and RapidMoney (tracked in the Cready RPM module);
+// every other lender is shown. Matches the blacklist in
+// get_disbursement_grid_short_v3 + the charts.
+const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney']);
 const isShortWhitelistLender = (name) =>
-    SHORT_LENDER_WHITELIST.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+    !SHORT_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
 /* LENDER LIST (used for both amount & count) */
 const LenderChart = ({ kind, data, loading, onLenderClick }) => {
@@ -924,7 +914,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 utmMedium,
             });
             let allRows = res?.data?.data?.data || [];
-            // Exclude RapidMoney (RPM) — and Hero for short — so the CSV matches the grid.
+            // Exclude RapidMoney (RPM) — for both scopes — so the CSV matches the grid.
             allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : !isRapidMoneyLender(r.lender));
 
             const q = String(search || '').trim().toLowerCase();

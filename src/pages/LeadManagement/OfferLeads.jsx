@@ -177,7 +177,7 @@ const OfferLeads = () => {
     { value: 'creditplus', label: 'creditplus' },
     { value: 'LendingPlate', label: 'LendingPlate' },
     { value: 'incred', label: 'incred' },
-    // { value: 'vivifi', label: 'vivifi' },
+    { value: 'vivifi', label: 'vivifi' },
   ];
 
   // Hardcoded baseline so the dropdown always has at least one option even
