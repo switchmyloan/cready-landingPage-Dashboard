@@ -17,7 +17,7 @@ const SummaryCards = ({
   const cards = [
     {
       show: typeof totalLeads === 'number',
-      title: 'Total Logs',
+      title: 'Total Leads',
       value: totalLeads,
       icon: Users,
       color: 'text-blue-600',

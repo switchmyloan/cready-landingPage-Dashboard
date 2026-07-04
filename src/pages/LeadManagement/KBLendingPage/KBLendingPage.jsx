@@ -356,7 +356,7 @@ const KBLendingPage = () => {
         onSearch={debouncedSearch}
         onRefresh={fetchLeads}
         onExport={canExport ? handleExport : undefined}
-        title="KB Success Leads (Lending Page)"
+        title="KB Success Leads (Landing Page)"
         onFilterByDate={onFilterByDate}
         activeFilter={query.filter_date}
         onFilterByRange={onFilterByRange}
