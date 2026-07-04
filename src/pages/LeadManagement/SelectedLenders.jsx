@@ -22,6 +22,32 @@ const debounce = (func, delay) => {
   };
 };
 
+// Lenders we ALWAYS surface as KPI cards, even when they fall outside the dynamic
+// top-by-count set.
+const PINNED_LENDERS = ['poonawalla', 'InCred', 'KreditBee', 'MoneyView', 'TrueBalance', 'Zype_Dedupe'];
+
+// Mirror the backend's lender canonicalisation (selectedLenders.services.js) so a
+// pinned name matches the summary's lenderWise entry — the raw "Zype_Dedupe" is
+// merged into the canonical "Zype", so we must match/display on that.
+const LENDER_ALIAS = {
+  zype: 'Zype',
+  zypededupe: 'Zype',
+  poonawalla: 'Poonawalla',
+  smartcoinhighintent: 'SmartCoinHighIntent',
+  unitysmallfinancebank: 'Unity Small Finance Bank',
+};
+const canonicalLender = (name) => {
+  const key = String(name || '').toLowerCase().replace(/[\s_]+/g, '');
+  return LENDER_ALIAS[key] || String(name || '').trim();
+};
+const lenderKey = (name) => canonicalLender(name).toLowerCase();
+
+// RapidMoney is a short-ticket lender — excluded from the high-ticket summary.
+const isRapidMoney = (name) => {
+  const k = lenderKey(name);
+  return k === 'rapidmoney' || k === 'rpm';
+};
+
 const SelectedLenders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -280,14 +306,58 @@ const SelectedLenders = () => {
     navigate(`/selected-lenders/${lead.id}`, { state: { lead } });
   };
 
-  // Top 4 lender cards with colors
+  // Card accent colors — cycled across however many lender cards we render.
   const topLenderColors = [
     { bg: 'bg-purple-50', text: 'text-purple-600' },
     { bg: 'bg-blue-50', text: 'text-blue-600' },
     { bg: 'bg-green-50', text: 'text-green-600' },
     { bg: 'bg-orange-50', text: 'text-orange-600' },
+    { bg: 'bg-pink-50', text: 'text-pink-600' },
+    { bg: 'bg-teal-50', text: 'text-teal-600' },
+    { bg: 'bg-amber-50', text: 'text-amber-600' },
+    { bg: 'bg-cyan-50', text: 'text-cyan-600' },
+    { bg: 'bg-rose-50', text: 'text-rose-600' },
+    { bg: 'bg-indigo-50', text: 'text-indigo-600' },
   ];
-  const topLenders = summaryData.lenderWise.slice(0, 4);
+
+  // Strip RapidMoney (short-ticket) from the high-ticket summary so BOTH the Total
+  // and the cards reflect high-ticket only. rapidMoneyCount is subtracted from the
+  // total; displayLenderWise drops the RapidMoney row.
+  const rapidMoneyCount = useMemo(
+    () => summaryData.lenderWise
+      .filter((l) => isRapidMoney(l.lenderName))
+      .reduce((s, l) => s + (Number(l.count) || 0), 0),
+    [summaryData.lenderWise]
+  );
+  const displayLenderWise = useMemo(
+    () => summaryData.lenderWise.filter((l) => !isRapidMoney(l.lenderName)),
+    [summaryData.lenderWise]
+  );
+  const displayTotal = Math.max(0, (summaryData.totalLeads || 0) - rapidMoneyCount);
+
+  // Lender KPI cards = EVERY (canonical) lender in the summary (RapidMoney removed),
+  // so the card counts reconcile with the adjusted Total. PLUS any pinned lender
+  // missing from the period, shown as a 0 card. Deduped case-insensitively.
+  const lenderCards = useMemo(() => {
+    const lw = displayLenderWise;
+    const seen = new Set(lw.map((l) => lenderKey(l.lenderName)));
+    const cards = [...lw];
+    for (const name of PINNED_LENDERS) {
+      const key = lenderKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cards.push({ lenderName: canonicalLender(name), count: 0 });
+    }
+    return cards;
+  }, [displayLenderWise]);
+
+  // Leads with NO lender attributed = Total − Σ per-lender counts. Rendered as a
+  // separate "No Lender" card so the KPI row visibly adds up to Total Leads.
+  const attributedTotal = useMemo(
+    () => displayLenderWise.reduce((s, l) => s + (Number(l.count) || 0), 0),
+    [displayLenderWise]
+  );
+  const unattributed = Math.max(0, displayTotal - attributedTotal);
 
   // Shared shimmer pattern (animate-shimmer keyframe in tailwind.config.js) —
   // keeps the loading look uniform with SummaryCards, MainTable and the
@@ -321,18 +391,18 @@ const SelectedLenders = () => {
             <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition">
               <div>
                 <p className="text-sm font-medium text-gray-500">Total Leads</p>
-                <p className="mt-1 text-2xl font-bold text-gray-900">{summaryData.totalLeads.toLocaleString()}</p>
-                <p className="text-xs text-gray-400 mt-1">{summaryData.lenderWise.length} lenders</p>
+                <p className="mt-1 text-2xl font-bold text-gray-900">{displayTotal.toLocaleString()}</p>
+                <p className="text-xs text-gray-400 mt-1">{displayLenderWise.length} lenders</p>
               </div>
               <div className="p-3 rounded-full bg-indigo-50">
                 <Users className="text-indigo-600" size={24} />
               </div>
             </div>
 
-            {topLenders.length > 0 ? topLenders.map((lender, idx) => {
-              const colors = topLenderColors[idx];
-              const share = summaryData.totalLeads > 0
-                ? ((lender.count / summaryData.totalLeads) * 100).toFixed(1)
+            {lenderCards.map((lender, idx) => {
+              const colors = topLenderColors[idx % topLenderColors.length];
+              const share = displayTotal > 0
+                ? ((lender.count / displayTotal) * 100).toFixed(1)
                 : '0.0';
               return (
                 <div
@@ -343,7 +413,7 @@ const SelectedLenders = () => {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-500 truncate">{lender.lenderName}</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900">{lender.count.toLocaleString()}</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{(lender.count || 0).toLocaleString()}</p>
                     <p className="text-xs text-gray-400 mt-1">{share}% share</p>
                   </div>
                   <div className={`p-3 rounded-full ${colors.bg} flex-shrink-0 ml-2`}>
@@ -351,9 +421,21 @@ const SelectedLenders = () => {
                   </div>
                 </div>
               );
-            }) : (
-              <div className="lg:col-span-4 flex items-center justify-center p-4 bg-white rounded-lg shadow-sm border border-gray-200 text-gray-400 text-sm">
-                No lender data for selected period
+            })}
+
+            {/* Leads with no lender attributed — makes the row add up to Total. */}
+            {unattributed > 0 && (
+              <div className="flex items-center justify-between p-4 bg-white rounded-lg shadow-sm border border-dashed border-gray-300">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-gray-500 truncate">No Lender</p>
+                  <p className="mt-1 text-2xl font-bold text-gray-900">{unattributed.toLocaleString()}</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {displayTotal > 0 ? ((unattributed / displayTotal) * 100).toFixed(1) : '0.0'}% · unattributed
+                  </p>
+                </div>
+                <div className="p-3 rounded-full bg-gray-100 flex-shrink-0 ml-2">
+                  <Building2 className="text-gray-400" size={24} />
+                </div>
               </div>
             )}
           </>

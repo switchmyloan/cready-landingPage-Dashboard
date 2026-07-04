@@ -22,6 +22,14 @@ const debounce = (func, delay) => {
   };
 };
 
+// Short-ticket lenders we ALWAYS surface as KPI cards. The short backend stores
+// raw lender names (no aliasing), so match case-insensitively.
+const PINNED_LENDERS = [
+  'RapidMoney', 'RamFinCorp', 'KreditBee', 'TrueBalance', 'CreditPlus',
+  'MPokket', 'SmartCoin', 'LendingPlate', 'SpeedoLoan', 'LoanWalle', 'Cashvia',
+];
+const lenderKey = (s) => String(s || '').toLowerCase().trim();
+
 const ShortSelectedLenders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -266,13 +274,38 @@ const ShortSelectedLenders = () => {
     navigate(`/short-selected-lenders/${lead.id}`, { state: { lead } });
   };
 
+  // Card accent colors — cycled across however many lender cards we render.
   const topLenderColors = [
     { bg: 'bg-purple-50', text: 'text-purple-600' },
     { bg: 'bg-blue-50', text: 'text-blue-600' },
     { bg: 'bg-green-50', text: 'text-green-600' },
     { bg: 'bg-orange-50', text: 'text-orange-600' },
+    { bg: 'bg-pink-50', text: 'text-pink-600' },
+    { bg: 'bg-teal-50', text: 'text-teal-600' },
+    { bg: 'bg-amber-50', text: 'text-amber-600' },
+    { bg: 'bg-cyan-50', text: 'text-cyan-600' },
+    { bg: 'bg-rose-50', text: 'text-rose-600' },
+    { bg: 'bg-indigo-50', text: 'text-indigo-600' },
+    { bg: 'bg-lime-50', text: 'text-lime-600' },
+    { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600' },
   ];
-  const topLenders = summaryData.lenderWise.slice(0, 4);
+
+  // Lender KPI cards = EVERY lender in the summary (their counts sum to Total
+  // Leads — so the cards reconcile with the total), PLUS any pinned lender missing
+  // from the period (shown as a 0 card so all expected lenders always appear).
+  // lenderWise is already sorted by count desc. Deduped case-insensitively.
+  const lenderCards = useMemo(() => {
+    const lw = summaryData.lenderWise;
+    const seen = new Set(lw.map((l) => lenderKey(l.lenderName)));
+    const cards = [...lw];
+    for (const name of PINNED_LENDERS) {
+      const key = lenderKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      cards.push({ lenderName: name, count: 0 });
+    }
+    return cards;
+  }, [summaryData.lenderWise]);
 
   const SkeletonCard = () => (
     <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-200 animate-pulse">
@@ -336,8 +369,8 @@ const ShortSelectedLenders = () => {
               </div>
             </div>
 
-            {topLenders.length > 0 ? topLenders.map((lender, idx) => {
-              const colors = topLenderColors[idx];
+            {lenderCards.map((lender, idx) => {
+              const colors = topLenderColors[idx % topLenderColors.length];
               const share = summaryData.totalLeads > 0
                 ? ((lender.count / summaryData.totalLeads) * 100).toFixed(1)
                 : '0.0';
@@ -350,7 +383,7 @@ const ShortSelectedLenders = () => {
                 >
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-gray-500 truncate">{lender.lenderName}</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900">{lender.count.toLocaleString()}</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900">{(lender.count || 0).toLocaleString()}</p>
                     <p className="text-xs text-gray-400 mt-1">{share}% share</p>
                   </div>
                   <div className={`p-3 rounded-full ${colors.bg} flex-shrink-0 ml-2`}>
@@ -358,11 +391,7 @@ const ShortSelectedLenders = () => {
                   </div>
                 </div>
               );
-            }) : (
-              <div className="lg:col-span-4 flex items-center justify-center p-4 bg-white rounded-lg shadow-sm border border-gray-200 text-gray-400 text-sm">
-                No lender data for selected period
-              </div>
-            )}
+            })}
           </>
         )}
       </div>
