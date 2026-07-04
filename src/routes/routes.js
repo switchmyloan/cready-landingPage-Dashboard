@@ -285,7 +285,7 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 24,
-    roles: ["super-admin", "short-page-admin", "management", "marketing"],
+    roles: ["super-admin", "short-page-admin", "management", "marketing", "campaign-team"],
   },
   // Campaign Team — replica of Cready RPM with its own role + sidebar group.
   {
