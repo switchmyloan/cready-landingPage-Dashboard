@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 import ToastNotification from '@components/Notification/ToastNotification';
 
 import { getMvSuccessFromOfferLeads } from '../../api-services/Modules/Leads';
+import { getDisbursalFilterOptions } from '../../api-services/Modules/Disbursal';
 import ExportModal from '../../components/ExportModal';
 import ModuleInfoCard from '../../components/ModuleInfoCard';
 import SummaryCards from '../../components/Table/SummaryCards';
@@ -26,6 +27,9 @@ const MVSuccessLeads = () => {
   const [loading, setLoading] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  // High / Short ticket view — swaps the MV Success data source (offerLeads vs
+  // shortOfferLeads, both keyed on mv_apply_status).
+  const [scope, setScope] = useState('high');
 
   const [filteredCount, setFilteredCount] = useState(0);
   const [tablePagination, setTablePagination] = useState({
@@ -55,6 +59,39 @@ const MVSuccessLeads = () => {
     { value: 'SC', label: 'SC' },
   ];
 
+  // Medium dropdown — merge the hardcoded baseline with the DB's distinct
+  // mediums (same source as the Disbursal dashboard) so ALL mediums show.
+  const [mediumOptions, setMediumOptions] = useState(MEDIUM_OPTIONS.map((m) => m.value));
+  useEffect(() => {
+    let cancelled = false;
+    const mergeAndSort = (base, api) => {
+      const seen = new Set();
+      const out = [];
+      for (const s of [...base, ...(Array.isArray(api) ? api : [])]) {
+        const k = String(s || '').toLowerCase();
+        if (!s || seen.has(k)) continue;
+        seen.add(k);
+        out.push(s);
+      }
+      out.sort((a, b) => a.localeCompare(b));
+      return out;
+    };
+    getDisbursalFilterOptions({ scope: 'high' })
+      .then((res) => {
+        if (cancelled) return;
+        const opts = res?.data?.data || {};
+        const base = MEDIUM_OPTIONS.map((m) => m.value);
+        const merged = mergeAndSort(base, opts.utmMediums).filter(
+          (m) => !['quickloans', 'easyloan', 'easyloans'].includes(String(m).toLowerCase())
+        );
+        setMediumOptions(['QuickLoans', ...merged]);
+      })
+      .catch((err) => console.error('Failed to load mediums:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Hardcoded source baseline — same approach as Disbursal Dashboard so the
   // dropdown always has at least one option.
   const SOURCE_OPTIONS = [
@@ -83,6 +120,7 @@ const MVSuccessLeads = () => {
         search: query.search,
         utmMedium: query.utmMedium || undefined,
         utmSource: query.utmSource || undefined,
+        scope,
       });
 
       if (res?.data?.success) {
@@ -104,7 +142,7 @@ const MVSuccessLeads = () => {
     } finally {
       setLoading(false);
     }
-  }, [query.filter_date, query.startDate, query.endDate, query.limit, query.page_no, query.status, query.search, query.utmMedium, query.utmSource]);
+  }, [query.filter_date, query.startDate, query.endDate, query.limit, query.page_no, query.status, query.search, query.utmMedium, query.utmSource, scope]);
 
   useEffect(() => {
     fetchLeads();
@@ -198,6 +236,7 @@ const MVSuccessLeads = () => {
     if (query.profession) urlParams.append("profession", query.profession);
     if (query.utmMedium) urlParams.append("utmMedium", query.utmMedium);
     if (query.utmSource) urlParams.append("utmSource", query.utmSource);
+    if (scope === 'short') urlParams.append("scope", "short");
 
     try {
       ToastNotification.success("Starting CSV download...");
@@ -225,6 +264,28 @@ const MVSuccessLeads = () => {
   return (
     <>
       <Toaster />
+
+      {/* High / Short ticket toggle — swaps the MV Success data source. */}
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm font-semibold text-gray-700">View:</span>
+        <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+          <button
+            type="button"
+            onClick={() => { setScope('high'); setQuery((p) => ({ ...p, page_no: 1 })); }}
+            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition ${scope === 'high' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            High Ticket
+          </button>
+          <button
+            type="button"
+            onClick={() => { setScope('short'); setQuery((p) => ({ ...p, page_no: 1 })); }}
+            className={`px-4 py-1.5 rounded-md text-sm font-semibold transition ${scope === 'short' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:text-gray-900'}`}
+          >
+            Short Ticket
+          </button>
+        </div>
+      </div>
+
       <ExportModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
@@ -252,9 +313,9 @@ const MVSuccessLeads = () => {
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[170px]"
         >
           <option value="">All Mediums</option>
-          {MEDIUM_OPTIONS.map((m) => (
-            <option key={m.value} value={m.value}>
-              {m.label}
+          {mediumOptions.map((m) => (
+            <option key={m} value={m}>
+              {m}
             </option>
           ))}
         </select>

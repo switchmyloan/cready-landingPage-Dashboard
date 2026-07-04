@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import MainTable from '../../components/Table/MainTable';
 import { getOfferLeads, getOfferLeadsLenderKeys, getOfferLeadsFilterValues } from '../../api-services/Modules/Leads';
+import { getDisbursalFilterOptions } from '../../api-services/Modules/Disbursal';
 import { offerLeadsColumn } from '../../components/TableHeader';
 import SummaryCards from '../../components/Table/SummaryCards';
 import OfferLeadsLenderStatsChart from '../../components/OfferLeadsLenderStatsChart';
@@ -179,6 +180,39 @@ const OfferLeads = () => {
     { value: 'incred', label: 'incred' },
     { value: 'vivifi', label: 'vivifi' },
   ];
+
+  // Medium dropdown — merge the hardcoded baseline with the DB's distinct
+  // mediums (same source as the Disbursal dashboard) so ALL mediums show.
+  const [mediumOptions, setMediumOptions] = useState(MEDIUM_OPTIONS.map((m) => m.value));
+  useEffect(() => {
+    let cancelled = false;
+    const mergeAndSort = (base, api) => {
+      const seen = new Set();
+      const out = [];
+      for (const s of [...base, ...(Array.isArray(api) ? api : [])]) {
+        const k = String(s || '').toLowerCase();
+        if (!s || seen.has(k)) continue;
+        seen.add(k);
+        out.push(s);
+      }
+      out.sort((a, b) => a.localeCompare(b));
+      return out;
+    };
+    getDisbursalFilterOptions({ scope: 'high' })
+      .then((res) => {
+        if (cancelled) return;
+        const opts = res?.data?.data || {};
+        const base = MEDIUM_OPTIONS.map((m) => m.value);
+        const merged = mergeAndSort(base, opts.utmMediums).filter(
+          (m) => !['quickloans', 'easyloan', 'easyloans'].includes(String(m).toLowerCase())
+        );
+        setMediumOptions(['QuickLoans', ...merged]);
+      })
+      .catch((err) => console.error('Failed to load mediums:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   // Hardcoded baseline so the dropdown always has at least one option even
   // when the DB has no rows with utm_source set yet. Same approach as the
@@ -782,8 +816,8 @@ const OfferLeads = () => {
                 className="flex-1 min-w-0 border border-gray-200 bg-white rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 transition"
               >
                 <option value="">All Mediums</option>
-                {MEDIUM_OPTIONS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
+                {mediumOptions.map((m) => (
+                  <option key={m} value={m}>{m}</option>
                 ))}
               </select>
               {query.utmMedium && (

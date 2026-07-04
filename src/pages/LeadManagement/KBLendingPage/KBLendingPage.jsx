@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import MainTable from '../../../components/Table/MainTable';
 import { getKBLendingPageLeads } from '../../../api-services/Modules/Leads';
+import { getDisbursalFilterOptions } from '../../../api-services/Modules/Disbursal';
 import { kbLendingPageColumn } from '../../../components/TableHeader';
 import SummaryCards from '../../../components/Table/SummaryCards';
 import ExportModal from '../../../components/ExportModal';
@@ -68,6 +69,39 @@ const KBLendingPage = () => {
     { value: 'SC', label: 'SC' },
   ];
 
+  // Medium dropdown — merge the hardcoded baseline with the DB's distinct
+  // mediums (same source as the Disbursal dashboard) so ALL mediums show.
+  const [mediumOptions, setMediumOptions] = useState(MEDIUM_OPTIONS.map((m) => m.value));
+  useEffect(() => {
+    let cancelled = false;
+    const mergeAndSort = (base, api) => {
+      const seen = new Set();
+      const out = [];
+      for (const s of [...base, ...(Array.isArray(api) ? api : [])]) {
+        const k = String(s || '').toLowerCase();
+        if (!s || seen.has(k)) continue;
+        seen.add(k);
+        out.push(s);
+      }
+      out.sort((a, b) => a.localeCompare(b));
+      return out;
+    };
+    getDisbursalFilterOptions({ scope: 'high' })
+      .then((res) => {
+        if (cancelled) return;
+        const opts = res?.data?.data || {};
+        const base = MEDIUM_OPTIONS.map((m) => m.value);
+        const merged = mergeAndSort(base, opts.utmMediums).filter(
+          (m) => !['quickloans', 'easyloan', 'easyloans'].includes(String(m).toLowerCase())
+        );
+        setMediumOptions(['QuickLoans', ...merged]);
+      })
+      .catch((err) => console.error('Failed to load mediums:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   // Hardcoded source baseline — same approach as Disbursal Dashboard so the
   // dropdown always has at least one option.
   const SOURCE_OPTIONS = [
@@ -105,7 +139,7 @@ const KBLendingPage = () => {
             totalLeads: Number(summary.total) || 0,
             successCount: Number(summary.success) || 0,
             rejectCount: Number(summary.reject) || 0,
-            duplicateCount: Number(summary.duplicate) || 0,
+            duplicateCount: Number(summary.Errors) || 0,
             // Keep distinctProfessions stable across requests so dropdown doesn't flicker
             distinctProfessions: Array.isArray(summary.distinctProfessions) && summary.distinctProfessions.length > 0
               ? summary.distinctProfessions
@@ -283,6 +317,28 @@ const KBLendingPage = () => {
   return (
     <>
       <Toaster />
+
+      {/* High / Short ticket toggle — switches between the two KB Success Leads views. */}
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm font-semibold text-gray-700">View:</span>
+        <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+          <button
+            type="button"
+            onClick={() => navigate('/kb-lending-page')}
+            className="px-4 py-1.5 rounded-md text-sm font-semibold bg-purple-600 text-white shadow-sm transition"
+          >
+            High Ticket
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/short-kb-lending-page')}
+            className="px-4 py-1.5 rounded-md text-sm font-semibold text-gray-600 hover:text-gray-900 transition"
+          >
+            Short Ticket
+          </button>
+        </div>
+      </div>
+
       <ExportModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
@@ -310,8 +366,8 @@ const KBLendingPage = () => {
             className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 min-w-[170px]"
           >
             <option value="">All Mediums</option>
-            {MEDIUM_OPTIONS.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
+            {mediumOptions.map((m) => (
+              <option key={m} value={m}>{m}</option>
             ))}
           </select>
           {query.utmMedium && (

@@ -244,6 +244,28 @@ const ShortKBLendingPage = () => {
   return (
     <>
       <Toaster />
+
+      {/* High / Short ticket toggle — switches between the two KB Success Leads views. */}
+      <div className="mb-3 flex items-center gap-2">
+        <span className="text-sm font-semibold text-gray-700">View:</span>
+        <div className="inline-flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+          <button
+            type="button"
+            onClick={() => navigate('/kb-lending-page')}
+            className="px-4 py-1.5 rounded-md text-sm font-semibold text-gray-600 hover:text-gray-900 transition"
+          >
+            High Ticket
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate('/short-kb-lending-page')}
+            className="px-4 py-1.5 rounded-md text-sm font-semibold bg-purple-600 text-white shadow-sm transition"
+          >
+            Short Ticket
+          </button>
+        </div>
+      </div>
+
       <ExportModal
         open={exportModalOpen}
         onClose={() => setExportModalOpen(false)}
