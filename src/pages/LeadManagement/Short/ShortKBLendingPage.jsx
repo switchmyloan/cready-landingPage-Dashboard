@@ -18,6 +18,11 @@ const debounce = (func, delay) => {
   };
 };
 
+// Summary card key → status filter value. On the Short page the
+// "Duplicate (Error)" card shows the duplicate count, so it maps to the
+// 'dedupted' status token (backend maps that to kb_apply_status = 'duplicate').
+const CARD_STATUS_MAP = { total: '', success: 'success', reject: 'rejected', duplicate: 'dedupted', error: 'error' };
+
 const ShortKBLendingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -114,6 +119,27 @@ const ShortKBLendingPage = () => {
   const handleStatusFilter = useCallback(newStatus => {
     setQuery(prev => ({ ...prev, status: newStatus, page_no: 1 }));
   }, []);
+
+  // Summary card → status filter. Clicking the active card toggles it off.
+  const handleCardClick = useCallback(cardKey => {
+    const nextStatus = CARD_STATUS_MAP[cardKey] ?? '';
+    setQuery(prev => ({
+      ...prev,
+      status: prev.status === nextStatus ? '' : nextStatus,
+      page_no: 1,
+    }));
+  }, []);
+
+  // Reverse-map current status → card key so the active card is highlighted.
+  const activeCardKey = useMemo(() => {
+    switch (query.status) {
+      case 'success': return 'success';
+      case 'rejected': return 'reject';
+      case 'dedupted': return 'duplicate';
+      case '': return 'total';
+      default: return null; // e.g. dropdown 'error' has no card on this page
+    }
+  }, [query.status]);
 
   const onSearchHandler = useCallback(term => {
     setQuery(prev => ({ ...prev, search: term, page_no: 1 }));
@@ -279,6 +305,8 @@ const ShortKBLendingPage = () => {
         duplicateCount={Number(summaryMetrics.duplicateCount) || 0}
         loading={loading}
         duplicateCard={true}
+        onCardClick={handleCardClick}
+        activeKey={activeCardKey}
       />
       <MainTable
         columns={kbLendingPageColumn({ handleEdit })}

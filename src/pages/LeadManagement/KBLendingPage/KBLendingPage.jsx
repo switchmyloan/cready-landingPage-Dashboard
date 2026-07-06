@@ -20,6 +20,10 @@ const debounce = (func, delay) => {
   };
 };
 
+// Summary card key → status filter value. "Duplicate (Error)" card shows the
+// Errors count, so it maps to the 'error' status.
+const CARD_STATUS_MAP = { total: '', success: 'success', reject: 'rejected', duplicate: 'error', error: 'error' };
+
 const KBLendingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -171,6 +175,29 @@ const KBLendingPage = () => {
   const handleStatusFilter = useCallback(newStatus => {
     setQuery(prev => ({ ...prev, status: newStatus, page_no: 1 }));
   }, []);
+
+  // Summary card → status filter. Clicking the currently active card toggles
+  // the filter off (back to All).
+  const handleCardClick = useCallback(cardKey => {
+    const nextStatus = CARD_STATUS_MAP[cardKey] ?? '';
+    setQuery(prev => ({
+      ...prev,
+      status: prev.status === nextStatus ? '' : nextStatus,
+      page_no: 1,
+    }));
+  }, []);
+
+  // Reverse-map current status → card key so the active card is highlighted.
+  // The "Duplicate (Error)" card shows the Errors count here, so 'error' → it.
+  const activeCardKey = useMemo(() => {
+    switch (query.status) {
+      case 'success': return 'success';
+      case 'rejected': return 'reject';
+      case 'error': return 'duplicate';
+      case '': return 'total';
+      default: return null; // e.g. dropdown 'dedupted' has no matching card here
+    }
+  }, [query.status]);
 
   const onSearchHandler = useCallback(term => {
     setQuery(prev => ({ ...prev, search: term, page_no: 1 }));
@@ -352,6 +379,8 @@ const KBLendingPage = () => {
         duplicateCount={Number(summaryMetrics.duplicateCount) || 0}
         loading={loading}
         duplicateCard={true}
+        onCardClick={handleCardClick}
+        activeKey={activeCardKey}
       />
 
       {/* Medium + Source filter strip — each group is wrapped in its own

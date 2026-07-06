@@ -21,6 +21,11 @@ const debounce = (func, delay) => {
   };
 };
 
+// Summary card key → status filter value. The "Duplicate (Error)" card shows
+// the deduped count, so it maps to the 'dedupted' token (backend maps that to
+// mv_apply_status = 'duplicate').
+const CARD_STATUS_MAP = { total: '', success: 'success', reject: 'rejected', duplicate: 'dedupted', error: 'error' };
+
 const MVSuccessLeads = () => {
   const navigate = useNavigate();
   const [rawData, setRawData] = useState([]);
@@ -166,6 +171,27 @@ const MVSuccessLeads = () => {
     setQuery(prev => ({ ...prev, status: newStatus, page_no: 1 }));
   }, []);
 
+  // Summary card → status filter. Clicking the active card toggles it off.
+  const handleCardClick = useCallback(cardKey => {
+    const nextStatus = CARD_STATUS_MAP[cardKey] ?? '';
+    setQuery(prev => ({
+      ...prev,
+      status: prev.status === nextStatus ? '' : nextStatus,
+      page_no: 1,
+    }));
+  }, []);
+
+  // Reverse-map current status → card key so the active card is highlighted.
+  const activeCardKey = useMemo(() => {
+    switch (query.status) {
+      case 'success': return 'success';
+      case 'rejected': return 'reject';
+      case 'dedupted': return 'duplicate';
+      case '': return 'total';
+      default: return null; // e.g. dropdown 'error' has no card on this page
+    }
+  }, [query.status]);
+
   const handleUtmMediumFilter = useCallback(newMedium => {
     setQuery(prev => ({ ...prev, utmMedium: newMedium, page_no: 1 }));
   }, []);
@@ -299,6 +325,8 @@ const MVSuccessLeads = () => {
         duplicateCount={Number(summaryMetrics.duplicateCount) || 0}
         loading={loading}
         duplicateCard={true}
+        onCardClick={handleCardClick}
+        activeKey={activeCardKey}
       />
 
       {/* Medium filter strip — mirrors /offer-leads, /kb-lending-page, and
