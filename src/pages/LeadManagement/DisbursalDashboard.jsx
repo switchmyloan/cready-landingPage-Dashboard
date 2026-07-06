@@ -635,12 +635,13 @@ const LenderBreakdownModal = ({ lender, range, scope, fromDate, toDate, utmSourc
     );
 };
 
-// RapidMoney is a SHORT-ticket lender; hide it from the HIGH-ticket disbursal
-// view where it should not be itemised. Matches "RPM" / "RapidMoney" defensively.
-const isRapidMoneyLender = (name) => {
-    const n = String(name || '').toLowerCase().replace(/[\s_-]/g, '');
-    return n === 'rpm' || n === 'rapidmoney';
-};
+// The HIGH disbursal view — grid, filter dropdown, CSV, charts — hides
+// RapidMoney (a short-ticket lender tracked in the Cready RPM module) and
+// RamFinCorp; every other lender is shown. Matches the blacklist in the backend
+// high aggregates (trend / lender-stats / employment) + grid handling.
+const HIGH_HIDDEN_LENDERS = new Set(['rpm', 'rapidmoney', 'ramfincorp']);
+const isHighWhitelistLender = (name) =>
+    !HIGH_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
 // The SHORT disbursal view — grid, filter dropdown, CSV, charts — hides Hero
 // (a high-ticket lender), RapidMoney (tracked in the Cready RPM module) and
@@ -775,7 +776,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 const opts = res?.data?.data || { lenders: [], employmentTypes: [] };
                 // Hide RapidMoney (RPM) from the lender filter dropdown — both
                 // high-ticket AND short disbursal exclude it (RPM = Cready RPM module).
-                opts.lenders = (opts.lenders || []).filter(l => scope === 'short' ? isShortWhitelistLender(l) : !isRapidMoneyLender(l));
+                opts.lenders = (opts.lenders || []).filter(l => scope === 'short' ? isShortWhitelistLender(l) : isHighWhitelistLender(l));
                 setFilterOptions(opts);
             })
             .catch(e => console.error(e));
@@ -809,7 +810,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 // then recompute the count + "Total in view" from the RPM-excluded set
                 // so the header numbers (and KPI cards via onStats) stay consistent
                 // with the visible rows.
-                allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : !isRapidMoneyLender(r.lender));
+                allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : isHighWhitelistLender(r.lender));
                 setRows(allRows);
                 setTotal(allRows.length);
                 setFilteredAmount(allRows.reduce((s, r) => s + (Number(r.disb_amt) || 0), 0));
@@ -915,7 +916,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
             });
             let allRows = res?.data?.data?.data || [];
             // Exclude RapidMoney (RPM) — for both scopes — so the CSV matches the grid.
-            allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : !isRapidMoneyLender(r.lender));
+            allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : isHighWhitelistLender(r.lender));
 
             const q = String(search || '').trim().toLowerCase();
             if (q) {
@@ -1379,7 +1380,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 let rows = res?.data?.data || [];
                 // Show ONLY whitelisted lenders per scope (short vs high) — mirrors the
                 // grid SP + charts so the "by lender" cards never itemise the wrong side.
-                rows = rows.filter(d => scope === 'short' ? isShortWhitelistLender(d.name) : !isRapidMoneyLender(d.name));
+                rows = rows.filter(d => scope === 'short' ? isShortWhitelistLender(d.name) : isHighWhitelistLender(d.name));
                 setLenderStats(rows);
             })
             .catch(e => { if (!controller.signal.aborted) console.error(e); })
