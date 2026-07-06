@@ -642,11 +642,11 @@ const isRapidMoneyLender = (name) => {
     return n === 'rpm' || n === 'rapidmoney';
 };
 
-// The SHORT disbursal view — grid, filter dropdown, CSV, charts — hides ONLY
-// Hero (a high-ticket lender) and RapidMoney (tracked in the Cready RPM module);
-// every other lender is shown. Matches the blacklist in
-// get_disbursement_grid_short_v3 + the charts.
-const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney']);
+// The SHORT disbursal view — grid, filter dropdown, CSV, charts — hides Hero
+// (a high-ticket lender), RapidMoney (tracked in the Cready RPM module) and
+// Vivifi; every other lender is shown. Matches the blacklist in the backend
+// short aggregates (trend / lender-stats / employment) + grid SP.
+const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney', 'vivifi']);
 const isShortWhitelistLender = (name) =>
     !SHORT_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
