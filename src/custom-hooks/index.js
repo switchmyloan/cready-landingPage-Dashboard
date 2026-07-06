@@ -1,7 +1,7 @@
 const TOKEN_KEY = 'access_token'
 const USER_DATA_KEY = 'USER_DATA'
 const LOGIN_TIME_KEY = 'LOGIN_TIME'
-const SESSION_DURATION = 24 * 60 * 60 * 1000 // 24 hours in ms
+const SESSION_DURATION = 8 * 60 * 60 * 1000 // 8 hours in ms
 const ISSERVER = typeof window === 'undefined'
 
 const TokenService = {
