@@ -447,7 +447,7 @@ const StatCards = ({ summary, loading }) => {
       key: "afamount",
       label: "AF Amount",
       // AF Amount = AF Paid count × ₹150 (preformatted ₹ string).
-      value: `₹${((afPaid.count || 0) * 150).toLocaleString("en-IN")}`,
+      value: `₹${((afPaid.count || 0) * 120).toLocaleString("en-IN")}`,
       Icon: IndianRupee,
       color: "green",
       // clickable: true,
