@@ -20,6 +20,7 @@ import KBMumbaiDetail from './pages/KreditBee/KBMumbaiDetail';
 import KBBanglore from './pages/KreditBee/KBBanglore';
 import KBBangloreDetail from './pages/KreditBee/KBBangloreDetail';
 import MVSuccessLeads from './pages/LeadManagement/MVSuccessLeads';
+import ScResponseLeads from './pages/LeadManagement/ScResponseLeads';
 import OfferLeads from './pages/LeadManagement/OfferLeads';
 import OfferLeadDetail from './pages/LeadManagement/OfferLeadDetail';
 import SelectedLenders from './pages/LeadManagement/SelectedLenders';
@@ -78,6 +79,7 @@ function App() {
             <Route path="kb-success-leads/:id" element={<MVKreditBeeDetail />} />
             <Route path="mv-success-leads" element={<MVSuccessLeads />} />
             <Route path="mv-success-leads/:id" element={<MVSuccessDetail />} />
+            <Route path="sc-response-leads" element={<ScResponseLeads />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />

@@ -1910,6 +1910,105 @@ export const mvOfferLeadsColumn = ({ handleEdit }) => [
   },
 ];
 
+// SC Response Leads column set — like mvOfferLeadsColumn, but the badge is driven
+// by the derived `scStatus` (classified from lender_response.smartCoin on the
+// backend). Shows EVERY SmartCoin response (success / rejected / duplicate / error).
+export const scResponseLeadsColumn = ({ handleEdit }) => [
+  {
+    header: 'SN',
+    id: 'sn',
+    enableSorting: false,
+    maxSize: 50,
+    cell: ({ row, table }) => {
+      const { pageIndex, pageSize } = table.getState().pagination;
+      return (pageIndex * pageSize) + row.index + 1;
+    },
+  },
+  {
+    header: 'Full Name',
+    id: 'fullName',
+    maxSize: 100,
+    accessorFn: (row) => `${row.firstName || row.first_name || ''} ${row.lastName || row.last_name || ''}`,
+    cell: ({ getValue, row }) => (
+      <div className="w-full overflow-hidden whitespace-normal">
+        {(getValue() || '').trim() || row.original?.name || 'N/A'}
+      </div>
+    ),
+  },
+  {
+    header: 'SC Status',
+    id: 'scStatus',
+    accessorFn: (row) => row?.scStatus || null,
+    cell: ({ row }) => {
+      const status = row.original?.scStatus || null;
+      const message = row.original?.scMessage || row.original?.lender_response?.smartCoin?.message || '';
+
+      if (!status && !message) {
+        return <span className="text-gray-400 italic">N/A</span>;
+      }
+
+      const STATUS_META = {
+        success: { label: 'Success', color: 'bg-green-100 text-green-800' },
+        reject: { label: 'Rejected', color: 'bg-red-100 text-red-800' },
+        duplicate: { label: 'Duplicate', color: 'bg-yellow-100 text-yellow-800' },
+        error: { label: 'Error', color: 'bg-orange-200 text-orange-800' },
+      };
+      const meta = STATUS_META[status];
+      const label = meta?.label || message || 'N/A';
+      const colorClass = meta?.color || 'bg-gray-100 text-gray-700';
+
+      return (
+        <div className="tooltip tooltip-top cursor-help" data-tip={message || label}>
+          <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium max-w-[350px] truncate border border-black/5 ${colorClass}`}>
+            {label}
+          </span>
+        </div>
+      );
+    },
+  },
+  {
+    header: 'Number',
+    accessorKey: 'phone',
+    cell: ({ getValue }) => getValue() || 'N/A',
+  },
+  {
+    header: 'Pan Card',
+    id: 'panCard',
+    accessorFn: (row) => row.panNumber || row.pan_no || '',
+    cell: ({ getValue }) => getValue() || 'N/A',
+  },
+  {
+    header: 'Salary',
+    id: 'salary',
+    accessorFn: (row) => row.salary ?? row.monthly_income,
+    cell: ({ getValue }) => {
+      const income = getValue();
+      if (income === null || income === undefined || isNaN(income)) return 'N/A';
+      return new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(income);
+    },
+  },
+  {
+    header: 'Created',
+    accessorKey: 'createdAt',
+    cell: ({ getValue }) => {
+      const ts = getValue();
+      if (ts && typeof ts === 'string' && ts.length >= 10) return ts.substring(0, 10);
+      return ts || 'N/A';
+    },
+  },
+  {
+    header: 'Actions',
+    accessorKey: 'actions',
+    cell: ({ row }) => (
+      <div className="flex space-x-3">
+        <button onClick={() => handleEdit(row.original)} className="p-2 rounded-lg hover:bg-blue-100 text-blue-600 transition btn-ghost">
+          <Eye size={20} />
+        </button>
+      </div>
+    ),
+  },
+];
+
 export const kbLendingPageColumn = ({ handleEdit }) => [
   {
     header: 'SN',

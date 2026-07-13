@@ -157,6 +157,16 @@ export const routes = [
     roles: ["super-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
   },
   {
+    path: "/sc-response-leads",
+    label: "SC Response Leads",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 20,
+    roles: ["super-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
+  },
+  {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
     icon: "Home",

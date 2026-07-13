@@ -241,6 +241,36 @@ export const getMvSuccessFromOfferLeads = async ({
     });
 };
 
+// SC Response Leads — SmartCoin status classified straight from
+// lender_response.smartCoin (every SmartCoin response, not just Apply clicks).
+// Powers the "SC Response Leads" page under the Lenders menu.
+export const getScResponseLeads = async ({
+  search = '',
+  perPage = 10,
+  currentPage = 1,
+  type,
+  fromDate,
+  toDate,
+  status,
+  utmMedium,
+  utmSource,
+} = {}) => {
+    return Api().get(`/offer-leads/sc-response`, {
+        params: {
+            currentPage,
+            perPage,
+            search,
+            type,
+            fromDate,
+            toDate,
+            status,
+            utmMedium,
+            utmSource,
+        },
+        skipAdminAppend: true,
+    });
+};
+
 export const getOfferLeadsLenderKeys = async () => {
     return Api().get(`/offer-leads/lender-keys`, {
         skipAdminAppend: true,
