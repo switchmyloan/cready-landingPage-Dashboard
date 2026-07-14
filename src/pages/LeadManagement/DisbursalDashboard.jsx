@@ -1200,6 +1200,13 @@ const dateForRange = (r) => {
         const y = new Date(today); y.setDate(y.getDate() - 1);
         return { fromDate: fmt(y), toDate: fmt(y) };
     }
+     if (r === 'Current Month') {
+        const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+        return {
+            fromDate: fmt(firstDay),
+            toDate: fmt(today)
+        };
+    }
     if (r === 'Custom')    return null;
     const days = { '24H': 1, '7D': 7, '30D': 30, '90D': 90 }[r] ?? 0;
     const from = new Date(today); from.setDate(from.getDate() - days);
@@ -1632,7 +1639,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                     <span className="text-[12px] font-semibold">Range:</span>
                 </div>
                 <div className="inline-flex p-[3px] gap-[2px] rounded-lg bg-gradient-to-r from-gray-100 to-purple-50/60 border border-gray-200 flex-wrap">
-                    {['Today', 'Yesterday', '24H', '7D', '30D', '90D', 'All', 'Custom'].map(r => (
+                    {['Today', 'Yesterday', '24H', '7D', '30D', '90D','Current Month', 'All', 'Custom'].map(r => (
                         <button key={r}
                             onClick={() => {
                                 setRange(r);
