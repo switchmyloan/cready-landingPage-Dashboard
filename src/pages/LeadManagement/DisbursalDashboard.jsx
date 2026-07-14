@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import Confetti from 'react-confetti';
 import {
     PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
     ResponsiveContainer, AreaChart, Area,
@@ -7,7 +8,7 @@ import {
     Search, Download, RefreshCw, ChevronLeft, ChevronRight,
     Activity, ArrowUpRight, ArrowDownRight, ArrowUpDown, Layers, Wallet,
     Banknote, Timer, Calendar, FileDown, Building2, IndianRupee,
-    TrendingUp, Hash, X, Sparkles, ChevronDown, Check,
+    TrendingUp, Hash, X, Sparkles, ChevronDown, Check, Trophy,
 } from 'lucide-react';
 import {
     getDisbursalKpis, getDisbursalTrend, getDisbursalTrendShort,
@@ -46,9 +47,8 @@ const LenderOption = ({ name, active, onClick, showAvatar = true }) => (
     <button
         type="button"
         onClick={onClick}
-        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12.5px] transition ${
-            active ? 'bg-purple-50 text-purple-700' : 'text-gray-700 hover:bg-gray-50'
-        }`}
+        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[12.5px] transition ${active ? 'bg-purple-50 text-purple-700' : 'text-gray-700 hover:bg-gray-50'
+            }`}
     >
         {showAvatar ? <LenderAvatar name={name} size={18} /> : <span className="w-[18px] flex-shrink-0" />}
         <span className="truncate flex-1">{name}</span>
@@ -158,13 +158,13 @@ const fmtBucketLabel = (bucket, granularity) => {
 const COLORS = {
     // Cready brand palette — purple → violet → indigo. Matches the sidebar,
     // navbar, and login. Replaces the older emerald/teal "money" theme.
-    brand:  '#7c3aed',   // violet-600
+    brand: '#7c3aed',   // violet-600
     brand2: '#6366f1',   // indigo-500
     accent: '#a855f7',   // purple-500
-    info:   '#3b82f6',   // blue-500
-    pos:    '#8b5cf6',   // violet-500
-    neg:    '#dc2626',
-    warn:   '#b45309',
+    info: '#3b82f6',   // blue-500
+    pos: '#8b5cf6',   // violet-500
+    neg: '#dc2626',
+    warn: '#b45309',
 };
 
 /* Count-up animation hook — ALWAYS starts at 0 and eases toward `target`
@@ -318,9 +318,8 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTo
                         ].map(opt => (
                             <button key={opt.v}
                                 onClick={() => setMetric(opt.v)}
-                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition ${
-                                    metric === opt.v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                                }`}>
+                                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium transition ${metric === opt.v ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                                    }`}>
                                 <opt.icon size={11} /> {opt.label}
                             </button>
                         ))}
@@ -329,9 +328,8 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTo
                         {['daily', 'weekly', 'monthly'].map(g => (
                             <button key={g}
                                 onClick={() => setGranularity(g)}
-                                className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition ${
-                                    granularity === g ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
-                                }`}>
+                                className={`px-2.5 py-1 rounded-md text-[12px] font-medium transition ${granularity === g ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-600 hover:text-gray-900'
+                                    }`}>
                                 {g[0].toUpperCase() + g.slice(1)}
                             </button>
                         ))}
@@ -1102,9 +1100,8 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                         {displayRows.map((t, idx) => (
                             <tr
                                 key={`${t.lead_id || idx}-${idx}`}
-                                className={`group transition-all border-b border-gray-100 last:border-b-0 ${
-                                    idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
-                                } hover:bg-gradient-to-r hover:from-purple-50/60 hover:to-violet-50/40 hover:shadow-[inset_3px_0_0_0_#a855f7]`}
+                                className={`group transition-all border-b border-gray-100 last:border-b-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
+                                    } hover:bg-gradient-to-r hover:from-purple-50/60 hover:to-violet-50/40 hover:shadow-[inset_3px_0_0_0_#a855f7]`}
                             >
                                 <td className="px-4 py-3.5 font-mono text-[12px] font-semibold text-gray-700 group-hover:text-purple-700 transition">
                                     {t.lead_id || <span className="text-gray-300">—</span>}
@@ -1194,8 +1191,8 @@ const fmtISO = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2,
 const dateForRange = (r) => {
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const fmt = fmtISO;
-    if (r === 'All')       return { fromDate: '',                                                            toDate: '' };
-    if (r === 'Today')     return { fromDate: fmt(today),                                                    toDate: fmt(today) };
+    if (r === 'All') return { fromDate: '', toDate: '' };
+    if (r === 'Today') return { fromDate: fmt(today), toDate: fmt(today) };
     if (r === 'Yesterday') {
         const y = new Date(today); y.setDate(y.getDate() - 1);
         return { fromDate: fmt(y), toDate: fmt(y) };
@@ -1207,7 +1204,7 @@ const dateForRange = (r) => {
             toDate: fmt(today)
         };
     }
-    if (r === 'Custom')    return null;
+    if (r === 'Custom') return null;
     const days = { '24H': 1, '7D': 7, '30D': 30, '90D': 90 }[r] ?? 0;
     const from = new Date(today); from.setDate(from.getDate() - days);
     return { fromDate: fmt(from), toDate: fmt(today) };
@@ -1251,6 +1248,11 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     // alive without overpromising completion. Snaps to 100 when firstLoad
     // flips false (right before unmount).
     const [loaderPct, setLoaderPct] = useState(8);
+    const [showConfetti, setShowConfetti] = useState(false);
+
+    // const [showConfetti, setShowConfetti] = useState(localStorage.getItem('disbursalMilestoneSeen') !== 'true');
+    const [milestoneReached, setMilestoneReached] = useState(localStorage.getItem('disbursalMilestoneSeen') !== 'true');
+
     const LOADER_PHRASES = [
         'Tallying disbursals…',
         'Computing lender splits…',
@@ -1395,6 +1397,30 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
         return () => controller.abort();
     }, [range, scope, fromDate, toDate, utmSource, utmMedium, customIncomplete]);
 
+    // useEffect(() => {
+    //     if (trendTotals && trendTotals.amount >= 100000000) {
+    //         setShowConfetti(true);
+    //     }
+    // }, [trendTotals]);
+    const handleMilestoneAcknowledge = () => {
+        setShowConfetti(false);
+        localStorage.setItem('disbursalMilestoneSeen', 'true');
+    };
+    const TARGET_AMOUNT = 100000000;
+    useEffect(() => {
+        if (!trendTotals) return;
+
+        const milestoneSeen =
+            localStorage.getItem("disbursalMilestoneSeen") === "true";
+
+        if (
+            trendTotals.amount >= TARGET_AMOUNT &&
+            !milestoneSeen
+        ) {
+            setShowConfetti(true);
+        }
+    }, [trendTotals]);
+
     // Premium first-load loader — purple/violet theme matching the dashboard's
     // brand (Layers icon + "Operations" purple pill). Glassmorphism frosted
     // card, floating ₹ symbols (loan/money theme), SVG gradient progress arc,
@@ -1404,20 +1430,22 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     if (firstLoad) {
         return (
             <div className="max-w-[1440px] mx-auto px-2 pb-10">
+                {showConfetti && <Confetti width={window.innerWidth} height={window.innerHeight} numberOfPieces={500} recycle={false} />}
                 <div className="relative min-h-[78vh] flex items-center justify-center overflow-hidden rounded-2xl border border-purple-100/70 shadow-sm">
 
                     {/* Layered mesh background */}
                     <div className="absolute inset-0 bg-gradient-to-br from-slate-50 via-purple-50/40 to-violet-50/50" />
 
+
                     {/* Floating ₹ symbols — money / loan-aggregator texture */}
                     <div className="pointer-events-none absolute inset-0 overflow-hidden">
                         {[
-                            { top: '8%',  left: '15%', size: 'text-5xl', op: 0.06, delay: '0s'   },
-                            { top: '20%', left: '82%', size: 'text-6xl', op: 0.07, delay: '1s'   },
+                            { top: '8%', left: '15%', size: 'text-5xl', op: 0.06, delay: '0s' },
+                            { top: '20%', left: '82%', size: 'text-6xl', op: 0.07, delay: '1s' },
                             { top: '55%', left: '12%', size: 'text-7xl', op: 0.05, delay: '0.5s' },
                             { top: '72%', left: '85%', size: 'text-5xl', op: 0.06, delay: '1.5s' },
                             { top: '88%', left: '38%', size: 'text-4xl', op: 0.05, delay: '0.8s' },
-                            { top: '32%', left: '50%', size: 'text-3xl', op: 0.04, delay: '2s'   },
+                            { top: '32%', left: '50%', size: 'text-3xl', op: 0.04, delay: '2s' },
                         ].map((s, i) => (
                             <span
                                 key={i}
@@ -1452,10 +1480,10 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                             <div className="relative w-36 h-36 flex items-center justify-center">
 
                                 {/* Twinkling sparkles around the icon */}
-                                <Sparkles size={12} className="absolute top-1  left-3  text-amber-400  animate-pulse" style={{ animationDelay: '0s',   animationDuration: '1.8s' }} />
+                                <Sparkles size={12} className="absolute top-1  left-3  text-amber-400  animate-pulse" style={{ animationDelay: '0s', animationDuration: '1.8s' }} />
                                 <Sparkles size={10} className="absolute top-4  right-2 text-purple-400 animate-pulse" style={{ animationDelay: '0.6s', animationDuration: '2.2s' }} />
-                                <Sparkles size={11} className="absolute bottom-2 left-5 text-violet-400    animate-pulse" style={{ animationDelay: '1.2s', animationDuration: '2s'   }} />
-                                <Sparkles size={9}  className="absolute bottom-5 right-4 text-amber-300  animate-pulse" style={{ animationDelay: '0.3s', animationDuration: '2.4s' }} />
+                                <Sparkles size={11} className="absolute bottom-2 left-5 text-violet-400    animate-pulse" style={{ animationDelay: '1.2s', animationDuration: '2s' }} />
+                                <Sparkles size={9} className="absolute bottom-5 right-4 text-amber-300  animate-pulse" style={{ animationDelay: '0.3s', animationDuration: '2.4s' }} />
 
                                 {/* Outer rotating gradient arc */}
                                 <svg
@@ -1465,8 +1493,8 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                                 >
                                     <defs>
                                         <linearGradient id="disbArcGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                            <stop offset="0%"   stopColor="#a855f7" />
-                                            <stop offset="50%"  stopColor="#6366f1" />
+                                            <stop offset="0%" stopColor="#a855f7" />
+                                            <stop offset="50%" stopColor="#6366f1" />
                                             <stop offset="100%" stopColor="#a855f7" stopOpacity="0" />
                                         </linearGradient>
                                     </defs>
@@ -1524,8 +1552,8 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                             <div className="grid grid-cols-3 gap-2 w-full">
                                 {[
                                     { label: 'Total disbursed', tint: 'from-purple-100/80 to-purple-50' },
-                                    { label: 'Disbursals',      tint: 'from-violet-100/80    to-violet-50' },
-                                    { label: 'Avg ticket',      tint: 'from-cyan-100/80    to-cyan-50' },
+                                    { label: 'Disbursals', tint: 'from-violet-100/80    to-violet-50' },
+                                    { label: 'Avg ticket', tint: 'from-cyan-100/80    to-cyan-50' },
                                 ].map((t, i) => (
                                     <div
                                         key={i}
@@ -1576,6 +1604,80 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
 
     return (
         <div className="max-w-[1440px] mx-auto px-2 pb-10">
+            {showConfetti && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    {/* Scoped premium animations (no global CSS/config changes). */}
+                    <style>{`
+                        @keyframes sml-pop   { 0%{opacity:0;transform:translateY(26px) scale(.92)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0) scale(1)} }
+                        @keyframes sml-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+                        @keyframes sml-glow  { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.14)} }
+                        @keyframes sml-shine { 0%{background-position:-160% 0} 100%{background-position:160% 0} }
+                        @keyframes sml-rise  { 0%{opacity:0;transform:translateY(10px)} 100%{opacity:1;transform:translateY(0)} }
+                    `}</style>
+
+                    {/* Frosted backdrop — click outside to dismiss */}
+                    <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={handleMilestoneAcknowledge} />
+
+                    {/* Celebration confetti (gold + brand palette), non-interactive */}
+                    <Confetti
+                        width={window.innerWidth}
+                        height={window.innerHeight}
+                        numberOfPieces={420}
+                        recycle={false}
+                        gravity={0.22}
+                        colors={['#FDB931', '#FFD700', '#FDE68A', '#a855f7', '#7c3aed', '#22d3ee', '#ffffff']}
+                        style={{ pointerEvents: 'none' }}
+                    />
+
+                    {/* Card */}
+                    <div className="relative w-full max-w-md" style={{ animation: 'sml-pop .6s cubic-bezier(.16,1,.3,1) both' }}>
+                        <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#1b1140] via-[#241056] to-[#12082e] px-8 pt-9 pb-8 text-center shadow-[0_30px_80px_-20px_rgba(88,28,135,.9)]">
+                            {/* Gold top hairline + corner glows */}
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
+                            <div className="pointer-events-none absolute -top-24 -right-16 h-56 w-56 rounded-full bg-fuchsia-500/20 blur-3xl" />
+                            <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+
+                            {/* Eyebrow */}
+                            <div className="relative mb-5 inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-200" style={{ animation: 'sml-rise .5s .10s both' }}>
+                                <Sparkles className="h-3 w-3" /> Milestone Unlocked
+                            </div>
+
+                            {/* Trophy + glowing halo */}
+                            <div className="relative mx-auto mb-6 flex h-24 w-24 items-center justify-center">
+                                <span className="absolute inset-0 rounded-full bg-amber-400/30 blur-2xl" style={{ animation: 'sml-glow 2.4s ease-in-out infinite' }} />
+                                <span className="absolute inset-2 rounded-full border border-amber-300/25" />
+                                <span style={{ animation: 'sml-float 3s ease-in-out infinite' }}>
+                                    <Trophy className="h-16 w-16 text-amber-300 drop-shadow-[0_6px_14px_rgba(251,191,36,.55)]" strokeWidth={1.5} />
+                                </span>
+                            </div>
+
+                            {/* Headline */}
+                            <p className="text-sm font-medium text-purple-200/80" style={{ animation: 'sml-rise .5s .16s both' }}>We&apos;ve reached</p>
+                            <h2 className="mt-1 text-5xl font-black leading-none tracking-tight" style={{ animation: 'sml-rise .5s .22s both' }}>
+                                <span
+                                    className="bg-clip-text text-transparent"
+                                    style={{ backgroundImage: 'linear-gradient(100deg,#fde68a,#fbbf24,#fff7d6,#fbbf24,#fde68a)', backgroundSize: '200% 100%', animation: 'sml-shine 3s linear infinite' }}
+                                >
+                                    ₹10 Crore
+                                </span>
+                            </h2>
+                            <p className="mx-auto mt-4 max-w-xs text-[15px] leading-relaxed text-purple-100/70" style={{ animation: 'sml-rise .5s .28s both' }}>
+                                A huge congratulations to the entire team for this monumental achievement. 🎉
+                            </p>
+
+                            {/* CTA with hover shine sweep */}
+                            <button
+                                onClick={handleMilestoneAcknowledge}
+                                className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-amber-300 to-amber-400 px-8 py-2.5 text-sm font-bold text-[#2b1560] shadow-[0_10px_30px_-8px_rgba(251,191,36,.7)] transition-transform hover:scale-[1.04] active:scale-95"
+                                style={{ animation: 'sml-rise .5s .34s both' }}
+                            >
+                                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                                <span className="relative">Awesome!</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* PAGE HEADER — premium banner with money-themed accent bar,
                 gradient title text, animated live-dot, and richer pill bg. */}
             <div className="relative overflow-hidden mb-6 rounded-2xl bg-gradient-to-br from-white via-purple-50/40 to-violet-50/30 border border-purple-100/60 shadow-sm">
@@ -1602,7 +1704,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                                         <span className="absolute inline-flex w-full h-full rounded-full bg-purple-400 opacity-75 animate-ping" />
                                         <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-purple-500" />
                                     </span>
-                                    <TrendingUp size={11} /> 
+                                    <TrendingUp size={11} />
                                 </span>
                                 {/* <span className="text-[12px] text-gray-500 font-medium">Live disbursal data</span> */}
                             </div>
@@ -1649,56 +1751,55 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                                     setToDate(d.toDate);
                                 }
                             }}
-                            className={`px-3 py-1 rounded-md text-[12px] font-semibold transition ${
-                                range === r
-                                    ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md shadow-purple-500/30'
-                                    : 'text-gray-600 hover:text-purple-700 hover:bg-white'
-                            }`}>
+                            className={`px-3 py-1 rounded-md text-[12px] font-semibold transition ${range === r
+                                ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md shadow-purple-500/30'
+                                : 'text-gray-600 hover:text-purple-700 hover:bg-white'
+                                }`}>
                             {r}
                         </button>
                     ))}
                 </div>
-                    {range === 'Custom' && (
-                        <div className="inline-flex items-center gap-1.5">
-                            <input type="date"
-                                value={fromDate}
-                                max={toDate || todayISO()}
-                                onChange={e => setFromDate(e.target.value)}
-                                className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500" />
-                            <span className="text-[12px] text-gray-400">to</span>
-                            <input type="date"
-                                value={toDate}
-                                min={fromDate}
-                                max={todayISO()}
-                                onChange={e => setToDate(e.target.value)}
-                                className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500" />
-                        </div>
-                    )}
-
-                    {/* UTM Source filter — narrows disbursals by the source the
-                        applicant came from (resolved via offerLeads phone match). */}
-                    <div className="inline-flex items-center gap-1.5 ml-1">
-                        <span className="text-[12px] font-medium text-gray-400">Source:</span>
-                        <select
-                            value={utmSource}
-                            onChange={e => setUtmSource(e.target.value)}
-                            className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500 bg-white min-w-[140px]"
-                        >
-                            <option value="">All Sources</option>
-                            {utmSourceOptions.map(s => (
-                                <option key={s} value={s}>{s}</option>
-                            ))}
-                        </select>
-                        {utmSource && (
-                            <button
-                                onClick={() => setUtmSource('')}
-                                className="text-[11px] px-2 py-0.5 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition"
-                                title="Clear source filter"
-                            >
-                                Clear
-                            </button>
-                        )}
+                {range === 'Custom' && (
+                    <div className="inline-flex items-center gap-1.5">
+                        <input type="date"
+                            value={fromDate}
+                            max={toDate || todayISO()}
+                            onChange={e => setFromDate(e.target.value)}
+                            className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500" />
+                        <span className="text-[12px] text-gray-400">to</span>
+                        <input type="date"
+                            value={toDate}
+                            min={fromDate}
+                            max={todayISO()}
+                            onChange={e => setToDate(e.target.value)}
+                            className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500" />
                     </div>
+                )}
+
+                {/* UTM Source filter — narrows disbursals by the source the
+                        applicant came from (resolved via offerLeads phone match). */}
+                <div className="inline-flex items-center gap-1.5 ml-1">
+                    <span className="text-[12px] font-medium text-gray-400">Source:</span>
+                    <select
+                        value={utmSource}
+                        onChange={e => setUtmSource(e.target.value)}
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500 bg-white min-w-[140px]"
+                    >
+                        <option value="">All Sources</option>
+                        {utmSourceOptions.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                        ))}
+                    </select>
+                    {utmSource && (
+                        <button
+                            onClick={() => setUtmSource('')}
+                            className="text-[11px] px-2 py-0.5 rounded-md bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition"
+                            title="Clear source filter"
+                        >
+                            Clear
+                        </button>
+                    )}
+                </div>
 
                 {/* UTM Medium filter — narrows disbursals by the campaign
                     medium (resolved via offerLeads phone match). */}
