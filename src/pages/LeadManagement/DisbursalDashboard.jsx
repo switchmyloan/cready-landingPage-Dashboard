@@ -1598,17 +1598,76 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     return (
         <div className="max-w-[1440px] mx-auto px-2 pb-10">
             {showConfetti && (
-                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 transition-opacity duration-300">
-                    <div className="relative bg-gradient-to-br from-purple-600 to-indigo-700 p-6 rounded-2xl shadow-2xl text-center text-white max-w-md mx-4 transform transition-all duration-500 scale-100 opacity-100">
-                        <Trophy className="w-20 h-20 mx-auto text-yellow-400 drop-shadow-lg animate-float" />
-                        <h2 className="text-3xl font-bold mt-4 mb-3">✨ We've Reached ₹10 Crore!</h2>
-                        <p className="text-lg mb-6">A huge congratulations to the entire team for this monumental achievement.</p>
-                        <button
-                            onClick={handleMilestoneAcknowledge}
-                            className="mt-4 bg-white text-purple-700 font-bold px-6 py-2 rounded-full shadow-lg hover:bg-gray-100 transition-transform transform hover:scale-105 animate-pulse"
-                        >
-                            Awesome!
-                        </button>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+                    {/* Scoped premium animations (no global CSS/config changes). */}
+                    <style>{`
+                        @keyframes sml-pop   { 0%{opacity:0;transform:translateY(26px) scale(.92)} 60%{opacity:1} 100%{opacity:1;transform:translateY(0) scale(1)} }
+                        @keyframes sml-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-9px)} }
+                        @keyframes sml-glow  { 0%,100%{opacity:.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.14)} }
+                        @keyframes sml-shine { 0%{background-position:-160% 0} 100%{background-position:160% 0} }
+                        @keyframes sml-rise  { 0%{opacity:0;transform:translateY(10px)} 100%{opacity:1;transform:translateY(0)} }
+                    `}</style>
+
+                    {/* Frosted backdrop — click outside to dismiss */}
+                    <div className="absolute inset-0 bg-slate-950/70 backdrop-blur-md" onClick={handleMilestoneAcknowledge} />
+
+                    {/* Celebration confetti (gold + brand palette), non-interactive */}
+                    <Confetti
+                        width={window.innerWidth}
+                        height={window.innerHeight}
+                        numberOfPieces={420}
+                        recycle={false}
+                        gravity={0.22}
+                        colors={['#FDB931', '#FFD700', '#FDE68A', '#a855f7', '#7c3aed', '#22d3ee', '#ffffff']}
+                        style={{ pointerEvents: 'none' }}
+                    />
+
+                    {/* Card */}
+                    <div className="relative w-full max-w-md" style={{ animation: 'sml-pop .6s cubic-bezier(.16,1,.3,1) both' }}>
+                        <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-b from-[#1b1140] via-[#241056] to-[#12082e] px-8 pt-9 pb-8 text-center shadow-[0_30px_80px_-20px_rgba(88,28,135,.9)]">
+                            {/* Gold top hairline + corner glows */}
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-amber-300/70 to-transparent" />
+                            <div className="pointer-events-none absolute -top-24 -right-16 h-56 w-56 rounded-full bg-fuchsia-500/20 blur-3xl" />
+                            <div className="pointer-events-none absolute -bottom-24 -left-16 h-56 w-56 rounded-full bg-amber-400/10 blur-3xl" />
+
+                            {/* Eyebrow */}
+                            <div className="relative mb-5 inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-300/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-amber-200" style={{ animation: 'sml-rise .5s .10s both' }}>
+                                <Sparkles className="h-3 w-3" /> Milestone Unlocked
+                            </div>
+
+                            {/* Trophy + glowing halo */}
+                            <div className="relative mx-auto mb-6 flex h-24 w-24 items-center justify-center">
+                                <span className="absolute inset-0 rounded-full bg-amber-400/30 blur-2xl" style={{ animation: 'sml-glow 2.4s ease-in-out infinite' }} />
+                                <span className="absolute inset-2 rounded-full border border-amber-300/25" />
+                                <span style={{ animation: 'sml-float 3s ease-in-out infinite' }}>
+                                    <Trophy className="h-16 w-16 text-amber-300 drop-shadow-[0_6px_14px_rgba(251,191,36,.55)]" strokeWidth={1.5} />
+                                </span>
+                            </div>
+
+                            {/* Headline */}
+                            <p className="text-sm font-medium text-purple-200/80" style={{ animation: 'sml-rise .5s .16s both' }}>We&apos;ve reached</p>
+                            <h2 className="mt-1 text-5xl font-black leading-none tracking-tight" style={{ animation: 'sml-rise .5s .22s both' }}>
+                                <span
+                                    className="bg-clip-text text-transparent"
+                                    style={{ backgroundImage: 'linear-gradient(100deg,#fde68a,#fbbf24,#fff7d6,#fbbf24,#fde68a)', backgroundSize: '200% 100%', animation: 'sml-shine 3s linear infinite' }}
+                                >
+                                    ₹10 Crore
+                                </span>
+                            </h2>
+                            <p className="mx-auto mt-4 max-w-xs text-[15px] leading-relaxed text-purple-100/70" style={{ animation: 'sml-rise .5s .28s both' }}>
+                                A huge congratulations to the entire team for this monumental achievement. 🎉
+                            </p>
+
+                            {/* CTA with hover shine sweep */}
+                            <button
+                                onClick={handleMilestoneAcknowledge}
+                                className="group relative mt-8 inline-flex items-center gap-2 overflow-hidden rounded-full bg-gradient-to-r from-amber-300 to-amber-400 px-8 py-2.5 text-sm font-bold text-[#2b1560] shadow-[0_10px_30px_-8px_rgba(251,191,36,.7)] transition-transform hover:scale-[1.04] active:scale-95"
+                                style={{ animation: 'sml-rise .5s .34s both' }}
+                            >
+                                <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/60 to-transparent transition-transform duration-700 group-hover:translate-x-full" />
+                                <span className="relative">Awesome!</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
