@@ -1241,10 +1241,10 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     // alive without overpromising completion. Snaps to 100 when firstLoad
     // flips false (right before unmount).
     const [loaderPct, setLoaderPct] = useState(8);
-    // const [showConfetti, setShowConfetti] = useState(true);
+    const [showConfetti, setShowConfetti] = useState(false);
 
-    const [showConfetti, setShowConfetti] = useState(localStorage.getItem('disbursalMilestoneSeen') == 'true');
-    const [milestoneReached, setMilestoneReached] = useState(localStorage.getItem('disbursalMilestoneSeen') === 'true');
+    // const [showConfetti, setShowConfetti] = useState(localStorage.getItem('disbursalMilestoneSeen') !== 'true');
+    const [milestoneReached, setMilestoneReached] = useState(localStorage.getItem('disbursalMilestoneSeen') !== 'true');
 
     const LOADER_PHRASES = [
         'Tallying disbursals…',
@@ -1399,13 +1399,20 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
         setShowConfetti(false);
         localStorage.setItem('disbursalMilestoneSeen', 'true');
     };
-    const TARGET_AMOUNT = 10000000;
+    const TARGET_AMOUNT = 100000000;
     useEffect(() => {
-        if (!milestoneReached && trendTotals && trendTotals.amount >= TARGET_AMOUNT) {
+        if (!trendTotals) return;
+
+        const milestoneSeen =
+            localStorage.getItem("disbursalMilestoneSeen") === "true";
+
+        if (
+            trendTotals.amount >= TARGET_AMOUNT &&
+            !milestoneSeen
+        ) {
             setShowConfetti(true);
-            setMilestoneReached(true);
         }
-    }, [trendTotals, milestoneReached]);
+    }, [trendTotals]);
 
     // Premium first-load loader — purple/violet theme matching the dashboard's
     // brand (Layers icon + "Operations" purple pill). Glassmorphism frosted
@@ -1679,8 +1686,8 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                                 }
                             }}
                             className={`px-3 py-1 rounded-md text-[12px] font-semibold transition ${range === r
-                                    ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md shadow-purple-500/30'
-                                    : 'text-gray-600 hover:text-purple-700 hover:bg-white'
+                                ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md shadow-purple-500/30'
+                                : 'text-gray-600 hover:text-purple-700 hover:bg-white'
                                 }`}>
                             {r}
                         </button>
