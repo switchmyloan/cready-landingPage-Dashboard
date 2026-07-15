@@ -179,6 +179,16 @@ export const routes = [
     roles: ["super-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
   },
   {
+    path: "/vivifi-webhook-leads",
+    label: "Vivifi Webhook Leads",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 21,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
     icon: "Home",
