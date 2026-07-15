@@ -55,6 +55,8 @@ import ExportAuditLogs from './pages/OtpLogs/ExportAuditLogs';
 import MvDisbursalDashboard from './pages/LeadManagement/MvDisbursalDashboard';
 import ShortDisbursalDashboard from './pages/LeadManagement/Short/ShortDisbursalDashboard';
 import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
+import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
+import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
 import RouteChangeAborter from './components/RouteChangeAborter';
 
 function App() {
@@ -80,6 +82,8 @@ function App() {
             <Route path="mv-success-leads" element={<MVSuccessLeads />} />
             <Route path="mv-success-leads/:id" element={<MVSuccessDetail />} />
             <Route path="sc-response-leads" element={<ScResponseLeads />} />
+            <Route path="vivifi-webhook-leads" element={<VivifiWebhookLeads />} />
+            <Route path="vivifi-webhook-leads/:leadId" element={<VivifiWebhookLeadDetail />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />

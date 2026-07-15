@@ -2594,3 +2594,101 @@ export const userTrackColumn = ({ handleEdit }) => [
     ),
   },
 ];
+
+// ---- Vivifi (FlexSalary) webhook leads ------------------------------------
+// Shared cell helpers for the applications + loans snapshot tables. Statuses are
+// free-form strings from FlexSalary (e.g. "Disbursed", "Rejected", "Awaiting
+// VKYC"), so we colour a badge by keyword rather than an enum.
+const vivifiStatusClass = (status) => {
+  const s = String(status || '').toLowerCase();
+  if (/disburs|approved|success|complete|active/.test(s)) return 'bg-green-100 text-green-800 border-green-200';
+  if (/reject|declin|fail|cancel|expire/.test(s)) return 'bg-red-100 text-red-800 border-red-200';
+  if (/pending|await|progress|review|initiat|process|vkyc|esign|sign/.test(s)) return 'bg-amber-100 text-amber-800 border-amber-200';
+  return 'bg-gray-100 text-gray-700 border-gray-200';
+};
+
+const vivifiStatusBadge = (status) => {
+  if (!status) return <span className="text-gray-400 italic">N/A</span>;
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium border ${vivifiStatusClass(status)}`}>
+      {status}
+    </span>
+  );
+};
+
+// ClickHouse returns 'YYYY-MM-DD HH:MM:SS(.sss)' already in IST wall-clock — show
+// it as-is (trimmed to minutes) rather than re-parsing through the browser TZ.
+const vivifiFmtDateTime = (v) => {
+  if (!v) return '—';
+  const s = String(v).replace('T', ' ');
+  return s.length >= 16 ? s.slice(0, 16) : s;
+};
+
+const vivifiFmtInr = (v) => {
+  if (v === null || v === undefined || v === '' || isNaN(v)) return <span className="text-gray-400 italic">—</span>;
+  return `₹ ${Number(v).toLocaleString('en-IN')}`;
+};
+
+const vivifiPhoneCell = ({ getValue }) => {
+  const v = getValue();
+  if (!v) return <span className="text-gray-400 italic">N/A</span>;
+  return (
+    <a href={`tel:${v}`} className="inline-flex items-center gap-1.5 font-mono text-sm text-gray-700 hover:text-purple-700">
+      <Phone size={13} className="text-gray-400" />{v}
+    </a>
+  );
+};
+
+const vivifiSnCell = ({ row, table }) => {
+  const { pageIndex, pageSize } = table.getState().pagination;
+  return <span className="text-xs font-medium text-gray-500">{(pageIndex * pageSize) + row.index + 1}</span>;
+};
+
+const vivifiEyeCell = (handleEdit, title) => ({ row }) => (
+  <div className="flex space-x-3">
+    <button onClick={() => handleEdit(row.original)} className="p-2 rounded-lg hover:bg-blue-100 text-blue-600 transition btn-ghost" title={title}>
+      <Eye size={20} />
+    </button>
+  </div>
+);
+
+// Applications snapshot — current-state, one row per lead (webhook_data.applications FINAL).
+export const vivifiApplicationsColumn = ({ handleEdit }) => [
+  { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
+  {
+    header: 'Lead ID',
+    accessorKey: 'leadId',
+    cell: ({ getValue }) => <span className="font-mono text-sm font-medium text-gray-800">{getValue() || 'N/A'}</span>,
+  },
+  { header: 'Phone', accessorKey: 'phoneNumber', cell: vivifiPhoneCell },
+  { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
+  {
+    header: 'Rejection Reason',
+    accessorKey: 'rejectionReason',
+    cell: ({ getValue }) => {
+      const v = getValue();
+      return v
+        ? <span className="max-w-[280px] truncate inline-block text-sm text-gray-700 align-middle" title={v}>{v}</span>
+        : <span className="text-gray-400 italic">—</span>;
+    },
+  },
+  { header: 'Updated At', accessorKey: 'updatedAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
+  { header: 'Actions', id: 'actions-vivifi-app', cell: vivifiEyeCell(handleEdit, 'View timeline') },
+];
+
+// Loans snapshot — current-state disbursal view (webhook_data.loans FINAL).
+export const vivifiLoansColumn = ({ handleEdit }) => [
+  { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
+  {
+    header: 'Lead ID',
+    accessorKey: 'leadId',
+    cell: ({ getValue }) => <span className="font-mono text-sm font-medium text-gray-800">{getValue() || 'N/A'}</span>,
+  },
+  { header: 'Phone', accessorKey: 'phoneNumber', cell: vivifiPhoneCell },
+  { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
+  { header: 'Amount', accessorKey: 'amount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
+  { header: 'Disbursed', accessorKey: 'disbursalAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
+  { header: 'Disbursal Date', accessorKey: 'disbursalDate', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
+  { header: 'Updated At', accessorKey: 'updatedAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
+  { header: 'Actions', id: 'actions-vivifi-loan', cell: vivifiEyeCell(handleEdit, 'View timeline') },
+];
