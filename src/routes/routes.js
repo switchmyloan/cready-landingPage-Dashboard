@@ -137,6 +137,18 @@ export const routes = [
   //   roles: ["super-admin", "kb-banglore"],
   // },
  {
+    // Cross-lender rollup — sits above the per-lender pages since it's the
+    // entry point you scan before drilling into a single lender.
+    path: "/all-lenders",
+    label: "All Lenders",
+    icon: "Building2",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 19,
+    roles: ["super-admin", "kb-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
+  },
+  {
     path: "/kb-lending-page",
     label: "KB Success Leads",
     icon: "ClipboardList",

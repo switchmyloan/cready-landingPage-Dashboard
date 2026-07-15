@@ -55,6 +55,7 @@ import ExportAuditLogs from './pages/OtpLogs/ExportAuditLogs';
 import MvDisbursalDashboard from './pages/LeadManagement/MvDisbursalDashboard';
 import ShortDisbursalDashboard from './pages/LeadManagement/Short/ShortDisbursalDashboard';
 import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
+import AllLenders from './pages/LeadManagement/AllLenders';
 import RouteChangeAborter from './components/RouteChangeAborter';
 
 function App() {
@@ -80,6 +81,7 @@ function App() {
             <Route path="mv-success-leads" element={<MVSuccessLeads />} />
             <Route path="mv-success-leads/:id" element={<MVSuccessDetail />} />
             <Route path="sc-response-leads" element={<ScResponseLeads />} />
+            <Route path="all-lenders" element={<AllLenders />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />
