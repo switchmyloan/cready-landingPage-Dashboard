@@ -1223,10 +1223,9 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     const [utmMedium, setUtmMedium] = useState('');
     const [utmMediumOptions, setUtmMediumOptions] = useState([]);
     const [kpis, setKpis] = useState({ totalAmount: 0, count: 0, avgTicket: 0, avgProcMin: 0 });
-    // Live totals lifted up from the monitoring grid — the top KPI cards render
-    // from these so they reflect the grid's current view with no extra API call.
-    // `kpis` (via /kpis) is still fetched for the Month-over-Month section.
-    const [gridStats, setGridStats] = useState(null);
+    // NOTE: the monitoring grid used to lift its totals up here for the KPI cards.
+    // The cards now source AMOUNT from the trend and COUNT from employment-mix
+    // (both fast), so the grid no longer feeds them and its onStats prop was removed.
     // KPI boxes source AMOUNT from the Disbursal-trend section and COUNT from the
     // Employment-mix section (both already loaded on the page → no extra API call).
     const [trendTotals, setTrendTotals] = useState(null); // { loading, amount }  raw ₹
@@ -1347,9 +1346,9 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     }, [scope]);
 
     // The dedicated /kpis request is disabled — the top KPI cards now read straight
-    // from the Disbursal-monitoring grid (gridStats via onStats), so this extra
-    // network call is unnecessary. We keep the effect only to drop the first-load
-    // loader + stamp "Updated" once the filters are valid; NO API call is made.
+    // from the trend (amount) + employment-mix (count) sections already on the page,
+    // so this extra network call is unnecessary. We keep the effect only to drop the
+    // first-load loader + stamp "Updated" once the filters are valid; NO API call is made.
     useEffect(() => {
         if (customIncomplete) return;
         // --- COMMENTED: unnecessary /kpis fetch (cards come from the grid now) ---
@@ -1829,42 +1828,41 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
 
             {/* KPI boxes are derived from sections already on the page — no dedicated
                 /kpis API call:
-                  • AMOUNT  ← Disbursal-trend section (trendTotals.amount, raw ₹)
-                  • COUNT   ← Employment-mix section  (empTotals.count)
-                  • Avg ticket = amount ÷ count · Revenue = amount × 3.25 ÷ 100
-                Skeleton only until each source first reports (then value stays
+                  • AMOUNT (Total disbursed, Revenue) ← Disbursal-trend (trendTotals.amount)
+                  • COUNT  (Total disbursals) ← Employment-mix (empTotals.count)
+                  • Avg ticket = trend amount ÷ emp count · Revenue = trend amount × 3.25 ÷ 100
+                Both sources are fast, so the whole row renders without the /transactions
+                grid. Skeleton only until each source first reports (then value stays
                 while that section refetches, like its own header does). */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-                {/* All 4 cards read from the monitoring grid's own lifted totals
-                    (gridStats: RPM-excluded, same rows shown in the table), so the
-                    cards ALWAYS equal the grid's "N disbursals / Total in view". */}
                 <KpiCard icon={Wallet} label="Total disbursed"
                     tint="bg-purple-50/60 border-purple-100"
                     iconClass="bg-purple-100 text-purple-600"
-                    loading={!gridStats || (gridStats.loading && !gridStats.totalAmount)}
-                    value={Math.round(gridStats?.totalAmount || 0)}
+                    loading={!trendTotals || (trendTotals.loading && !trendTotals.amount)}
+                    value={Math.round(trendTotals?.amount || 0)}
                     format={(n) => fmtINRFull(Math.round(n))}
-                    sub={`across ${fmtNum(gridStats?.count || 0)} disbursals · ${range}`} />
+                    sub={`across ${fmtNum(empTotals?.count || 0)} disbursals · ${range}`} />
                 <KpiCard icon={Activity} label="Total disbursals"
                     tint="bg-blue-50/60 border-blue-100"
                     iconClass="bg-blue-100 text-blue-600"
-                    loading={!gridStats || (gridStats.loading && !gridStats.count)}
-                    value={Number(gridStats?.count) || 0}
+                    loading={!empTotals || (empTotals.loading && !empTotals.count)}
+                    value={Number(empTotals?.count) || 0}
                     format={(n) => fmtNum(Math.round(n))}
                     sub={`in last ${range.toLowerCase()}`} />
                 <KpiCard icon={Banknote} label="Avg. ticket size"
                     tint="bg-orange-50/60 border-orange-100"
                     iconClass="bg-orange-100 text-orange-600"
-                    loading={!gridStats || (gridStats.loading && !gridStats.count)}
-                    value={Math.round(gridStats?.avgTicket || 0)}
+                    loading={!trendTotals || !empTotals || (trendTotals.loading && !trendTotals.amount) || (empTotals.loading && !empTotals.count)}
+                    value={empTotals?.count ? (trendTotals?.amount || 0) / empTotals.count : 0}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="per disbursal" />
-                {/* Revenue Evaluation — Total disbursed × 3.25 ÷ 100. */}
+                {/* Revenue Evaluation — Total disbursed × 3.25 ÷ 100. Derives from the
+                    SAME trend amount as the Total-disbursed card so the two stay in sync. */}
                 <KpiCard icon={TrendingUp} label="Revenue Evaluation"
                     tint="bg-emerald-50/60 border-emerald-100"
                     iconClass="bg-emerald-100 text-emerald-600"
-                    loading={!gridStats || (gridStats.loading && !gridStats.totalAmount)}
-                    value={Math.round((gridStats?.totalAmount || 0) * 3.25 / 100)}
+                    loading={!trendTotals || (trendTotals.loading && !trendTotals.amount)}
+                    value={Math.round((trendTotals?.amount || 0) * 3.25 / 100)}
                     format={(n) => fmtINRFull(Math.round(n))}
                     sub="Estimated revenue · 3.25× ÷ 100" />
             </div>
@@ -1879,7 +1877,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 <LenderChart kind="count" data={lenderStats} loading={lenderLoading} onLenderClick={setSelectedLender} />
             </div>
 
-            <TransactionsTable range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} onStats={setGridStats} />
+            <TransactionsTable range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} />
 
             {selectedLender && (
                 <LenderBreakdownModal
