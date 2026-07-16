@@ -372,6 +372,25 @@ export const getSelectedLendersByPhone = async (phone) => {
     });
 };
 
+// All Lenders — one aggregate row per lender (selected / successful / rejected /
+// other). Returns the whole set in one shot; there's no pagination because the
+// lender list is small (tens of rows, not thousands).
+// scope: 'high' | 'short' — picks the ticket type (selectedLenders+offerLeads vs
+// shortSelectedLenders+shortOfferLeads). Omitted → backend defaults to 'high'.
+export const getAllLendersStats = async ({
+  type,
+  fromDate,
+  toDate,
+  utmMedium,
+  utmSource,
+  scope,
+} = {}) => {
+    return Api().get(`/all-lenders`, {
+        params: { type, fromDate, toDate, utmMedium, utmSource, scope },
+        skipAdminAppend: true,
+    });
+};
+
 // Cheap membership check (page load) — decides whether to show the BRE tab.
 // Matched by phone. Returns { success, eligible }. No BRE call happens here.
 export const getBreEligibility = async (phone) => {
