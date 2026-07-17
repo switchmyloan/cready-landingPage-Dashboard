@@ -1,6 +1,14 @@
 import './App.css'
 import Home from '@pages/Home'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { Suspense, lazy } from 'react';
+import PremiumPageLoader from './components/PremiumPageLoader';
+
+// Lazy-loaded: Intelligence pulls in 13 widgets and its own Recharts surface.
+// Every other import in this file is eager, so an eager import here would push
+// that weight onto every user's first paint — including the majority who will
+// never open the module (it is super-admin only).
+const Intelligence = lazy(() => import('./pages/Intelligence/Intelligence'));
 import DefaultLayout from './layouts/DefaultLayout'
 import LoginPage from '@pages/Auth/LoginPage'
 import ProtectedRoute from './components/ProtectedRoute';
@@ -84,6 +92,14 @@ function App() {
             <Route path="mv-success-leads/:id" element={<MVSuccessDetail />} />
             <Route path="sc-response-leads" element={<ScResponseLeads />} />
             <Route path="all-lenders" element={<AllLenders />} />
+            <Route
+              path="intelligence"
+              element={
+                <Suspense fallback={<PremiumPageLoader theme="purple" title="Loading Intelligence" progressLabel="Preparing analytics" />}>
+                  <Intelligence />
+                </Suspense>
+              }
+            />
             <Route path="vivifi-webhook-leads" element={<VivifiWebhookLeads />} />
             <Route path="vivifi-webhook-leads/:leadId" element={<VivifiWebhookLeadDetail />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />

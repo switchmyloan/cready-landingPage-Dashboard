@@ -359,13 +359,36 @@ export const routes = [
     order: 14,
     roles: ["super-admin", "mv-page", "mv-page-admin", "mv-admin", "management", "marketing"],
   },
+  // Intelligence — one standalone tab holding four modules (High Ticket, Short
+  // Ticket, Campaigns, Lenders), switched in-page rather than duplicated into four
+  // sidebar entries. Self-contained: it reads only, and shares no state with any
+  // other module.
+  //
+  // super-admin only while the numbers are being validated. The data-quality gates
+  // it surfaces (MIS coverage, missing approval signal) should be understood before
+  // this is widened to management/marketing.
+  //
+  // ORDER: the sidebar sorts standalone entries and groups together in one list,
+  // comparing a standalone's `order` against a group's `groupOrder`. 3.5 places
+  // this immediately after the Lenders group (3) and before Security (4).
+  {
+    path: "/intelligence",
+    label: "Intelligence",
+    icon: "Brain",
+    showInSidebar: true,
+    order: 3.5,
+    roles: ["super-admin"],
+  },
+  // Security was groupOrder 3 — the same value as Lenders — so the two only
+  // separated by insertion order. Making it 4 is a no-op for what renders today
+  // (Lenders already came first) and gives Intelligence a slot between them.
   {
     path: "/otp-logs",
     label: "OTP Logs",
     icon: "ShieldCheck",
     showInSidebar: true,
     group: "Security",
-    groupOrder: 3,
+    groupOrder: 4,
     order: 30,
     roles: ["super-admin"],
   },
@@ -375,7 +398,7 @@ export const routes = [
     icon: "FileDown",
     showInSidebar: true,
     group: "Security",
-    groupOrder: 3,
+    groupOrder: 4,
     order: 31,
     roles: ["super-admin"],
   },

@@ -332,13 +332,18 @@ import {
   ShieldCheck,
   Settings,
   TrendingUp,
-  Megaphone
+  Megaphone,
+  Brain,
+  FileDown
 } from "lucide-react";
 
+// NOTE: an `icon` string in routes.js MUST also appear here, or resolution falls
+// back to HelpCircle silently. FileDown was already referenced by the Export Logs
+// route without being mapped — it has been rendering a question-mark icon.
 const ICONS = {
   Home, FileText, Users, HelpCircle, Newspaper, MessageSquare,
   UserPlus, UserMinus, UserCheck, Building2, BookOpen, ClipboardList,
-  ShieldCheck, Settings, TrendingUp, Megaphone
+  ShieldCheck, Settings, TrendingUp, Megaphone, Brain, FileDown
 };
 
 function Sidebar({ onClose, collapsed, onToggleCollapse }) {
