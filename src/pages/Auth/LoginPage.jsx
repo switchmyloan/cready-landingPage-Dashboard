@@ -124,17 +124,33 @@ function LoginPage() {
     // in OfferLeads.jsx (CALL_CENTER_SALARY_BANDS).
     {
       id: 12,
-      name: "Call Center (25K–50K)",
+      name: "Call Center 1",
       email: "callcenter1@cready.in",
       password: "CallCntr1#Cr3ady!26$L",
-      role: "call-center-40-65",
+      role: "call-center",
     },
     {
       id: 13,
-      name: "Call Center (50K+)",
+      name: "Call Center 2",
       email: "callcenter2@cready.in",
       password: "CallCntr2#Cr3ady!26$H",
-      role: "call-center-65plus",
+      role: "call-center",
+    },
+    // Round-robin call-center agents — no salary band; each is a slot in the flat
+    // pool (see callCenterPool.js) and sees only its hash(phone) shard of leads.
+    {
+      id: 16,
+      name: "Call Center 3",
+      email: "callcenter3@cready.in",
+      password: "CallCntr3#Cr3ady!26$K",
+      role: "call-center",
+    },
+    {
+      id: 17,
+      name: "Call Center 4",
+      email: "callcenter4@cready.in",
+      password: "CallCntr4#Cr3ady!26$P",
+      role: "call-center",
     },
     // Campaign team — sees only the Campaign page (a Cready RPM replica).
     {

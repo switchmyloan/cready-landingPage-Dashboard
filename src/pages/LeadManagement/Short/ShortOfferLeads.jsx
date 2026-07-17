@@ -10,6 +10,7 @@ import ExportModal from '../../../components/ExportModal';
 import ToastNotification from '../../../components/Notification/ToastNotification';
 import { useAuth } from '../../../custom-hooks/useAuth';
 import { getSalaryBand, isCallCenterRole } from '../../../custom-hooks/callCenterBands';
+import { getRoundRobin } from '../../../custom-hooks/callCenterPool';
 import CallCenterBandBanner from '../../../components/CallCenterBandBanner';
 import FeedbackStatusFilter from '../../../components/FeedbackStatusFilter';
 import PremiumPageLoader from '../../../components/PremiumPageLoader';
@@ -27,8 +28,11 @@ const ShortOfferLeads = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canExport = ["super-admin", "short-page-admin"].includes(user?.role);
-  // Segmented call-center roles: income/loan band forced on every fetch + locked.
-  const salaryBand = getSalaryBand(user?.role);
+  // Pooled call-center agents are split by hash(phone) shard, not band — drop the
+  // band for them (rr is the sole divider). Non-pooled accounts keep their band.
+  const rr = useMemo(() => getRoundRobin(user), [user]);
+  // Segmented call-center roles (NOT in the pool): income/loan band forced + locked.
+  const salaryBand = rr ? null : getSalaryBand(user?.role);
   // Call-center agents don't work disbursement, so hide that filter for them.
   const isCallCenter = isCallCenterRole(user?.role);
   const [rawData, setRawData] = useState([]);
@@ -142,6 +146,9 @@ const ShortOfferLeads = () => {
         feedbackStatus: query.feedbackStatus || undefined,
         // Customer-care view: one row per phone (latest by createdAt).
         distinct: isCallCenter ? 'true' : undefined,
+        // Round-robin shard for pooled call-center agents.
+        rrSlot: rr?.rrSlot,
+        rrTotal: rr?.rrTotal,
       });
       if (res?.data?.success) {
         setRawData(res?.data?.data?.data || []);
@@ -166,7 +173,7 @@ const ShortOfferLeads = () => {
     query.dobFromDate, query.dobToDate, query.loanPurpose,
     query.minMonthlyIncome, query.maxMonthlyIncome, query.lender,
     query.disbStatus, query.pincode, query.employmentType,
-    query.medium, query.source, query.feedbackStatus, salaryBand, isCallCenter,
+    query.medium, query.source, query.feedbackStatus, salaryBand, isCallCenter, rr,
   ]);
 
   useEffect(() => {
