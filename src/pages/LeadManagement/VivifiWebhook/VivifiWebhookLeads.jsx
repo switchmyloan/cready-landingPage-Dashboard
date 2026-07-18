@@ -11,6 +11,45 @@ import { getVivifiApplications, getVivifiLoans } from '../../../api-services/Mod
 
 const inr = (n) => `₹ ${Number(n || 0).toLocaleString('en-IN')}`;
 
+// CSV export helpers. Every value is quoted/escaped so commas, quotes and newlines in
+// the data (e.g. a multi-line rejection reason) can't break the column layout; a BOM
+// is prepended so Excel opens it as UTF-8. Each column is { header, value: (row) => … }.
+const csvEscape = (v) => {
+  const s = v === null || v === undefined ? '' : String(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+const downloadCsv = (filename, cols, rows) => {
+  const head = cols.map((c) => csvEscape(c.header)).join(',');
+  const body = rows.map((r) => cols.map((c) => csvEscape(c.value(r))).join(',')).join('\n');
+  const blob = new Blob(['﻿' + head + '\n' + body], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
+// The backend caps perPage at 200 (clampPaging), so a single fetch would SILENTLY
+// truncate a large export. Page through in 200-row chunks until we've pulled `total`
+// (or a chunk comes back short). The 200-page backstop (40k rows) only guards a bad
+// total — Vivifi's webhook data is far smaller. `fetcher` is getVivifiApplications /
+// getVivifiLoans; `baseParams` carries the active filters (no perPage/currentPage).
+const fetchAllVivifi = async (fetcher, baseParams) => {
+  const PAGE = 200;
+  const rows = [];
+  for (let page = 1; page <= 200; page += 1) {
+    const res = await fetcher({ ...baseParams, perPage: PAGE, currentPage: page });
+    const chunk = res?.data?.data?.data || [];
+    rows.push(...chunk);
+    const total = res?.data?.data?.pagination?.total ?? rows.length;
+    if (chunk.length < PAGE || rows.length >= total) break;
+  }
+  return rows;
+};
+
 // Clickable stage chip — click to filter the table by that status, click again to clear.
 const StageChip = ({ label, count, active, onClick, tone = 'gray' }) => {
   const tones = {
@@ -117,6 +156,31 @@ const ApplicationsPanel = () => {
     ...prev, status: prev.status === s ? '' : s, page_no: 1,
   })), []);
 
+  // Export ALL rows matching the current filters (not just the visible page):
+  // re-run the same query with perPage = total, then build the CSV client-side.
+  const handleExport = useCallback(async () => {
+    try {
+      const all = await fetchAllVivifi(getVivifiApplications, {
+        search: query.search,
+        type: query.type || undefined,
+        fromDate: query.startDate || undefined,
+        toDate: query.endDate || undefined,
+        status: query.status || undefined,
+      });
+      if (!all.length) { ToastNotification.error('No rows to export'); return; }
+      downloadCsv(`vivifi_applications_${Date.now()}.csv`, [
+        { header: 'Lead ID', value: (r) => r.leadId },
+        { header: 'Phone', value: (r) => r.phoneNumber },
+        { header: 'Status', value: (r) => r.status },
+        { header: 'Rejection Reason', value: (r) => r.rejectionReason },
+        { header: 'Updated At', value: (r) => r.updatedAt },
+      ], all);
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Export failed');
+    }
+  }, [query]);
+
   const handleEdit = (lead) => {
     navigate(`/vivifi-webhook-leads/${encodeURIComponent(lead.leadId)}`, { state: { lead, kind: 'application' } });
   };
@@ -150,6 +214,7 @@ const ApplicationsPanel = () => {
         onPageChange={onPageChange}
         onSearch={onSearch}
         onRefresh={fetchData}
+        onExport={handleExport}
         title="VIVIFI · APPLICATIONS"
         onFilterByDate={onFilterByDate}
         activeFilter={query.type}
@@ -216,6 +281,32 @@ const LoansPanel = () => {
     ...prev, status: prev.status === s ? '' : s, page_no: 1,
   })), []);
 
+  // Export ALL loan rows matching the current filters (see ApplicationsPanel note).
+  const handleExport = useCallback(async () => {
+    try {
+      const all = await fetchAllVivifi(getVivifiLoans, {
+        search: query.search,
+        type: query.type || undefined,
+        fromDate: query.startDate || undefined,
+        toDate: query.endDate || undefined,
+        status: query.status || undefined,
+      });
+      if (!all.length) { ToastNotification.error('No rows to export'); return; }
+      downloadCsv(`vivifi_loans_${Date.now()}.csv`, [
+        { header: 'Lead ID', value: (r) => r.leadId },
+        { header: 'Phone', value: (r) => r.phoneNumber },
+        { header: 'Status', value: (r) => r.status },
+        { header: 'Amount', value: (r) => r.amount },
+        { header: 'Disbursed', value: (r) => r.disbursalAmount },
+        { header: 'Disbursal Date', value: (r) => r.disbursalDate },
+        { header: 'Updated At', value: (r) => r.updatedAt },
+      ], all);
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Export failed');
+    }
+  }, [query]);
+
   const handleEdit = (lead) => {
     navigate(`/vivifi-webhook-leads/${encodeURIComponent(lead.leadId)}`, { state: { lead, kind: 'loan' } });
   };
@@ -257,6 +348,7 @@ const LoansPanel = () => {
         onPageChange={onPageChange}
         onSearch={onSearch}
         onRefresh={fetchData}
+        onExport={handleExport}
         title="VIVIFI · LOANS (DISBURSAL)"
         onFilterByDate={onFilterByDate}
         activeFilter={query.type}
