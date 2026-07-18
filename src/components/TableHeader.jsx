@@ -2692,3 +2692,37 @@ export const vivifiLoansColumn = ({ handleEdit }) => [
   { header: 'Updated At', accessorKey: 'updatedAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
   { header: 'Actions', id: 'actions-vivifi-loan', cell: vivifiEyeCell(handleEdit, 'View timeline') },
 ];
+
+// Truncate long opaque hashes (pci / event_id) with the full value on hover.
+const upSwingTruncCell = ({ getValue }) => {
+  const v = getValue();
+  if (!v) return <span className="text-gray-400 italic">—</span>;
+  const s = String(v);
+  return <span className="font-mono text-xs text-gray-600" title={s}>{s.length > 16 ? `${s.slice(0, 12)}…` : s}</span>;
+};
+
+// UpSwing webhook events — append-only diary (Postgres upswing_webhook_events),
+// enriched with the lead MRN (joined on the payload's pci). event_type reuses the
+// Vivifi status badge (colours SUCCESS/DISBURSED green, INITIATED amber, etc.).
+export const upSwingEventsColumn = ({ handleEdit }) => [
+  { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
+  { header: 'Event Type', accessorKey: 'event_type', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
+  {
+    header: 'MRN',
+    accessorKey: 'mrn',
+    cell: ({ getValue }) => getValue()
+      ? <span className="font-mono text-sm font-medium text-gray-800">{getValue()}</span>
+      : <span className="text-gray-400 italic">—</span>,
+  },
+  { header: 'PCI', accessorKey: 'pci', cell: upSwingTruncCell },
+  {
+    header: 'Source',
+    accessorKey: 'source',
+    cell: ({ getValue }) => getValue()
+      ? <span className="text-sm text-gray-600">{getValue()}</span>
+      : <span className="text-gray-400 italic">—</span>,
+  },
+  { header: 'Event ID', accessorKey: 'event_id', cell: upSwingTruncCell },
+  { header: 'Received At', accessorKey: 'received_at', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
+  { header: 'Actions', id: 'actions-upswing', cell: vivifiEyeCell(handleEdit, 'View event detail') },
+];

@@ -66,6 +66,8 @@ import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
+import UpSwingWebhook from './pages/LeadManagement/UpSwing/UpSwingWebhook';
+import UpSwingWebhookDetail from './pages/LeadManagement/UpSwing/UpSwingWebhookDetail';
 import RouteChangeAborter from './components/RouteChangeAborter';
 
 function App() {
@@ -102,6 +104,8 @@ function App() {
             />
             <Route path="vivifi-webhook-leads" element={<VivifiWebhookLeads />} />
             <Route path="vivifi-webhook-leads/:leadId" element={<VivifiWebhookLeadDetail />} />
+            <Route path="upswing-webhook" element={<UpSwingWebhook />} />
+            <Route path="upswing-webhook/:id" element={<UpSwingWebhookDetail />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />

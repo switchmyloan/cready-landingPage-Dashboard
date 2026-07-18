@@ -189,6 +189,16 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    path: "/upswing-webhook",
+    label: "UpSwing",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
     icon: "Home",
