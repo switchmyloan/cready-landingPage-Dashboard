@@ -156,6 +156,8 @@ export const getOfferLeads = async ({
   feedbackStatus,
   distinct,
   trackingEvent,
+  rrSlot,
+  rrTotal,
 } = {}) => {
     return Api().get(`/offer-leads`, {
         params: {
@@ -181,6 +183,10 @@ export const getOfferLeads = async ({
             feedbackStatus,
             distinct,
             trackingEvent,
+            // Round-robin shard (call-center pool). rrSlot can be 0, so these are
+            // forwarded as-is — do NOT collapse with `|| undefined`.
+            rrSlot,
+            rrTotal,
         },
         skipAdminAppend: true,
     });
@@ -751,6 +757,8 @@ export const getShortOfferLeads = async ({
   source,
   feedbackStatus,
   distinct,
+  rrSlot,
+  rrTotal,
 } = {}) => {
     return Api().get(`/short-offer-leads`, {
         params: {
@@ -775,6 +783,9 @@ export const getShortOfferLeads = async ({
             source,
             feedbackStatus,
             distinct,
+            // Round-robin shard (call-center pool). rrSlot can be 0 — forward as-is.
+            rrSlot,
+            rrTotal,
         },
         skipAdminAppend: true,
     });
