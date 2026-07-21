@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../custom-hooks/useAuth";
 import { UserService } from "../../custom-hooks";
 import CallbackReminders from "../CallbackReminders/CallbackReminders";
+import IncredSuccessAlerts from "../IncredSuccessAlerts/IncredSuccessAlerts";
 
 function Navbar({ onToggleSidebar }) {
   const navigate = useNavigate();
@@ -104,6 +105,9 @@ function Navbar({ onToggleSidebar }) {
           <RefreshCw size={11} className="text-purple-500" />
           Updated {refreshedLabel}
         </div>
+
+        {/* InCred success lead alerts — bell + beep + desktop notif + flash toast */}
+        <IncredSuccessAlerts />
 
         {/* Callback reminders bell — renders only for call-center roles */}
         <CallbackReminders />

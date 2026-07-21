@@ -476,17 +476,17 @@ const FilterBar = ({
         {/* Tracking event select */}
         <div className="basis-[160px] shrink-0">
           <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
-            Tracking
+            InCred Activity
           </label>
           <select
             value={trackingEvent || ""}
             onChange={(e) => onTrackingChange(e.target.value)}
             className="w-full px-1.5 py-1.5 rounded-md border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-purple-400"
           >
-            <option value="">All Tracking</option>
-            <option value="incred_pending_modal_shown">Incred Pending Modal Shown</option>
-            <option value="incred_pending_modal_apply_clicked">Incred Pending Modal — Apply</option>
-            <option value="incred_offer_model_clicked">Incred Offer Model Clicked</option>
+            <option value="">All Activity</option>
+            <option value="incred_pending_modal_shown">InCred: Pending Offer Shown</option>
+            <option value="incred_pending_modal_apply_clicked">InCred: Pending Offer Apply Clicked</option>
+            <option value="incred_offer_model_clicked">InCred: Offer Card Clicked</option>
           </select>
         </div>
 

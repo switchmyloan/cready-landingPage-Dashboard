@@ -156,6 +156,7 @@ export const getOfferLeads = async ({
   feedbackStatus,
   distinct,
   trackingEvent,
+  hotLeads,
   rrSlot,
   rrTotal,
 } = {}) => {
@@ -183,6 +184,7 @@ export const getOfferLeads = async ({
             feedbackStatus,
             distinct,
             trackingEvent,
+            hotLeads,
             // Round-robin shard (call-center pool). rrSlot can be 0, so these are
             // forwarded as-is — do NOT collapse with `|| undefined`.
             rrSlot,
@@ -918,6 +920,13 @@ export const dismissCallback = async (phone) =>
 
 export const getShortDueCallbacks = async (agent) =>
     Api().get(`/short-feedback/due-callbacks`, { params: { agent }, skipAdminAppend: true });
+
+// Recent InCred-success leads for the in-CMS alert bell (last 6h). Powers the
+// IncredSuccessAlerts navbar bell — beeps / desktop-notifies on new arrivals.
+// rrSlot/rrTotal scope a pooled call-center agent to their own round-robin shard
+// (rrSlot can be 0 → forwarded as-is, not collapsed with `|| undefined`).
+export const getIncredSuccessAlerts = async ({ rrSlot, rrTotal } = {}) =>
+    Api().get(`/offer-leads/incred-success-alerts`, { params: { rrSlot, rrTotal }, skipAdminAppend: true });
 
 export const dismissShortCallback = async (phone) =>
     Api().put(`/short-feedback/callback-done`, { phone }, { skipAdminAppend: true });

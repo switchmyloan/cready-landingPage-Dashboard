@@ -133,6 +133,7 @@ const OfferLeads = () => {
     utmSource: '',
     feedbackStatus: '',
     trackingEvent: '',
+    hotLeads: '',
   };
 
   const [query, setQuery] = useState(() => {
@@ -239,6 +240,10 @@ const OfferLeads = () => {
     vivifi: 'Vivifi',
     HeroFinCorp: 'Hero FinCorp',
     'InCred Dedupe': 'InCred (Dedupe)',
+    RamFinCorp: 'RamFinCorp',
+    AyeFinance: 'Aye Finance',
+    FlexiLoans: 'FlexiLoans',
+    'IDFC First Bank': 'IDFC First Bank',
   };
 
   // Lender dropdown options — populated from the DB so it always reflects the
@@ -305,6 +310,8 @@ const OfferLeads = () => {
         utmSource: query.utmSource || undefined,
         feedbackStatus: query.feedbackStatus || undefined,
         trackingEvent: query.trackingEvent || undefined,
+        // Hot Leads: only leads where the selected lender ('all' = any) returned a success.
+        hotLeads: query.hotLeads || undefined,
         // Customer-care view: one row per phone (latest by createdAt).
         distinct: isCallCenter ? 'true' : undefined,
         // Round-robin shard for pooled call-center agents.
@@ -335,7 +342,7 @@ const OfferLeads = () => {
     query.dobFromDate, query.dobToDate, query.loanPurpose,
     query.minMonthlyIncome, query.maxMonthlyIncome, query.lender,
     query.disbStatus, query.city, query.employmentType, query.utmMedium, query.utmSource,
-    query.feedbackStatus, query.trackingEvent, salaryBand, isCallCenter, rr,
+    query.feedbackStatus, query.trackingEvent, query.hotLeads, salaryBand, isCallCenter, rr,
   ]);
 
   useEffect(() => {
@@ -434,6 +441,7 @@ const OfferLeads = () => {
       utmMedium: '',
       utmSource: '',
       trackingEvent: '',
+      hotLeads: '',
     }));
   }, [salaryBand]);
 
@@ -467,6 +475,11 @@ const OfferLeads = () => {
 
   const handleTrackingFilter = useCallback((newTracking) => {
     setQuery(prev => ({ ...prev, trackingEvent: newTracking, page_no: 1 }));
+  }, []);
+
+  // Hot Leads filter — leads where the selected lender ('all' = any) returned a success.
+  const handleHotLeadsFilter = useCallback((value) => {
+    setQuery(prev => ({ ...prev, hotLeads: value, page_no: 1 }));
   }, []);
 
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -872,7 +885,7 @@ const OfferLeads = () => {
           {/* Tracking event */}
           <div className="flex flex-col gap-1 min-w-0">
             <label className="text-[11px] font-bold tracking-[0.08em] uppercase text-gray-500">
-              Tracking
+              InCred Activity
             </label>
             <div className="flex items-center gap-1.5">
               <select
@@ -880,10 +893,10 @@ const OfferLeads = () => {
                 onChange={(e) => handleTrackingFilter(e.target.value)}
                 className="flex-1 min-w-0 border border-gray-200 bg-white rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 transition"
               >
-                <option value="">All Tracking</option>
-                <option value="incred_pending_modal_shown">Incred Pending Modal Shown</option>
-                <option value="incred_pending_modal_apply_clicked">Incred Pending Modal — Apply</option>
-                <option value="incred_offer_model_clicked">Incred Offer Model Clicked</option>
+                <option value="">All Activity</option>
+                <option value="incred_pending_modal_shown">InCred: Pending Offer Shown</option>
+                <option value="incred_pending_modal_apply_clicked">InCred: Pending Offer Apply Clicked</option>
+                <option value="incred_offer_model_clicked">InCred: Offer Card Clicked</option>
               </select>
               {query.trackingEvent && (
                 <button
@@ -925,6 +938,46 @@ const OfferLeads = () => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Hot Leads — pick a lender to see leads where THAT lender returned a success
+            (or "Any Lender"). Conditions mirror the All Lenders "Successful" card. */}
+        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+          <label className="text-[12.5px] font-bold text-gray-700 inline-flex items-center gap-1 whitespace-nowrap">
+            🔥 Hot Leads
+          </label>
+          <select
+            value={query.hotLeads}
+            onChange={(e) => handleHotLeadsFilter(e.target.value)}
+            className={`border rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-orange-200 transition ${
+              query.hotLeads
+                ? 'bg-orange-50 border-orange-300 text-orange-700 font-semibold'
+                : 'bg-white border-gray-300 text-gray-700'
+            }`}
+          >
+            <option value="">Off (all leads)</option>
+            {/* <option value="all">Any Lender Success</option> */}
+            {/* <option value="HeroFinCorp">HeroFinCorp Success</option> */}
+            <option value="InCred">InCred Success</option>
+            {/* <option value="RamFinCorp">RamFinCorp Success</option> */}
+            {/* <option value="AyeFinance">AyeFinance Success</option> */}
+            {/* <option value="KreditBee">KreditBee Success</option> */}
+            {/* <option value="MoneyView">MoneyView Success</option> */}
+          </select>
+          {query.hotLeads && (
+            <>
+              {/* <span className="text-[11px] text-gray-400 italic">
+                Sirf woh leads jinme {query.hotLeads === 'all' ? 'kisi bhi lender' : query.hotLeads} ka success aaya.
+              </span> */}
+              <button
+                onClick={() => handleHotLeadsFilter('')}
+                className="text-[11px] px-2 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition"
+                title="Clear hot leads filter"
+              >
+                ×
+              </button>
+            </>
+          )}
         </div>
 
         {query.lender && (
