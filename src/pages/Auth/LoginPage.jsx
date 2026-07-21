@@ -137,7 +137,7 @@ function LoginPage() {
       role: "call-center",
     },
     // Round-robin call-center agents — no salary band; each is a slot in the flat
-    // pool (see callCenterPool.js) and sees only its hash(phone) shard of leads.
+    // pool (see callCenterPool.js) and is assigned leads sequentially.
     {
       id: 16,
       name: "Call Center 3",
@@ -150,6 +150,27 @@ function LoginPage() {
       name: "Call Center 4",
       email: "callcenter4@cready.in",
       password: "CallCntr4#Cr3ady!26$P",
+      role: "call-center",
+    },
+    {
+      id: 18,
+      name: "Call Center 5",
+      email: "callcenter5@cready.in",
+      password: "CallCntr5#Cr3ady!26$D",
+      role: "call-center",
+    },
+    {
+      id: 19,
+      name: "Call Center 6",
+      email: "callcenter6@cready.in",
+      password: "CallCntr6#Cr3ady!26$F",
+      role: "call-center",
+    },
+    {
+      id: 20,
+      name: "Call Center 7",
+      email: "callcenter7@cready.in",
+      password: "CallCntr7#Cr3ady!26$J",
       role: "call-center",
     },
     // Campaign team — sees only the Campaign page (a Cready RPM replica).

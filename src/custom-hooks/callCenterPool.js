@@ -23,18 +23,21 @@ export const CALL_CENTER_POOL = [
   'callcenter2@cready.in',
   'callcenter3@cready.in',
   'callcenter4@cready.in',
+  'callcenter5@cready.in',
+  'callcenter6@cready.in',
+  'callcenter7@cready.in',
   // add more agents here…
 ];
 
 /**
- * Round-robin descriptor for the logged-in user, or null when the user isn't a
- * call-center agent OR isn't listed in the pool (those fall back to their normal
- * view / salary band). Shape: { rrSlot, rrTotal }.
+ * Stable agent id (email) for the logged-in user when they're a call-center pool
+ * member, else null. Sent to the backend as `agentId`, which filters the lead
+ * list to leads PERSISTENTLY assigned to this agent (lead_assignments) — so the
+ * set never reshuffles when the roster changes. Non-members get null → their
+ * normal (unfiltered) view.
  */
-export const getRoundRobin = (user) => {
+export const getCallCenterAgentId = (user) => {
   if (!user || !isCallCenterRole(user.role)) return null;
   const email = String(user.email || '').trim().toLowerCase();
-  const slot = CALL_CENTER_POOL.findIndex((e) => e.toLowerCase() === email);
-  if (slot < 0) return null;
-  return { rrSlot: slot, rrTotal: CALL_CENTER_POOL.length };
+  return CALL_CENTER_POOL.some((e) => e.toLowerCase() === email) ? email : null;
 };

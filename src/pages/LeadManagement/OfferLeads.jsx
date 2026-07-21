@@ -13,7 +13,7 @@ import ModuleInfoCard from '../../components/ModuleInfoCard';
 import ToastNotification from '../../components/Notification/ToastNotification';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { getSalaryBand, isCallCenterRole } from '../../custom-hooks/callCenterBands';
-import { getRoundRobin } from '../../custom-hooks/callCenterPool';
+import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
 import CallCenterBandBanner from '../../components/CallCenterBandBanner';
 import { FEEDBACK_STATUSES } from '../../components/LeadFeedback/LeadFeedback';
 import { Link } from 'react-router-dom';
@@ -51,14 +51,12 @@ const OfferLeads = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const canExport = ["super-admin", "mv-page-admin"].includes(user?.role);
-  // Round-robin: when this agent is in the flat call-center pool, leads are
-  // split by hash(phone) shard instead of by salary band. So for pooled agents
-  // we DROP the band (rr is the sole divider); non-pooled call-center accounts
+  // Call-center pool member → the list is filtered to leads PERSISTENTLY assigned
+  // to this agent (backend lead_assignments). So for pooled agents we DROP the
+  // salary band (assignment is the sole divider); non-pooled call-center accounts
   // keep their band as a fallback.
-  const rr = useMemo(() => getRoundRobin(user), [user]);
-  // Non-null only for the two salary-segmented call-center roles NOT in the pool.
-  // When set, the income/loan band is forced on every fetch and filters locked.
-  const salaryBand = rr ? null : getSalaryBand(user?.role);
+  const agentId = useMemo(() => getCallCenterAgentId(user), [user]);
+  const salaryBand = agentId ? null : getSalaryBand(user?.role);
   // Call-center agents don't work disbursement, so hide that filter for them.
   const isCallCenter = isCallCenterRole(user?.role);
   // Hydrate filters / pagination from sessionStorage if user is returning from
@@ -307,9 +305,8 @@ const OfferLeads = () => {
         trackingEvent: query.trackingEvent || undefined,
         // Customer-care view: one row per phone (latest by createdAt).
         distinct: isCallCenter ? 'true' : undefined,
-        // Round-robin shard for pooled call-center agents.
-        rrSlot: rr?.rrSlot,
-        rrTotal: rr?.rrTotal,
+        // Pooled call-center agent → backend filters to their assigned leads.
+        agentId: agentId || undefined,
       });
       if (res?.data?.success) {
         setRawData(res?.data?.data?.data || []);
@@ -335,7 +332,7 @@ const OfferLeads = () => {
     query.dobFromDate, query.dobToDate, query.loanPurpose,
     query.minMonthlyIncome, query.maxMonthlyIncome, query.lender,
     query.disbStatus, query.city, query.employmentType, query.utmMedium, query.utmSource,
-    query.feedbackStatus, query.trackingEvent, salaryBand, isCallCenter, rr,
+    query.feedbackStatus, query.trackingEvent, salaryBand, isCallCenter, agentId,
   ]);
 
   useEffect(() => {
