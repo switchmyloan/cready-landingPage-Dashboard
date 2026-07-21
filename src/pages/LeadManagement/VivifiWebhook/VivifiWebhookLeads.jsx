@@ -170,7 +170,7 @@ const ApplicationsPanel = () => {
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
       downloadCsv(`vivifi_applications_${Date.now()}.csv`, [
         { header: 'Lead ID', value: (r) => r.leadId },
-        { header: 'Phone', value: (r) => r.phoneNumber },
+        { header: 'Phone', value: (r) => r.phone },
         { header: 'Status', value: (r) => r.status },
         { header: 'Rejection Reason', value: (r) => r.rejectionReason },
         { header: 'Updated At', value: (r) => r.updatedAt },
@@ -294,7 +294,7 @@ const LoansPanel = () => {
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
       downloadCsv(`vivifi_loans_${Date.now()}.csv`, [
         { header: 'Lead ID', value: (r) => r.leadId },
-        { header: 'Phone', value: (r) => r.phoneNumber },
+        { header: 'Phone', value: (r) => r.phone },
         { header: 'Status', value: (r) => r.status },
         { header: 'Amount', value: (r) => r.amount },
         { header: 'Disbursed', value: (r) => r.disbursalAmount },

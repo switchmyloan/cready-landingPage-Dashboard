@@ -2658,20 +2658,27 @@ export const vivifiApplicationsColumn = ({ handleEdit }) => [
   {
     header: 'Lead ID',
     accessorKey: 'leadId',
-    cell: ({ getValue }) => <span className="font-mono text-sm font-medium text-gray-800">{getValue() || 'N/A'}</span>,
-  },
-  { header: 'Phone', accessorKey: 'phoneNumber', cell: vivifiPhoneCell },
-  { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
-  {
-    header: 'Rejection Reason',
-    accessorKey: 'rejectionReason',
+    // Long opaque hash — cap the width and ellipsis it; full value on hover (title).
     cell: ({ getValue }) => {
       const v = getValue();
       return v
-        ? <span className="max-w-[280px] truncate inline-block text-sm text-gray-700 align-middle" title={v}>{v}</span>
-        : <span className="text-gray-400 italic">—</span>;
+        ? <span className="font-mono text-sm font-medium text-gray-800 inline-block max-w-[130px] truncate align-middle" title={v}>{v}</span>
+        : <span className="text-gray-400 italic">N/A</span>;
     },
   },
+  { header: 'Name', accessorKey: 'name', cell: ({ getValue }) => getValue() || 'N/A' },
+  { header: 'Phone', accessorKey: 'phone', cell: vivifiPhoneCell },
+  { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
+  // {
+  //   header: 'Rejection Reason',
+  //   accessorKey: 'rejectionReason',
+  //   cell: ({ getValue }) => {
+  //     const v = getValue();
+  //     return v
+  //       ? <span className="max-w-[280px] truncate inline-block text-sm text-gray-700 align-middle" title={v}>{v}</span>
+  //       : <span className="text-gray-400 italic">—</span>;
+  //   },
+  // },
   { header: 'Updated At', accessorKey: 'updatedAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
   { header: 'Actions', id: 'actions-vivifi-app', cell: vivifiEyeCell(handleEdit, 'View timeline') },
 ];
@@ -2682,9 +2689,15 @@ export const vivifiLoansColumn = ({ handleEdit }) => [
   {
     header: 'Lead ID',
     accessorKey: 'leadId',
-    cell: ({ getValue }) => <span className="font-mono text-sm font-medium text-gray-800">{getValue() || 'N/A'}</span>,
+    // Long opaque hash — cap the width and ellipsis it; full value on hover (title).
+    cell: ({ getValue }) => {
+      const v = getValue();
+      return v
+        ? <span className="font-mono text-sm font-medium text-gray-800 inline-block max-w-[130px] truncate align-middle" title={v}>{v}</span>
+        : <span className="text-gray-400 italic">N/A</span>;
+    },
   },
-  { header: 'Phone', accessorKey: 'phoneNumber', cell: vivifiPhoneCell },
+  { header: 'Phone', accessorKey: 'phone', cell: vivifiPhoneCell },
   { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
   { header: 'Amount', accessorKey: 'amount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
   { header: 'Disbursed', accessorKey: 'disbursalAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },

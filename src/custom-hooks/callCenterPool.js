@@ -10,7 +10,7 @@
 // To add / remove / reorder an agent, edit this list. Order matters only in that
 // each agent keeps whichever index it has; changing the SIZE re-shards everyone
 // (inherent to stateless hashing). Emails are matched case-insensitively against
-// the logged-in user (see getRoundRobin).
+// the logged-in user (see getCallCenterAgentId).
 //
 // NOTE (security): like the salary bands, this is COOPERATIVE — the slot is sent
 // as a request param from a client with a mock token, so it divides workload but
@@ -35,6 +35,8 @@ export const CALL_CENTER_POOL = [
  * list to leads PERSISTENTLY assigned to this agent (lead_assignments) — so the
  * set never reshuffles when the roster changes. Non-members get null → their
  * normal (unfiltered) view.
+ *
+ * This is the mechanism used by the Offer Leads / Short Offer Leads lists.
  */
 export const getCallCenterAgentId = (user) => {
   if (!user || !isCallCenterRole(user.role)) return null;

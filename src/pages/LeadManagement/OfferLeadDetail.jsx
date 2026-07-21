@@ -39,10 +39,28 @@ const isStaticPlaceholder = (resp) => {
 const classifyLenderResponse = (resp, name) => {
   if (!resp || typeof resp !== 'object') return 'reject';
 
-  if (name === 'RamFinCorp' && resp?.message === 'Attributed Successfully') return 'success';
+  // RamFinCorp — dedupe/attribution outcome lives in the message. "Attributed
+  // Successfully" and "Dedup Success" → success; "Dedup Fail" (applicant is a
+  // duplicate) → Duplicate, NOT rejected. Other answers (Wrong Credentials, gateway
+  // errors) fall through to the message rules below → reject. Mirrors the All Lenders card.
+  if (name === 'RamFinCorp') {
+    const rmsg = (resp?.message || '').toString().toLowerCase().trim();
+    if (rmsg === 'attributed successfully' || rmsg === 'dedup success') return 'success';
+    if (rmsg === 'dedup fail') return 'dedupe';
+  }
   if (name === 'KreditBee' && resp?.data?.response?.model?.leadStatus === 'Approved') return 'success';
   if (name === 'smartCoin' && resp?.data?.response?.leadId) return 'success';
   if (name === 'MPokket' && (resp?.requestId || resp?.data?.resData?.data?.requestId)) return 'success';
+  // AyeFinance — outcome is the nested apply status (data.response.status): 1 =
+  // success (message "Lead pushed successfully"), 0 = reject. Mirrors the All Lenders
+  // "Successful" card. Dedupe / not-serviceable / error rows have no nested status →
+  // fall through to the message rules below (e.g. "Dedupe found…" → Duplicate).
+  if (name === 'AyeFinance') {
+    const st = resp?.data?.response?.status;
+    if (st === 1 || st === '1') return 'success';
+    if (st === 0 || st === '0') return 'reject';
+    if ((resp.message || '').toString().toLowerCase().trim() === 'lead pushed successfully') return 'success';
+  }
   // InCred — single 'InCred' key now carries BOTH stages:
   //   apply  → APPLICATION_ID issued
   //   dedupe → isAllowed === true (message "Request Processed Successfully"

@@ -157,6 +157,9 @@ export const getOfferLeads = async ({
   distinct,
   trackingEvent,
   agentId,
+  hotLeads,
+  rrSlot,
+  rrTotal
 } = {}) => {
     return Api().get(`/offer-leads`, {
         params: {
@@ -182,8 +185,14 @@ export const getOfferLeads = async ({
             feedbackStatus,
             distinct,
             trackingEvent,
-            // Call-center pool member → filter to leads assigned to this agent.
+            // Persisted call-center assignment: agentId filters the list to the
+            // leads assigned to this agent (lead_assignments). hotLeads is the
+            // hot-leads flag. rrSlot/rrTotal are legacy (unused by this endpoint)
+            // and forwarded only if a caller still sends them.
             agentId,
+            hotLeads,
+            rrSlot,
+            rrTotal,
         },
         skipAdminAppend: true,
     });
@@ -913,6 +922,13 @@ export const dismissCallback = async (phone) =>
 
 export const getShortDueCallbacks = async (agent) =>
     Api().get(`/short-feedback/due-callbacks`, { params: { agent }, skipAdminAppend: true });
+
+// Recent InCred-success leads for the in-CMS alert bell (last 6h). Powers the
+// IncredSuccessAlerts navbar bell — beeps / desktop-notifies on new arrivals.
+// agentId scopes a pooled call-center agent to the leads assigned to them
+// (lead_assignments) — same persisted ownership the Offer Leads list uses.
+export const getIncredSuccessAlerts = async ({ agentId } = {}) =>
+    Api().get(`/offer-leads/incred-success-alerts`, { params: { agentId }, skipAdminAppend: true });
 
 export const dismissShortCallback = async (phone) =>
     Api().put(`/short-feedback/callback-done`, { phone }, { skipAdminAppend: true });
