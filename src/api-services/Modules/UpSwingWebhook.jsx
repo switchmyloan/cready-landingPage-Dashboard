@@ -1,8 +1,9 @@
 import Api from "../api";
 
-// UpSwing webhook events — reads the Postgres upswing_* tables via the backend
-// /upswing-webhook routes. `events` is the append-only webhook diary (enriched with
-// the lead MRN); the detail endpoint returns one event + its lead + the pci timeline.
+// UpSwing leads — reads the external UpSwing admin API through the backend
+// /upswing-webhook routes (the admin key stays server-side). `events` returns one
+// row per lead (aggregated across its webhook events); the detail endpoint returns
+// a single lead looked up by its pci.
 
 export const getUpSwingEvents = async ({
   search = '',
@@ -19,7 +20,7 @@ export const getUpSwingEvents = async ({
   });
 };
 
-// Combined detail (event + lead + full pci timeline + launch sessions) for one event.
+// Single lead detail, looked up by its pci (the row id).
 export const getUpSwingEventDetail = async (id) => {
   return Api().get(`/upswing-webhook/event/${encodeURIComponent(id)}`, {
     skipAdminAppend: true,

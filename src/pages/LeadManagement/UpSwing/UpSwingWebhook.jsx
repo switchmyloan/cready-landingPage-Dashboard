@@ -132,14 +132,19 @@ const UpSwingWebhook = () => {
         status: query.status || undefined,
       });
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
-      downloadCsv(`upswing_webhook_events_${Date.now()}.csv`, [
-        { header: 'Event Type', value: (r) => r.event_type },
+      downloadCsv(`upswing_leads_${Date.now()}.csv`, [
+        { header: 'Name', value: (r) => r.name },
+        { header: 'Phone', value: (r) => r.phone },
+        { header: 'Email', value: (r) => r.email },
         { header: 'MRN', value: (r) => r.mrn },
         { header: 'PCI', value: (r) => r.pci },
-        { header: 'Source', value: (r) => r.source },
-        { header: 'Event ID', value: (r) => r.event_id },
-        { header: 'Received At', value: (r) => r.received_at },
-        { header: 'Processed At', value: (r) => r.processed_at },
+        { header: 'PAN', value: (r) => r.pan },
+        { header: 'Profile', value: (r) => r.profile },
+        { header: 'Events', value: (r) => r.eventCount },
+        { header: 'Event Types', value: (r) => (Array.isArray(r.eventTypes) ? r.eventTypes.join(' | ') : '') },
+        { header: 'Resolved', value: (r) => (r.resolved ? 'Yes' : 'No') },
+        { header: 'First Seen', value: (r) => r.firstSeen },
+        { header: 'Last Seen', value: (r) => r.lastSeen },
       ], all);
     } catch (err) {
       console.error(err);
@@ -148,17 +153,17 @@ const UpSwingWebhook = () => {
   }, [query]);
 
   const handleEdit = (ev) => {
-    navigate(`/upswing-webhook/${encodeURIComponent(ev.id)}`, { state: { event: ev } });
+    navigate(`/upswing-webhook/${encodeURIComponent(ev.id)}`, { state: { lead: ev } });
   };
 
   return (
     <>
       <Toaster />
 
-      {/* Event-type chips — click to filter */}
+      {/* Event-type chips — count of leads that reached each event type. Click to filter. */}
       <div className="flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3 mb-3 shadow-sm">
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Event Type:</span>
-        <StageChip label="All" count={summary.total || 0} active={!query.status} onClick={() => toggleStatus('')} tone="purple" />
+        <StageChip label="All Leads" count={summary.total || 0} active={!query.status} onClick={() => toggleStatus('')} tone="purple" />
         {(summary.byStatus || []).map((s) => (
           <StageChip
             key={s.status}
@@ -170,7 +175,7 @@ const UpSwingWebhook = () => {
           />
         ))}
         {summary.byStatus?.length === 0 && (
-          <span className="text-sm text-gray-400 italic">No events yet</span>
+          <span className="text-sm text-gray-400 italic">No leads yet</span>
         )}
       </div>
 
@@ -183,7 +188,7 @@ const UpSwingWebhook = () => {
         onSearch={onSearch}
         onRefresh={fetchData}
         onExport={handleExport}
-        title="UPSWING · WEBHOOK EVENTS"
+        title="UPSWING · LEADS"
         onFilterByDate={onFilterByDate}
         activeFilter={query.type}
         onFilterByRange={onFilterByRange}
@@ -191,25 +196,25 @@ const UpSwingWebhook = () => {
       />
 
       <ModuleInfoCard
-        title="UpSwing Webhook Events"
-        subtitle="Live UpSwing webhook data — every event received per lead, joined to the pushed lead (MRN)."
+        title="UpSwing Leads"
+        subtitle="Live UpSwing lead data — one row per lead, aggregated across all its webhook events."
         whatYouSee={[
-          'One row per webhook event UpSwing sent us (event type, source, timestamps).',
-          'MRN is joined in from upswing_leads via the event payload’s pci, so you can tie an event back to its lead.',
-          'Event-type chips are clickable — click one to filter the table to that event type.',
-          'Click the eye icon on any event to open its full payload, the lead it belongs to, and that lead’s complete event timeline.',
+          'One row per lead pushed to UpSwing (name, phone, MRN, PCI, profile).',
+          'Events = how many webhook events UpSwing has recorded for that lead; Event Types shows which stages it reached.',
+          'Event-type chips count leads that reached each stage — click one to filter the table to those leads.',
+          'Resolved shows whether the lead is fully identity-resolved on UpSwing’s side; click the eye to open the full lead detail.',
         ]}
         dataSource={[
-          'Postgres upswing_webhook_events — append-only event diary (never overwritten).',
-          'upswing_leads — one row per lead pushed to UpSwing (MRN, pci, consent), joined on pci.',
-          'upswing_launch_sessions — launch tokens (jti) issued per pci, shown on the detail page.',
+          'External UpSwing admin API — GET /api/admin/events (server-side, x-admin-key).',
+          'The backend proxies the call (key stays in .env) and does search / filter / paging in-process.',
+          'Data is lead-centric and already aggregated by UpSwing — the CMS does not store it.',
         ]}
         flow={[
           'Lead pushed to UpSwing',
-          'Launch session issued',
           'UpSwing sends webhooks',
-          'Event appended to upswing_webhook_events',
-          'Eye → full payload + lead timeline',
+          'UpSwing aggregates events per lead',
+          'CMS fetches the admin API',
+          'Eye → full lead detail',
         ]}
       />
     </>
