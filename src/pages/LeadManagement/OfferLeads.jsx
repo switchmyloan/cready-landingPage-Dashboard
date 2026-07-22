@@ -35,9 +35,9 @@ const debounce = (func, delay) => {
 // it clears naturally on tab close.
 const FILTERS_STORAGE_KEY = 'offerLeads:filters:v1';
 
-// Hot Leads (lender-success shortlist) is switched OFF for now. Flip to true to
-// bring the control back — the query field + handler are still wired up.
-const HOT_LEADS_FILTER_ENABLED = false;
+// Hot Leads (lender-success shortlist) — ON. Shows the "InCred Success" filter on
+// the Offer Leads page. The query field + handler are wired up; flip to false to hide.
+const HOT_LEADS_FILTER_ENABLED = true;
 
 const loadPersistedState = () => {
   try {
