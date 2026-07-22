@@ -35,6 +35,10 @@ const debounce = (func, delay) => {
 // it clears naturally on tab close.
 const FILTERS_STORAGE_KEY = 'offerLeads:filters:v1';
 
+// Hot Leads (lender-success shortlist) is switched OFF for now. Flip to true to
+// bring the control back — the query field + handler are still wired up.
+const HOT_LEADS_FILTER_ENABLED = false;
+
 const loadPersistedState = () => {
   try {
     const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY);
@@ -135,9 +139,14 @@ const OfferLeads = () => {
   };
 
   const [query, setQuery] = useState(() => {
-    const base = persisted?.query && typeof persisted.query === 'object'
+    let base = persisted?.query && typeof persisted.query === 'object'
       ? { ...DEFAULT_QUERY, ...persisted.query }
       : DEFAULT_QUERY;
+    // The control is hidden → drop any hotLeads value left over in
+    // sessionStorage so a stale filter can't keep narrowing the list invisibly.
+    if (!HOT_LEADS_FILTER_ENABLED && base.hotLeads) {
+      base = { ...base, hotLeads: '' };
+    }
     // For segmented roles, always seed (and override any persisted value) with
     // the forced band so the locked filters reflect reality from first paint.
     if (salaryBand) {
@@ -937,35 +946,28 @@ const OfferLeads = () => {
           </div>
         </div>
 
-        {/* Hot Leads — pick a lender to see leads where THAT lender returned a success
-            (or "Any Lender"). Conditions mirror the All Lenders "Successful" card. */}
-        <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
-          <label className="text-[12.5px] font-bold text-gray-700 inline-flex items-center gap-1 whitespace-nowrap">
-            🔥 Hot Leads
-          </label>
-          <select
-            value={query.hotLeads}
-            onChange={(e) => handleHotLeadsFilter(e.target.value)}
-            className={`border rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-orange-200 transition ${
-              query.hotLeads
-                ? 'bg-orange-50 border-orange-300 text-orange-700 font-semibold'
-                : 'bg-white border-gray-300 text-gray-700'
-            }`}
-          >
-            <option value="">Off (all leads)</option>
-            {/* <option value="all">Any Lender Success</option> */}
-            {/* <option value="HeroFinCorp">HeroFinCorp Success</option> */}
-            <option value="InCred">InCred Success</option>
-            {/* <option value="RamFinCorp">RamFinCorp Success</option> */}
-            {/* <option value="AyeFinance">AyeFinance Success</option> */}
-            {/* <option value="KreditBee">KreditBee Success</option> */}
-            {/* <option value="MoneyView">MoneyView Success</option> */}
-          </select>
-          {query.hotLeads && (
-            <>
-              {/* <span className="text-[11px] text-gray-400 italic">
-                Sirf woh leads jinme {query.hotLeads === 'all' ? 'kisi bhi lender' : query.hotLeads} ka success aaya.
-              </span> */}
+        {/* Hot Leads filter (lender-success shortlist, incl. "InCred Success")
+            is disabled for now — the whole control is hidden. The `hotLeads`
+            query field + handleHotLeadsFilter are kept so it can be switched
+            back on by restoring HOT_LEADS_FILTER_ENABLED to true. */}
+        {HOT_LEADS_FILTER_ENABLED && (
+          <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+            <label className="text-[12.5px] font-bold text-gray-700 inline-flex items-center gap-1 whitespace-nowrap">
+              🔥 Hot Leads
+            </label>
+            <select
+              value={query.hotLeads}
+              onChange={(e) => handleHotLeadsFilter(e.target.value)}
+              className={`border rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-orange-200 transition ${
+                query.hotLeads
+                  ? 'bg-orange-50 border-orange-300 text-orange-700 font-semibold'
+                  : 'bg-white border-gray-300 text-gray-700'
+              }`}
+            >
+              <option value="">Off (all leads)</option>
+              <option value="InCred">InCred Success</option>
+            </select>
+            {query.hotLeads && (
               <button
                 onClick={() => handleHotLeadsFilter('')}
                 className="text-[11px] px-2 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition"
@@ -973,9 +975,9 @@ const OfferLeads = () => {
               >
                 ×
               </button>
-            </>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {query.lender && (
           <div className="mt-2 pt-2 pl-2 border-t border-purple-100/70">
