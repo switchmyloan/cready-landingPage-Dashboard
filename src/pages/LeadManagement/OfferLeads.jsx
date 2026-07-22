@@ -39,6 +39,10 @@ const FILTERS_STORAGE_KEY = 'offerLeads:filters:v1';
 // the Offer Leads page. The query field + handler are wired up; flip to false to hide.
 const HOT_LEADS_FILTER_ENABLED = true;
 
+// Who sees the Hot Leads (InCred Success) filter: Super Admin (role) + the allowlisted
+// call-center agent(s) by email. Mirrors the InCred success alert gate.
+const HOT_LEADS_ALLOWED_EMAILS = ['callcenter2@cready.in'];
+
 const loadPersistedState = () => {
   try {
     const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY);
@@ -60,6 +64,12 @@ const OfferLeads = () => {
   // salary band (assignment is the sole divider); non-pooled call-center accounts
   // keep their band as a fallback.
   const agentId = useMemo(() => getCallCenterAgentId(user), [user]);
+  // Hot Leads (InCred Success) filter — visible only to Super Admin + allowlisted agent(s).
+  const canSeeHotLeads = useMemo(() => {
+    const role = String(user?.role || '').toLowerCase();
+    const email = String(user?.email || '').trim().toLowerCase();
+    return role === 'super-admin' || HOT_LEADS_ALLOWED_EMAILS.includes(email);
+  }, [user]);
   const salaryBand = agentId ? null : getSalaryBand(user?.role);
   // Call-center agents don't work disbursement, so hide that filter for them.
   const isCallCenter = isCallCenterRole(user?.role);
@@ -318,7 +328,8 @@ const OfferLeads = () => {
         feedbackStatus: query.feedbackStatus || undefined,
         trackingEvent: query.trackingEvent || undefined,
         // Hot Leads: only leads where the selected lender ('all' = any) returned a success.
-        hotLeads: query.hotLeads || undefined,
+        // Only sent for users allowed to see the filter (belt-and-suspenders with the UI gate).
+        hotLeads: canSeeHotLeads ? (query.hotLeads || undefined) : undefined,
         // Customer-care view: one row per phone (latest by createdAt).
         distinct: isCallCenter ? 'true' : undefined,
         // Pooled call-center agent → backend filters to their assigned leads.
@@ -348,7 +359,7 @@ const OfferLeads = () => {
     query.dobFromDate, query.dobToDate, query.loanPurpose,
     query.minMonthlyIncome, query.maxMonthlyIncome, query.lender,
     query.disbStatus, query.city, query.employmentType, query.utmMedium, query.utmSource,
-    query.feedbackStatus, query.trackingEvent, salaryBand, isCallCenter, agentId,
+    query.feedbackStatus, query.trackingEvent, query.hotLeads, canSeeHotLeads, salaryBand, isCallCenter, agentId,
   ]);
 
   useEffect(() => {
@@ -950,7 +961,7 @@ const OfferLeads = () => {
             is disabled for now — the whole control is hidden. The `hotLeads`
             query field + handleHotLeadsFilter are kept so it can be switched
             back on by restoring HOT_LEADS_FILTER_ENABLED to true. */}
-        {HOT_LEADS_FILTER_ENABLED && (
+        {HOT_LEADS_FILTER_ENABLED && canSeeHotLeads && (
           <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
             <label className="text-[12.5px] font-bold text-gray-700 inline-flex items-center gap-1 whitespace-nowrap">
               🔥 Hot Leads

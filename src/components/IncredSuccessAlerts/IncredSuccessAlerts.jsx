@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
-import { Flame, Phone, Clock, CheckCircle2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Flame, Phone, Clock, CheckCircle2, X, Info } from 'lucide-react';
 import { getIncredSuccessAlerts } from '../../api-services/Modules/Leads';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
 
 // How often we check the backend for new InCred-SUCCESS leads.
 const POLL_MS = 30000;
+
+// Who sees the InCred success alert: Super Admin (role, sees all) + the specific
+// call-center agent(s) who work InCred leads (by email). Everyone else gets no bell.
+const INCRED_ALERT_EMAILS = ['callcenter2@cready.in'];
 
 // "HH:MM · 5m ago"
 const fmtWhen = (iso) => {
@@ -56,7 +61,8 @@ const beep = () => {
 // 'Lead processed successfully' — the same success used by the All Lenders card and
 // the Hot Leads filter) and alerts on new arrivals: orange badge + dropdown list +
 // beep + browser desktop notification + an in-app flash toast. Seeds on the first
-// poll so pre-existing successes never blast the user. Shown to every logged-in user.
+// poll so pre-existing successes never blast the user. Shown ONLY to Super Admin +
+// the allowlisted call-center agent(s) — see INCRED_ALERT_EMAILS.
 const IncredSuccessAlerts = () => {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
@@ -70,7 +76,16 @@ const IncredSuccessAlerts = () => {
   // (persisted ownership). Non-pool users (Super Admin etc.) get agentId = null →
   // they see ALL InCred successes.
   const { user } = useAuth();
+  const navigate = useNavigate();
   const agentId = useMemo(() => getCallCenterAgentId(user), [user]);
+
+  // Gate: only Super Admin (sees all) + the allowlisted call-center agent(s) see this
+  // alert at all. Everyone else renders no bell and skips polling.
+  const canSee = useMemo(() => {
+    const role = String(user?.role || '').toLowerCase();
+    const email = String(user?.email || '').trim().toLowerCase();
+    return role === 'super-admin' || INCRED_ALERT_EMAILS.includes(email);
+  }, [user]);
 
   // If the agent changes (different agent logs in), re-seed so we don't blast the
   // new agent's pre-existing successes as if they just arrived.
@@ -115,13 +130,14 @@ const IncredSuccessAlerts = () => {
   }, [agentId]);
 
   useEffect(() => {
+    if (!canSee) return undefined;
     if (window.Notification && window.Notification.permission === 'default') {
       window.Notification.requestPermission().catch(() => {});
     }
     poll();
     const id = setInterval(poll, POLL_MS);
     return () => { clearInterval(id); if (flashTimer.current) clearTimeout(flashTimer.current); };
-  }, [poll]);
+  }, [poll, canSee]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -129,6 +145,10 @@ const IncredSuccessAlerts = () => {
     document.addEventListener('mousedown', onDoc);
     return () => document.removeEventListener('mousedown', onDoc);
   }, [open]);
+
+  // Hidden entirely for users who shouldn't see it — all hooks above still run, so the
+  // Rules of Hooks are respected (the early return is unconditional past this point).
+  if (!canSee) return null;
 
   const count = items.length;
 
@@ -176,9 +196,19 @@ const IncredSuccessAlerts = () => {
                       <Phone size={11} /> {it.phone}
                     </a>
                   </div>
-                  <span className="shrink-0 inline-flex px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-bold uppercase tracking-wide">
-                    Success
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="inline-flex px-1.5 py-0.5 rounded-full bg-green-100 text-green-700 text-[9px] font-bold uppercase tracking-wide">
+                      Success
+                    </span>
+                    <button
+                      onClick={() => { setOpen(false); navigate(`/offer-leads/${it.id}`); }}
+                      className="w-6 h-6 grid place-items-center rounded-full border border-orange-200 text-orange-600 hover:bg-orange-100 hover:border-orange-300 transition"
+                      title="View lead details"
+                      aria-label="View lead details"
+                    >
+                      <Info size={13} />
+                    </button>
+                  </div>
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
                   <Clock size={11} /> {fmtWhen(it.createdAt)}

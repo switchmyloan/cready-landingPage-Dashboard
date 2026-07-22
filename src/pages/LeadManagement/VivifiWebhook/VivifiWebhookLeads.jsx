@@ -170,6 +170,7 @@ const ApplicationsPanel = () => {
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
       downloadCsv(`vivifi_applications_${Date.now()}.csv`, [
         { header: 'Lead ID', value: (r) => r.leadId },
+        { header: 'Name', value: (r) => r.name },
         { header: 'Phone', value: (r) => r.phone },
         { header: 'Status', value: (r) => r.status },
         { header: 'Rejection Reason', value: (r) => r.rejectionReason },
