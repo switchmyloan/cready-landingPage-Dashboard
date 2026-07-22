@@ -145,6 +145,11 @@ const LenderCard = ({ name, response }) => {
   // For Zype, prioritize the redirectionLink. For others, use utm_link.
   const isZype = name && name.toLowerCase().includes('zype');
   const link = isZype ? (response.redirectionLink || response.utm_link) : response.utm_link;
+  // InCred approved offer — the sanctioned amount / tenure / rate / fee live at
+  // data.response.response.LOAN_OFFERS[] (only present when the apply COMPLETED).
+  const incredOffers = name === 'InCred' && Array.isArray(response?.data?.response?.response?.LOAN_OFFERS)
+    ? response.data.response.response.LOAN_OFFERS
+    : [];
 
   return (
     <div className={`group relative flex flex-col bg-white border ${meta.border} ${meta.ring} rounded-2xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden`}>
@@ -168,6 +173,30 @@ const LenderCard = ({ name, response }) => {
           <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-0.5">Message</p>
           <p className="text-sm text-gray-700 leading-relaxed">{message}</p>
         </div>
+        {incredOffers.length > 0 && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1.5">
+              Offer{incredOffers.length > 1 ? 's' : ''} Received
+            </p>
+            <div className="space-y-2">
+              {incredOffers.map((o, i) => (
+                <div key={i} className="rounded-xl bg-emerald-50/70 border border-emerald-100 px-3 py-2">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[15px] font-extrabold text-emerald-700">
+                      ₹ {Number(o.LOAN_AMOUNT || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-[11.5px] text-gray-600">
+                    {o.TYPE && <span>Type: <b className="text-gray-800">{o.TYPE}</b></span>}
+                    {o.LOAN_MAX_TENURE != null && <span>Tenure: <b className="text-gray-800">{o.LOAN_MAX_TENURE} mo</b></span>}
+                    {o.LOAN_RATE != null && <span>Rate: <b className="text-gray-800">{o.LOAN_RATE}%</b></span>}
+                    {o.PROCESSING_FEE != null && <span>Processing Fee: <b className="text-gray-800">{o.PROCESSING_FEE}%</b></span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {response.is_offer !== undefined && (
           <div className="flex items-center gap-2">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Offer Available</p>
