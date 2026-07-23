@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { IndianRupee, CheckCircle2, Clock, TrendingUp } from 'lucide-react';
 
@@ -10,6 +10,65 @@ import { vivifiApplicationsColumn, vivifiLoansColumn } from '../../../components
 import { getVivifiApplications, getVivifiLoans } from '../../../api-services/Modules/VivifiWebhook';
 
 const inr = (n) => `₹ ${Number(n || 0).toLocaleString('en-IN')}`;
+
+// ---------------------------------------------------------------------------
+// Filter persistence
+//
+// Every panel keeps its filters in the URL query string, so they survive both a
+// page reload AND a Back from the lead-detail page (the detail's Back button is
+// navigate(-1), which restores this exact URL). Each panel namespaces its params
+// with a prefix, so the Applications and Loans tabs never inherit each other's
+// status — their status vocabularies are different.
+//
+// Writes use replace:true so tweaking a filter doesn't pile up history entries
+// the user would then have to Back through one by one; the list page keeps a
+// single entry holding the latest filters.
+// ---------------------------------------------------------------------------
+const DEFAULT_LIMIT = 10;
+
+const readQuery = (sp, prefix) => ({
+  page_no: Math.max(parseInt(sp.get(`${prefix}page`), 10) || 1, 1),
+  limit: Math.max(parseInt(sp.get(`${prefix}size`), 10) || DEFAULT_LIMIT, 1),
+  search: sp.get(`${prefix}q`) || '',
+  type: sp.get(`${prefix}type`) || '',
+  startDate: sp.get(`${prefix}from`) || null,
+  endDate: sp.get(`${prefix}to`) || null,
+  status: sp.get(`${prefix}status`) || '',
+});
+
+// Mirror a query object back into the params, dropping anything still at its
+// default so the URL stays short and readable.
+const writeQuery = (sp, prefix, q) => {
+  const put = (key, value, isDefault) => {
+    const k = `${prefix}${key}`;
+    if (isDefault) sp.delete(k); else sp.set(k, String(value));
+  };
+  put('page', q.page_no, !q.page_no || q.page_no === 1);
+  put('size', q.limit, !q.limit || q.limit === DEFAULT_LIMIT);
+  put('q', q.search, !q.search);
+  put('type', q.type, !q.type);
+  put('from', q.startDate, !q.startDate);
+  put('to', q.endDate, !q.endDate);
+  put('status', q.status, !q.status);
+  return sp;
+};
+
+// Drop-in replacement for useState({...filters}) that reads/writes the URL.
+// Memoized on the param STRING (not the URLSearchParams object) so `query` keeps
+// a stable identity between renders — otherwise the fetch effect would loop.
+const useUrlQuery = (prefix) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const search = searchParams.toString();
+  const query = useMemo(() => readQuery(new URLSearchParams(search), prefix), [search, prefix]);
+  const setQuery = useCallback((updater) => {
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev);
+      const next = typeof updater === 'function' ? updater(readQuery(sp, prefix)) : updater;
+      return writeQuery(sp, prefix, next);
+    }, { replace: true });
+  }, [setSearchParams, prefix]);
+  return [query, setQuery];
+};
 
 // CSV export helpers. Every value is quoted/escaped so commas, quotes and newlines in
 // the data (e.g. a multi-line rejection reason) can't break the column layout; a BOM
@@ -109,9 +168,8 @@ const ApplicationsPanel = () => {
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState({ total: 0, byStatus: [] });
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState({
-    page_no: 1, limit: 10, search: '', type: '', startDate: null, endDate: null, status: '',
-  });
+  // Filters live in the URL (?a_status=…&a_page=…) so they survive reload / Back.
+  const [query, setQuery] = useUrlQuery('a_');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -144,17 +202,17 @@ const ApplicationsPanel = () => {
 
   const onPageChange = useCallback((p) => {
     setQuery((prev) => ({ ...prev, page_no: p.pageIndex + 1, limit: p.pageSize }));
-  }, []);
-  const onSearch = useCallback((term) => setQuery((prev) => ({ ...prev, search: term, page_no: 1 })), []);
+  }, [setQuery]);
+  const onSearch = useCallback((term) => setQuery((prev) => ({ ...prev, search: term, page_no: 1 })), [setQuery]);
   const onFilterByDate = useCallback((type) => setQuery((prev) => ({
     ...prev, type: prev.type === type ? '' : type, startDate: null, endDate: null, page_no: 1,
-  })), []);
+  })), [setQuery]);
   const onFilterByRange = useCallback((range) => setQuery((prev) => ({
     ...prev, startDate: range.startDate, endDate: range.endDate, type: '', page_no: 1,
-  })), []);
+  })), [setQuery]);
   const toggleStatus = useCallback((s) => setQuery((prev) => ({
     ...prev, status: prev.status === s ? '' : s, page_no: 1,
-  })), []);
+  })), [setQuery]);
 
   // Export ALL rows matching the current filters (not just the visible page):
   // re-run the same query with perPage = total, then build the CSV client-side.
@@ -221,6 +279,10 @@ const ApplicationsPanel = () => {
         activeFilter={query.type}
         onFilterByRange={onFilterByRange}
         activeDateRange={{ startDate: query.startDate, endDate: query.endDate }}
+        // Seed the table's own page/search from the URL so a reload or a Back
+        // from the detail page lands on the same page with the same search term.
+        initialPagination={{ pageIndex: query.page_no - 1, pageSize: query.limit }}
+        initialSearch={query.search}
       />
     </>
   );
@@ -235,9 +297,8 @@ const LoansPanel = () => {
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState({});
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState({
-    page_no: 1, limit: 10, search: '', type: '', startDate: null, endDate: null, status: '',
-  });
+  // Filters live in the URL (?l_status=…&l_page=…) so they survive reload / Back.
+  const [query, setQuery] = useUrlQuery('l_');
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -270,17 +331,17 @@ const LoansPanel = () => {
 
   const onPageChange = useCallback((p) => {
     setQuery((prev) => ({ ...prev, page_no: p.pageIndex + 1, limit: p.pageSize }));
-  }, []);
-  const onSearch = useCallback((term) => setQuery((prev) => ({ ...prev, search: term, page_no: 1 })), []);
+  }, [setQuery]);
+  const onSearch = useCallback((term) => setQuery((prev) => ({ ...prev, search: term, page_no: 1 })), [setQuery]);
   const onFilterByDate = useCallback((type) => setQuery((prev) => ({
     ...prev, type: prev.type === type ? '' : type, startDate: null, endDate: null, page_no: 1,
-  })), []);
+  })), [setQuery]);
   const onFilterByRange = useCallback((range) => setQuery((prev) => ({
     ...prev, startDate: range.startDate, endDate: range.endDate, type: '', page_no: 1,
-  })), []);
+  })), [setQuery]);
   const toggleStatus = useCallback((s) => setQuery((prev) => ({
     ...prev, status: prev.status === s ? '' : s, page_no: 1,
-  })), []);
+  })), [setQuery]);
 
   // Export ALL loan rows matching the current filters (see ApplicationsPanel note).
   const handleExport = useCallback(async () => {
@@ -355,6 +416,10 @@ const LoansPanel = () => {
         activeFilter={query.type}
         onFilterByRange={onFilterByRange}
         activeDateRange={{ startDate: query.startDate, endDate: query.endDate }}
+        // Seed the table's own page/search from the URL so a reload or a Back
+        // from the detail page lands on the same page with the same search term.
+        initialPagination={{ pageIndex: query.page_no - 1, pageSize: query.limit }}
+        initialSearch={query.search}
       />
     </>
   );
@@ -364,11 +429,24 @@ const LoansPanel = () => {
 // Module shell — tab switcher.
 // ---------------------------------------------------------------------------
 const VivifiWebhookLeads = () => {
-  const [activeTab, setActiveTab] = useState('applications');
   const tabs = [
     { key: 'applications', label: 'Applications' },
     { key: 'loans', label: 'Loans (Disbursal)' },
   ];
+
+  // The open tab rides in the URL too — otherwise a reload (or Back from a loan's
+  // detail page) would drop the user on Applications with their Loans filters
+  // still in the URL but invisible. 'applications' is the default, so it's the
+  // absence of the param rather than a value.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = searchParams.get('tab') === 'loans' ? 'loans' : 'applications';
+  const setActiveTab = useCallback((key) => {
+    setSearchParams((prev) => {
+      const sp = new URLSearchParams(prev);
+      if (key === 'loans') sp.set('tab', 'loans'); else sp.delete('tab');
+      return sp;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   return (
     <>

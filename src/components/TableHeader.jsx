@@ -2697,7 +2697,7 @@ export const vivifiLoansColumn = ({ handleEdit }) => [
         : <span className="text-gray-400 italic">N/A</span>;
     },
   },
-  { header: 'Phone', accessorKey: 'phone', cell: vivifiPhoneCell },
+  { header: 'Phone', accessorKey: 'phoneNumber', cell: vivifiPhoneCell },
   { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
   { header: 'Amount', accessorKey: 'amount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
   { header: 'Disbursed', accessorKey: 'disbursalAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
