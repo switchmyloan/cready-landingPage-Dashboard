@@ -19,6 +19,7 @@ import {
 import { getLenderMeta, getLenderInitials } from '../../utils/lenderLogos';
 import ModuleInfoCard from '../../components/ModuleInfoCard';
 import PremiumLoader from '../../components/PremiumLoader';
+import MilestoneCelebration from '../../components/MilestoneCelebration/MilestoneCelebration';
 
 const LenderAvatar = ({ name, size = 24 }) => {
     const meta = getLenderMeta(name);
@@ -246,6 +247,11 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTo
     const [metric, setMetric] = useState('amount');
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(true);
+    // Which query the CURRENT `data` actually came from. Stamped together with the
+    // response so `amount` and the range/filters it belongs to can never drift
+    // apart — consumers (the ₹10 Cr milestone) must not read an 'All' total while
+    // the user has already switched the picker to 'Current Month'.
+    const [dataFor, setDataFor] = useState({ range: null, utmSource: '', utmMedium: '' });
 
     useEffect(() => {
         if (range === 'Custom' && (!fromDate || !toDate)) return;
@@ -258,7 +264,11 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTo
         // side, so the trend chart matches the short-ticket KPI count.
         const trendFn = scope === 'short' ? getDisbursalTrendShort : getDisbursalTrend;
         trendFn({ range, granularity, scope, fromDate, toDate, utmSource, utmMedium, signal: controller.signal })
-            .then(res => { if (!controller.signal.aborted) setData(res?.data?.data || []); })
+            .then(res => {
+                if (controller.signal.aborted) return;
+                setData(res?.data?.data || []);
+                setDataFor({ range, utmSource, utmMedium });
+            })
             .catch(e => { if (!controller.signal.aborted) console.error(e); })
             .finally(() => { if (!controller.signal.aborted) setLoading(false); });
         return () => controller.abort();
@@ -281,8 +291,12 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTo
         [chartData]
     );
     useEffect(() => {
-        if (typeof onTotals === 'function') onTotals({ loading, amount: amountTotalRaw });
-    }, [onTotals, loading, amountTotalRaw]);
+        if (typeof onTotals === 'function') {
+            // `dataFor` travels with the amount so consumers can tell WHICH query
+            // produced it (see the milestone check in DisbursalDashboard).
+            onTotals({ loading, amount: amountTotalRaw, ...dataFor });
+        }
+    }, [onTotals, loading, amountTotalRaw, dataFor]);
 
     return (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -1209,6 +1223,21 @@ const dateForRange = (r) => {
     return { fromDate: fmt(from), toDate: fmt(today) };
 };
 
+// ── Monthly disbursal milestone ─────────────────────────────────────────────
+// When the CURRENT-MONTH total disbursed crosses this, the dashboard throws a
+// one-time celebration. It only fires on the UNFILTERED Current-Month view — a
+// source/medium-filtered total isn't the real monthly number — and is remembered
+// per scope + month in localStorage, so it congratulates once rather than on
+// every visit for the rest of the month.
+const MILESTONE_AMOUNT = 100000000;   // ₹10,00,00,000 = ₹10 Cr
+const MILESTONE_LABEL = '₹10 Cr';
+const milestoneKey = (scope) => {
+    const d = new Date();
+    const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    return `cready:disbursal-milestone:${scope || 'high'}:${month}:${MILESTONE_AMOUNT}`;
+};
+const monthLabel = () => new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+
 export default function DisbursalDashboard({ scope, title, subtitle }) {
     // Default landing state: 'All' range with no date bounds. Initial dates
     // are derived from dateForRange('All') so the URL/API see empty fromDate
@@ -1292,6 +1321,34 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
 
     // Skip API calls when Custom is selected but dates are missing.
     const customIncomplete = range === 'Custom' && (!fromDate || !toDate);
+
+    // ₹10 Cr monthly milestone celebration. Watches the same trend amount the
+    // "Total disbursed" card shows; fires once per scope per month (localStorage).
+    //
+    // The amount is only trusted once it PROVABLY belongs to the unfiltered
+    // Current-Month query: trendTotals carries the range/filters it was measured
+    // for. Without that check, switching All → Current Month would celebrate on
+    // the stale all-time total (which always clears ₹10 Cr) before the new data
+    // has landed.
+    const [milestoneOpen, setMilestoneOpen] = useState(false);
+    // Amount frozen at the moment we celebrated, so a later refetch can't change
+    // the number the popup is congratulating you for.
+    const [milestoneAmount, setMilestoneAmount] = useState(0);
+    useEffect(() => {
+        if (range !== 'Current Month') return;
+        if (utmSource || utmMedium) return;                 // filtered ≠ real monthly total
+        if (!trendTotals || trendTotals.loading) return;    // wait for a settled amount
+        if (trendTotals.range !== 'Current Month') return;  // stale total from another range
+        if (trendTotals.utmSource || trendTotals.utmMedium) return;  // stale filtered total
+        if ((Number(trendTotals.amount) || 0) < MILESTONE_AMOUNT) return;
+        const key = milestoneKey(scope);
+        try {
+            if (localStorage.getItem(key)) return;          // already celebrated this month
+            localStorage.setItem(key, String(Date.now()));
+        } catch { /* storage blocked — still celebrate, just don't remember it */ }
+        setMilestoneAmount(Number(trendTotals.amount) || 0);
+        setMilestoneOpen(true);
+    }, [range, utmSource, utmMedium, trendTotals, scope]);
 
     // Load utm_source dropdown values once on mount (cached on the server
     // side for 10 minutes). Scoped to the dashboard so the right table
@@ -1788,6 +1845,16 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                     onClose={() => setSelectedLender(null)}
                 />
             )}
+
+            {/* ₹10 Cr current-month milestone — one-time congratulations. */}
+            <MilestoneCelebration
+                open={milestoneOpen}
+                onClose={() => setMilestoneOpen(false)}
+                amount={milestoneAmount}
+                count={empTotals?.count || 0}
+                milestoneLabel={MILESTONE_LABEL}
+                periodLabel={monthLabel()}
+            />
 
             <ModuleInfoCard
                 title={scope === 'mv' ? 'High Disbursal Dashboard' : 'Disbursal Dashboard'}
