@@ -173,6 +173,13 @@ function LoginPage() {
       password: "CallCntr7#Cr3ady!26$J",
       role: "call-center",
     },
+    {
+      id: 21,
+      name: "Call Center 8",
+      email: "callcenter8@cready.in",
+      password: "CallCntr8#Cr3ady!26$W",
+      role: "call-center",
+    },
     // Campaign team — sees only the Campaign page (a Cready RPM replica).
     {
       id: 14,

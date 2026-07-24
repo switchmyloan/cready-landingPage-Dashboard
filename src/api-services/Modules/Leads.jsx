@@ -158,8 +158,6 @@ export const getOfferLeads = async ({
   trackingEvent,
   agentId,
   hotLeads,
-  rrSlot,
-  rrTotal
 } = {}) => {
     return Api().get(`/offer-leads`, {
         params: {
@@ -187,12 +185,9 @@ export const getOfferLeads = async ({
             trackingEvent,
             // Persisted call-center assignment: agentId filters the list to the
             // leads assigned to this agent (lead_assignments). hotLeads is the
-            // hot-leads flag. rrSlot/rrTotal are legacy (unused by this endpoint)
-            // and forwarded only if a caller still sends them.
+            // hot-leads flag.
             agentId,
             hotLeads,
-            rrSlot,
-            rrTotal,
         },
         skipAdminAppend: true,
     });
