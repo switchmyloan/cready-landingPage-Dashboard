@@ -76,6 +76,16 @@ const classifyLenderResponse = (resp, name) => {
   // Legacy 'InCred Dedupe' key (pre-rename rows).
   if (name === 'InCred Dedupe' && resp?.data?.response?.response?.isAllowed === true) return 'success';
 
+  // MoneyDot — attribution outcome lives in the message as `can_attribute=true|false`
+  // (e.g. "can_attribute_utm : can_attribute=true | reason=new_customer"). true means
+  // the lead was attributed → success; false → reject. Checked explicitly because the
+  // generic message rules below have no keyword for it and would default to reject.
+  if (name === 'MoneyDot') {
+    const mmsg = (resp?.message || '').toString().toLowerCase();
+    if (mmsg.includes('can_attribute=true')) return 'success';
+    if (mmsg.includes('can_attribute=false')) return 'reject';
+  }
+
   const message = (resp.message || '').toString().toLowerCase().trim();
   if (!message) return 'reject';
 

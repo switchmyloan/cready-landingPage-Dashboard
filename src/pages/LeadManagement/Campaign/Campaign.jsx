@@ -282,10 +282,8 @@ const Campaign = () => {
         currentPage: 1,
       });
       if (res?.data?.success && res.data.summary) {
-        setSummary(res.data.summary);
-      } else {
-        ToastNotification.error("Failed to load campaign data");
-      }
+        setSummary(res?.data?.summary);
+      } 
     } catch (err) {
       console.error(err);
       ToastNotification.error("Failed to load campaign data");

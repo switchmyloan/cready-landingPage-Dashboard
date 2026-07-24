@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { IndianRupee, CheckCircle2, Clock, TrendingUp } from 'lucide-react';
+import { IndianRupee, CheckCircle2, Clock, TrendingUp, Users, XCircle, Filter, BarChart3, X } from 'lucide-react';
 
 import ToastNotification from '@components/Notification/ToastNotification';
 import MainTable from '../../../components/Table/MainTable';
@@ -138,6 +138,198 @@ const toneForStatus = (s) => {
   return 'gray';
 };
 
+// ---------------------------------------------------------------------------
+// Application pipeline analytics
+//
+// The Applications view is a CURRENT-STATE snapshot: every lead sits in exactly
+// one status. Ordering those statuses along Vivifi's real journey turns that flat
+// list into a pipeline, and reading it cumulatively from the end ("how many are at
+// this stage or past it") gives a genuine conversion funnel with drop-off.
+//
+// That cumulative reading assumes leads only move FORWARD through the journey —
+// true for this flow, but it's an inference from the snapshot, not something the
+// webhook tells us directly, so the UI labels it as "reached".
+// ---------------------------------------------------------------------------
+const PIPELINE_ORDER = [
+  'Waiting for documents',
+  'Documents under review',
+  'Awaiting VKYC',
+  'Awaiting Esign',
+  'Awaiting EMandate',
+  'Pending For Disbursal',
+  'Disbursed',
+];
+
+const isTerminalReject = (s) => /reject|declin|cancel|expire|fail/i.test(String(s || ''));
+
+// Position a status on the journey. Anything unrecognised lands just before
+// Disbursed rather than after it, so a new Vivifi status can't silently inflate
+// the disbursed figure.
+const stageRank = (s) => {
+  const i = PIPELINE_ORDER.findIndex((x) => x.toLowerCase() === String(s || '').toLowerCase());
+  return i >= 0 ? i : PIPELINE_ORDER.length - 1.5;
+};
+
+const pct = (n, d) => (d > 0 ? (n / d) * 100 : 0);
+const fmtPct = (n, d) => `${pct(n, d).toFixed(1)}%`;
+
+// Build the ordered pipeline + the cumulative "reached" figure for each stage.
+const buildPipeline = (byStatus = []) => {
+  const rows = byStatus
+    .filter((s) => !isTerminalReject(s.status))
+    .map((s) => ({ status: s.status || 'Unknown', count: Number(s.count) || 0 }))
+    .sort((a, b) => stageRank(a.status) - stageRank(b.status));
+
+  // Walk backwards accumulating, so `reached` = this stage + everything after it.
+  let running = 0;
+  const withReached = [...rows].reverse().map((r) => {
+    running += r.count;
+    return { ...r, reached: running };
+  }).reverse();
+
+  return { rows: withReached, inPipeline: running };
+};
+
+const ApplicationsAnalytics = ({ summary, activeStatus, onPick }) => {
+  const byStatus = useMemo(() => summary?.byStatus || [], [summary]);
+  const total = Number(summary?.total) || 0;
+
+  const { rows, inPipeline } = useMemo(() => buildPipeline(byStatus), [byStatus]);
+
+  const disbursed = byStatus.find((s) => /disburs/i.test(s.status) && !/pending/i.test(s.status));
+  const disbursedCount = Number(disbursed?.count) || 0;
+  const rejectedCount = byStatus
+    .filter((s) => isTerminalReject(s.status))
+    .reduce((sum, s) => sum + (Number(s.count) || 0), 0);
+  const inProgress = Math.max(inPipeline - disbursedCount, 0);
+
+  // Widest stage drives the bar scale, so the biggest bucket fills the track.
+  const peak = rows.reduce((m, r) => Math.max(m, r.count), 0);
+
+  if (!total) return null;
+
+  return (
+    <>
+      <div className="flex flex-wrap gap-3 mb-3">
+        <KpiCard icon={Users} tone="purple" label="Total Applications" value={total.toLocaleString('en-IN')} sub="all leads received" />
+        <KpiCard icon={Clock} tone="amber" label="In Progress" value={inProgress.toLocaleString('en-IN')} sub={`${fmtPct(inProgress, total)} still moving`} />
+        <KpiCard icon={CheckCircle2} tone="green" label="Disbursed" value={disbursedCount.toLocaleString('en-IN')} sub={`${fmtPct(disbursedCount, total)} conversion`} />
+        <KpiCard icon={XCircle} tone="blue" label="Rejected" value={rejectedCount.toLocaleString('en-IN')} sub={`${fmtPct(rejectedCount, total)} of all leads`} />
+      </div>
+
+      <div className="bg-white border border-gray-200 rounded-xl px-4 py-3.5 mb-3 shadow-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2">
+            <Filter size={14} className="text-purple-600" />
+            <h3 className="text-[13px] font-bold text-gray-800">Application Pipeline</h3>
+          </div>
+          <p className="text-[11.5px] text-gray-500">
+            <span className="font-semibold text-gray-700">{inPipeline.toLocaleString('en-IN')}</span> in pipeline ·{' '}
+            <span className="font-semibold text-emerald-600">{fmtPct(disbursedCount, inPipeline)}</span> reach disbursal
+          </p>
+        </div>
+
+        <div className="space-y-1.5">
+          {rows.map((r) => {
+            const active = activeStatus === r.status;
+            return (
+              <button
+                key={r.status}
+                onClick={() => onPick(r.status)}
+                className={`w-full grid grid-cols-[minmax(140px,1.4fr)_minmax(0,3fr)_auto] items-center gap-3 px-2 py-1.5 rounded-lg text-left transition ${active ? 'bg-purple-50 ring-1 ring-purple-200' : 'hover:bg-gray-50'}`}
+                title={`Filter by ${r.status}`}
+              >
+                <span className={`text-[12px] font-semibold truncate ${active ? 'text-purple-700' : 'text-gray-700'}`}>
+                  {r.status}
+                </span>
+
+                <span className="relative h-[18px] rounded-md bg-gray-100 overflow-hidden">
+                  {/* Faint track = how many reached this stage; solid = still sitting here. */}
+                  <span
+                    className="absolute inset-y-0 left-0 bg-purple-100"
+                    style={{ width: `${pct(r.reached, inPipeline)}%` }}
+                  />
+                  <span
+                    className={`absolute inset-y-0 left-0 rounded-md ${/disburs/i.test(r.status) ? 'bg-emerald-500' : 'bg-purple-500'}`}
+                    style={{ width: `${peak ? pct(r.count, peak) : 0}%` }}
+                  />
+                </span>
+
+                <span className="flex items-center gap-2.5 justify-end tabular-nums">
+                  <span className="text-[12.5px] font-bold text-gray-800 min-w-[38px] text-right">
+                    {r.count.toLocaleString('en-IN')}
+                  </span>
+                  <span className="text-[11px] text-gray-400 min-w-[42px] text-right">{fmtPct(r.count, inPipeline)}</span>
+                  <span className="text-[11px] text-gray-500 min-w-[74px] text-right">
+                    reached <span className="font-semibold text-gray-700">{r.reached.toLocaleString('en-IN')}</span>
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        <p className="mt-2.5 text-[10.5px] text-gray-400">
+          Solid bar = leads currently at that stage. Faint bar = leads that reached it or moved past
+          (inferred from the snapshot, assuming forward-only progression). Click a row to filter the table.
+        </p>
+      </div>
+    </>
+  );
+};
+
+// The analysis sits behind a button rather than on the page: it's a stop-and-read
+// view, not something you need while scanning the table. Picking a stage inside it
+// filters the table and closes, so the click lands you back on the data.
+const AnalyticsModal = ({ open, onClose, summary, activeStatus, onPick }) => {
+  useEffect(() => {
+    if (!open) return undefined;
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  const hasData = Number(summary?.total) > 0;
+
+  return (
+    <div
+      className="fixed inset-0 z-[120] grid place-items-center bg-gray-900/50 backdrop-blur-sm px-4 py-6"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Application analysis"
+    >
+      <div
+        className="w-full max-w-4xl max-h-full overflow-y-auto rounded-2xl bg-gray-50 shadow-2xl border border-gray-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-3.5 bg-white border-b border-gray-200">
+          <div className="flex items-center gap-2">
+            <BarChart3 size={17} className="text-purple-600" />
+            <h2 className="text-[14px] font-bold text-gray-800">Application Analysis</h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="p-4">
+          {hasData ? (
+            <ApplicationsAnalytics summary={summary} activeStatus={activeStatus} onPick={onPick} />
+          ) : (
+            <p className="py-12 text-center text-sm text-gray-400 italic">No applications to analyse yet.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const KpiCard = ({ icon: Icon, label, value, sub, tone = 'purple' }) => {
   const tones = {
     purple: 'from-purple-500 to-indigo-500',
@@ -214,6 +406,9 @@ const ApplicationsPanel = () => {
     ...prev, status: prev.status === s ? '' : s, page_no: 1,
   })), [setQuery]);
 
+  // Pipeline analysis lives in a modal — see AnalyticsModal.
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+
   // Export ALL rows matching the current filters (not just the visible page):
   // re-run the same query with perPage = total, then build the CSV client-side.
   const handleExport = useCallback(async () => {
@@ -263,7 +458,27 @@ const ApplicationsPanel = () => {
         {summary.byStatus?.length === 0 && (
           <span className="text-sm text-gray-400 italic">No applications yet</span>
         )}
+
+        {/* Opens the pipeline analysis. ml-auto keeps it pinned right however
+            many stage chips wrap onto the row. */}
+        <button
+          onClick={() => setAnalyticsOpen(true)}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 hover:border-purple-300 transition"
+          title="View pipeline analysis"
+        >
+          <BarChart3 size={14} />
+          Analysis
+        </button>
       </div>
+
+      <AnalyticsModal
+        open={analyticsOpen}
+        onClose={() => setAnalyticsOpen(false)}
+        summary={summary}
+        activeStatus={query.status}
+        // Picking a stage filters the table, then closes so the result is visible.
+        onPick={(s) => { toggleStatus(s); setAnalyticsOpen(false); }}
+      />
 
       <MainTable
         columns={vivifiApplicationsColumn({ handleEdit })}

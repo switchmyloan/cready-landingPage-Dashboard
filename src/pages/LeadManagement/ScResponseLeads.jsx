@@ -133,9 +133,10 @@ const ScResponseLeads = () => {
           rejectCount: s.rejected || 0,
           duplicateCount: s.deduped || 0
         });
-      } else {
-        ToastNotification.error('Failed to fetch leads');
-      }
+      } 
+      // else {
+      //   ToastNotification.error('Failed to fetch leads');
+      // }
     } catch (err) {
       console.error(err);
       ToastNotification.error('Failed to fetch leads');
