@@ -2714,72 +2714,58 @@ const upSwingTruncCell = ({ getValue }) => {
   return <span className="font-mono text-xs text-gray-600" title={s}>{s.length > 16 ? `${s.slice(0, 12)}…` : s}</span>;
 };
 
-// UpSwing leads — one row per lead from the external UpSwing admin API, aggregated
-// across its webhook events. Event types reuse the Vivifi status badge (colours
-// SUCCESS/DISBURSED green, INITIATED amber, etc.); a lead can carry several.
+// UpSwing leads — one row per pci from ClickHouse upswing.pci_latest_event: the
+// lead's current journey stage (eventType) plus its offer / selection / disbursal
+// figures. eventType reuses the Vivifi status badge for stage colours.
 export const upSwingEventsColumn = ({ handleEdit }) => [
   { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
-  {
-    header: 'Name',
-    accessorKey: 'name',
-    cell: ({ getValue }) => getValue()
-      ? <span className="text-sm font-medium text-gray-800">{getValue()}</span>
-      : <span className="text-gray-400 italic">—</span>,
-  },
-  {
-    header: 'Phone',
-    accessorKey: 'phone',
-    cell: ({ getValue }) => getValue()
-      ? <span className="font-mono text-sm text-gray-700">{getValue()}</span>
-      : <span className="text-gray-400 italic">—</span>,
-  },
-  {
-    header: 'MRN',
-    accessorKey: 'mrn',
-    cell: ({ getValue }) => getValue()
-      ? <span className="font-mono text-sm font-medium text-gray-800">{getValue()}</span>
-      : <span className="text-gray-400 italic">—</span>,
-  },
   { header: 'PCI', accessorKey: 'pci', cell: upSwingTruncCell },
+  { header: 'Stage', accessorKey: 'eventType', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
   {
-    header: 'Profile',
-    accessorKey: 'profile',
-    cell: ({ getValue }) => getValue()
-      ? <span className="text-sm text-gray-600">{getValue()}</span>
-      : <span className="text-gray-400 italic">—</span>,
-  },
-  {
-    header: 'Events',
-    accessorKey: 'eventCount',
-    maxSize: 80,
-    cell: ({ getValue }) => (
-      <span className="inline-flex items-center justify-center min-w-[24px] px-1.5 h-5 rounded-full bg-purple-50 text-purple-700 text-xs font-bold border border-purple-100">
-        {getValue() ?? 0}
-      </span>
-    ),
-  },
-  {
-    header: 'Event Types',
-    accessorKey: 'eventTypes',
-    cell: ({ getValue }) => {
-      const arr = Array.isArray(getValue()) ? getValue() : [];
-      if (!arr.length) return <span className="text-gray-400 italic">—</span>;
+    header: 'Product',
+    accessorKey: 'productVariant',
+    cell: ({ row }) => {
+      const pv = row.original.productVariant;
+      const jt = row.original.journeyType;
+      if (!pv && !jt) return <span className="text-gray-400 italic">—</span>;
       return (
-        <div className="flex flex-wrap gap-1 max-w-[240px]" title={arr.join(', ')}>
-          {arr.slice(0, 3).map((t) => <span key={t}>{vivifiStatusBadge(t)}</span>)}
-          {arr.length > 3 && <span className="text-[11px] text-gray-400 font-medium self-center">+{arr.length - 3}</span>}
+        <div className="leading-tight">
+          {pv && <div className="text-sm font-medium text-gray-800">{pv}</div>}
+          {jt && <div className="text-[11px] text-gray-500">{jt}</div>}
         </div>
       );
     },
   },
-  { header: 'Last Seen', accessorKey: 'lastSeen', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
   {
-    header: 'Resolved',
-    accessorKey: 'resolved',
-    maxSize: 90,
-    cell: ({ getValue }) => getValue()
-      ? <span className="inline-flex px-2 py-0.5 rounded-full bg-green-50 text-green-700 text-[11px] font-bold border border-green-200">Resolved</span>
-      : <span className="inline-flex px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[11px] font-bold border border-amber-200">Pending</span>,
+    header: 'Bank Offer',
+    accessorKey: 'bankOfferedAmount',
+    cell: ({ row }) => {
+      const amt = row.original.bankOfferedAmount;
+      const roi = row.original.bankOfferedInterest;
+      if (amt == null) return <span className="text-gray-400 italic">—</span>;
+      return (
+        <div className="leading-tight">
+          <div className="text-sm font-semibold text-gray-800">{vivifiFmtInr(amt)}</div>
+          {roi != null && <div className="text-[11px] text-gray-500">{roi}% p.a.</div>}
+        </div>
+      );
+    },
   },
+  // {
+  //   header: 'Selected',
+  //   accessorKey: 'userSelectedLoanAmount',
+  //   cell: ({ getValue }) => vivifiFmtInr(getValue()),
+  // },
+  {
+    header: 'Disbursed',
+    accessorKey: 'loanDisbursalAmount',
+    cell: ({ getValue }) => {
+      const v = getValue();
+      return v == null
+        ? <span className="text-gray-400 italic">—</span>
+        : <span className="text-sm font-semibold text-emerald-700">{vivifiFmtInr(v)}</span>;
+    },
+  },
+  { header: 'Last Event', accessorKey: 'eventTimestamp', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
   { header: 'Actions', id: 'actions-upswing', cell: vivifiEyeCell(handleEdit, 'View lead detail') },
 ];

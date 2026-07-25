@@ -1,12 +1,72 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { Filter } from 'lucide-react';
 
 import ToastNotification from '@components/Notification/ToastNotification';
 import MainTable from '../../../components/Table/MainTable';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
 import { upSwingEventsColumn } from '../../../components/TableHeader';
 import { getUpSwingEvents } from '../../../api-services/Modules/UpSwingWebhook';
+import UpSwingFunnelModal from './UpSwingFunnelModal';
+
+// ---------------------------------------------------------------------------
+// Filter persistence — filters live in the URL query string so they survive both
+// a reload AND a Back from the lead-detail page (whose Back button is navigate(-1),
+// which restores this exact URL). Writes use replace:true so tweaking a filter
+// doesn't pile up history entries to Back through.
+// ---------------------------------------------------------------------------
+const DEFAULT_LIMIT = 10;
+
+const readQuery = (sp) => ({
+  page_no: Math.max(parseInt(sp.get('page'), 10) || 1, 1),
+  limit: Math.max(parseInt(sp.get('size'), 10) || DEFAULT_LIMIT, 1),
+  search: sp.get('q') || '',
+  type: sp.get('type') || '',
+  startDate: sp.get('from') || null,
+  endDate: sp.get('to') || null,
+  status: sp.get('status') || '',
+});
+
+// Mirror the query back into the params, dropping defaults so the URL stays short.
+const writeQuery = (sp, q) => {
+  const put = (key, value, isDefault) => { if (isDefault) sp.delete(key); else sp.set(key, String(value)); };
+  put('page', q.page_no, !q.page_no || q.page_no === 1);
+  put('size', q.limit, !q.limit || q.limit === DEFAULT_LIMIT);
+  put('q', q.search, !q.search);
+  put('type', q.type, !q.type);
+  put('from', q.startDate, !q.startDate);
+  put('to', q.endDate, !q.endDate);
+  put('status', q.status, !q.status);
+  return sp;
+};
+
+// Drop-in replacement for useState({...filters}) that reads/writes the URL.
+//
+// Two subtleties, both learned the hard way from a broken "Clear All":
+//  1. `setQuery` is STABLE (ref-held setSearchParams) so it doesn't churn the
+//     handlers built on it every URL change — which would re-fire MainTable's
+//     onPageChange/onSearch effects.
+//  2. Functional updates chain off a `latest` ref, NOT react-router's `prev`.
+//     react-router does NOT chain successive setSearchParams(fn) calls within a
+//     tick — every fn sees the SAME pre-navigation snapshot — so Clear All followed
+//     by MainTable's onSearch('') both read `type=today` and the last write wins,
+//     resurrecting it. The ref reflects each write immediately, so calls chain.
+const useUrlQuery = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const setRef = useRef(setSearchParams);
+  setRef.current = setSearchParams;
+  const search = searchParams.toString();
+  const query = useMemo(() => readQuery(new URLSearchParams(search)), [search]);
+  const latest = useRef(query);
+  latest.current = query; // resync from the URL on every render
+  const setQuery = useCallback((updater) => {
+    const next = typeof updater === 'function' ? updater(latest.current) : updater;
+    latest.current = next; // so a second setQuery in the same tick sees this one
+    setRef.current(writeQuery(new URLSearchParams(), next), { replace: true });
+  }, []);
+  return [query, setQuery];
+};
 
 // Clickable event-type chip — filter the table by that event_type, click again to clear.
 const StageChip = ({ label, count, active, onClick, tone = 'gray' }) => {
@@ -75,9 +135,8 @@ const UpSwingWebhook = () => {
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState({ total: 0, byStatus: [] });
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState({
-    page_no: 1, limit: 10, search: '', type: '', startDate: null, endDate: null, status: '',
-  });
+  // Filters live in the URL (?status=…&type=…&page=…) so they survive reload / Back.
+  const [query, setQuery] = useUrlQuery();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -110,17 +169,25 @@ const UpSwingWebhook = () => {
 
   const onPageChange = useCallback((p) => {
     setQuery((prev) => ({ ...prev, page_no: p.pageIndex + 1, limit: p.pageSize }));
-  }, []);
-  const onSearch = useCallback((term) => setQuery((prev) => ({ ...prev, search: term, page_no: 1 })), []);
+  }, [setQuery]);
+  const onSearch = useCallback((term) => setQuery((prev) => ({ ...prev, search: term, page_no: 1 })), [setQuery]);
   const onFilterByDate = useCallback((type) => setQuery((prev) => ({
     ...prev, type: prev.type === type ? '' : type, startDate: null, endDate: null, page_no: 1,
-  })), []);
+  })), [setQuery]);
   const onFilterByRange = useCallback((range) => setQuery((prev) => ({
     ...prev, startDate: range.startDate, endDate: range.endDate, type: '', page_no: 1,
-  })), []);
+  })), [setQuery]);
   const toggleStatus = useCallback((s) => setQuery((prev) => ({
     ...prev, status: prev.status === s ? '' : s, page_no: 1,
-  })), []);
+  })), [setQuery]);
+
+  // Clear every filter — wired to MainTable's built-in "Clear All" button. MainTable's
+  // own handler already empties its search box (setGlobalFilter('')); we just reset the
+  // URL query. No remount — remounting fires MainTable's mount effects (onPageChange/
+  // onSearch) which, running before the URL clear commits, re-injected type=today.
+  const clearFilters = useCallback(() => {
+    setQuery({ page_no: 1, limit: DEFAULT_LIMIT, search: '', type: '', startDate: null, endDate: null, status: '' });
+  }, [setQuery]);
 
   const handleExport = useCallback(async () => {
     try {
@@ -133,18 +200,20 @@ const UpSwingWebhook = () => {
       });
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
       downloadCsv(`upswing_leads_${Date.now()}.csv`, [
-        { header: 'Name', value: (r) => r.name },
-        { header: 'Phone', value: (r) => r.phone },
-        { header: 'Email', value: (r) => r.email },
-        { header: 'MRN', value: (r) => r.mrn },
         { header: 'PCI', value: (r) => r.pci },
-        { header: 'PAN', value: (r) => r.pan },
-        { header: 'Profile', value: (r) => r.profile },
-        { header: 'Events', value: (r) => r.eventCount },
-        { header: 'Event Types', value: (r) => (Array.isArray(r.eventTypes) ? r.eventTypes.join(' | ') : '') },
-        { header: 'Resolved', value: (r) => (r.resolved ? 'Yes' : 'No') },
-        { header: 'First Seen', value: (r) => r.firstSeen },
-        { header: 'Last Seen', value: (r) => r.lastSeen },
+        { header: 'Journey ID', value: (r) => r.journeyId },
+        { header: 'FSI', value: (r) => r.fsi },
+        { header: 'Stage', value: (r) => r.eventType },
+        { header: 'Journey Type', value: (r) => r.journeyType },
+        { header: 'Product', value: (r) => r.productVariant },
+        { header: 'Offer Available', value: (r) => (r.offerAvailable == null ? '' : r.offerAvailable ? 'Yes' : 'No') },
+        { header: 'Bank Offered Amount', value: (r) => r.bankOfferedAmount },
+        { header: 'Bank Offered Interest', value: (r) => r.bankOfferedInterest },
+        { header: 'User Selected Amount', value: (r) => r.userSelectedLoanAmount },
+        { header: 'Disbursed Amount', value: (r) => r.loanDisbursalAmount },
+        { header: 'Rejected Reason', value: (r) => r.rejectedReason },
+        { header: 'Last Event', value: (r) => r.eventTimestamp },
+        { header: 'Updated At', value: (r) => r.updatedAt },
       ], all);
     } catch (err) {
       console.error(err);
@@ -156,13 +225,22 @@ const UpSwingWebhook = () => {
     navigate(`/upswing-webhook/${encodeURIComponent(ev.id)}`, { state: { lead: ev } });
   };
 
+  // Journey funnel modal — shares the list's active date filter so the funnel
+  // matches whatever period the user is looking at.
+  const [funnelOpen, setFunnelOpen] = useState(false);
+  const funnelDateParams = useMemo(() => ({
+    type: query.type || undefined,
+    fromDate: query.startDate || undefined,
+    toDate: query.endDate || undefined,
+  }), [query.type, query.startDate, query.endDate]);
+
   return (
     <>
       <Toaster />
 
-      {/* Event-type chips — count of leads that reached each event type. Click to filter. */}
+      {/* Journey-stage chips — leads per current stage (eventType). Click to filter. */}
       <div className="flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3 mb-3 shadow-sm">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Event Type:</span>
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Stage:</span>
         <StageChip label="All Leads" count={summary.total || 0} active={!query.status} onClick={() => toggleStatus('')} tone="purple" />
         {(summary.byStatus || []).map((s) => (
           <StageChip
@@ -177,7 +255,23 @@ const UpSwingWebhook = () => {
         {summary.byStatus?.length === 0 && (
           <span className="text-sm text-gray-400 italic">No leads yet</span>
         )}
+
+        {/* Opens the journey funnel. ml-auto pins it right however many chips wrap. */}
+        <button
+          onClick={() => setFunnelOpen(true)}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 hover:border-purple-300 transition"
+          title="View journey funnel"
+        >
+          <Filter size={14} />
+          Funnel
+        </button>
       </div>
+
+      <UpSwingFunnelModal
+        open={funnelOpen}
+        onClose={() => setFunnelOpen(false)}
+        dateParams={funnelDateParams}
+      />
 
       <MainTable
         columns={upSwingEventsColumn({ handleEdit })}
@@ -188,33 +282,38 @@ const UpSwingWebhook = () => {
         onSearch={onSearch}
         onRefresh={fetchData}
         onExport={handleExport}
+        onClearAllFilters={clearFilters}
         title="UPSWING · LEADS"
         onFilterByDate={onFilterByDate}
         activeFilter={query.type}
         onFilterByRange={onFilterByRange}
         activeDateRange={{ startDate: query.startDate, endDate: query.endDate }}
+        // Seed the table's own page/search from the URL so a reload or a Back from
+        // the detail page lands on the same page with the same search term.
+        initialPagination={{ pageIndex: query.page_no - 1, pageSize: query.limit }}
+        initialSearch={query.search}
       />
 
       <ModuleInfoCard
         title="UpSwing Leads"
-        subtitle="Live UpSwing lead data — one row per lead, aggregated across all its webhook events."
+        subtitle="UpSwing journey data — one row per lead (pci), showing its current stage and offer / disbursal figures."
         whatYouSee={[
-          'One row per lead pushed to UpSwing (name, phone, MRN, PCI, profile).',
-          'Events = how many webhook events UpSwing has recorded for that lead; Event Types shows which stages it reached.',
-          'Event-type chips count leads that reached each stage — click one to filter the table to those leads.',
-          'Resolved shows whether the lead is fully identity-resolved on UpSwing’s side; click the eye to open the full lead detail.',
+          'One row per pci: the lead’s current journey stage plus product, bank offer, user-selected amount and disbursed amount.',
+          'Stage chips count leads sitting at each journey stage — click one to filter the table to those leads.',
+          'Click the eye icon to open the full offer/disbursal snapshot and the lead’s complete webhook event timeline.',
+          'These tables carry no PII (name/phone) — they are pure journey + offer data keyed on pci.',
         ]}
         dataSource={[
-          'External UpSwing admin API — GET /api/admin/events (server-side, x-admin-key).',
-          'The backend proxies the call (key stays in .env) and does search / filter / paging in-process.',
-          'Data is lead-centric and already aggregated by UpSwing — the CMS does not store it.',
+          'ClickHouse upswing.pci_latest_event — ReplacingMergeTree snapshot, one row per pci (read with FINAL).',
+          'ClickHouse upswing.webhook_events — append-only event diary, the source for the detail-page timeline.',
+          'Timestamps are stored in UTC and shown in IST.',
         ]}
         flow={[
-          'Lead pushed to UpSwing',
-          'UpSwing sends webhooks',
-          'UpSwing aggregates events per lead',
-          'CMS fetches the admin API',
-          'Eye → full lead detail',
+          'UpSwing sends a webhook',
+          'Event appended to webhook_events',
+          'pci_latest_event snapshot updated',
+          'Snapshot shown in this list',
+          'Eye → offer snapshot + full timeline',
         ]}
       />
     </>

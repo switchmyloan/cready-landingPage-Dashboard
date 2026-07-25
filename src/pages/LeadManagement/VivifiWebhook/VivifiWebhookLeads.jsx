@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import { IndianRupee, CheckCircle2, Clock, TrendingUp, Users, XCircle, Filter, BarChart3, X } from 'lucide-react';
@@ -58,15 +58,24 @@ const writeQuery = (sp, prefix, q) => {
 // a stable identity between renders — otherwise the fetch effect would loop.
 const useUrlQuery = (prefix) => {
   const [searchParams, setSearchParams] = useSearchParams();
+  // setSearchParams is ref-held so setQuery stays STABLE (react-router recreates it on
+  // every URL change). Functional updates chain off `latest`, NOT react-router's prev:
+  // it does not chain successive setSearchParams(fn) calls in a tick (each sees the
+  // same pre-navigation snapshot), which otherwise resurrects just-cleared filters.
+  // This panel namespaces params with `prefix`, so only this tab's keys are touched.
+  const setRef = useRef(setSearchParams);
+  setRef.current = setSearchParams;
   const search = searchParams.toString();
   const query = useMemo(() => readQuery(new URLSearchParams(search), prefix), [search, prefix]);
+  const latest = useRef(query);
+  latest.current = query;
   const setQuery = useCallback((updater) => {
-    setSearchParams((prev) => {
-      const sp = new URLSearchParams(prev);
-      const next = typeof updater === 'function' ? updater(readQuery(sp, prefix)) : updater;
-      return writeQuery(sp, prefix, next);
-    }, { replace: true });
-  }, [setSearchParams, prefix]);
+    const next = typeof updater === 'function' ? updater(latest.current) : updater;
+    latest.current = next;
+    // Preserve params from OTHER prefixes (the other tab's filters + ?tab=): start
+    // from the live URL and let writeQuery overwrite only this prefix's keys.
+    setRef.current((prev) => writeQuery(new URLSearchParams(prev), prefix, next), { replace: true });
+  }, [prefix]);
   return [query, setQuery];
 };
 
