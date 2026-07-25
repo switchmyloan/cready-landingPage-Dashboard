@@ -218,10 +218,20 @@ const LenderCard = ({ name, response }) => {
         {link && (
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1">UTM Link</p>
-            <a href={link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:underline break-all">
-              <ExternalLink size={13} className="shrink-0" />
-              <span className="break-all">{link.length > 52 ? link.slice(0, 52) + '...' : link}</span>
-            </a>
+            <div className="flex items-center gap-2">
+              <a href={link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:text-indigo-700 hover:underline break-all min-w-0">
+                <ExternalLink size={13} className="shrink-0" />
+                <span className="break-all">{link.length > 52 ? link.slice(0, 52) + '...' : link}</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard?.writeText(link); toast.success('Link copied'); }}
+                className="inline-flex items-center shrink-0 text-gray-500 hover:text-indigo-700"
+                title="Copy link"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -871,7 +881,7 @@ const OfferLeadDetail = () => {
   return (
     <div className="w-full">
       {/* Toaster — feedback save success/error notifications render here */}
-      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+      <Toaster position="top-center" toastOptions={{ duration: 4000 }} />
       <div className="rounded-lg shadow-sm px-4">
         <div className="flex space-x-8">
           {tabs.map((tab) => (
@@ -1086,10 +1096,20 @@ const OfferLeadDetail = () => {
                     <div key={idx} className="border border-gray-200 rounded-2xl p-5 shadow-sm bg-white hover:shadow-md transition-shadow">
                       <h4 className="text-base font-bold text-gray-800 mb-2">{lender.name}</h4>
                       {lender.utm_link && (
-                        <a href={lender.utm_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline break-all">
-                          <ExternalLink size={13} className="shrink-0" />
-                          <span className="break-all">{lender.utm_link.length > 52 ? lender.utm_link.slice(0, 52) + '...' : lender.utm_link}</span>
-                        </a>
+                        <div className="flex items-center gap-2">
+                          <a href={lender.utm_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-sm text-indigo-600 hover:underline break-all min-w-0">
+                            <ExternalLink size={13} className="shrink-0" />
+                            <span className="break-all">{lender.utm_link.length > 52 ? lender.utm_link.slice(0, 52) + '...' : lender.utm_link}</span>
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => { navigator.clipboard?.writeText(lender.utm_link); toast.success('Link copied'); }}
+                            className="inline-flex items-center shrink-0 text-gray-500 hover:text-indigo-700"
+                            title="Copy link"
+                          >
+                            <Copy size={13} />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
