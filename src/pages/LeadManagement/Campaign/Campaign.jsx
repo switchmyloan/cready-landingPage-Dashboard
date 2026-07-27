@@ -161,6 +161,7 @@ const DateFilter = ({ dateType, onDateTypeChange, startDate, endDate, onDateRang
           { v: "", l: "All" },
           { v: "today", l: "Today" },
           { v: "yesterday", l: "Yest" },
+          { v: "month", l: "Month" },
         ].map(({ v, l }) => {
           const active = !showCustom && dateType === v;
           return (

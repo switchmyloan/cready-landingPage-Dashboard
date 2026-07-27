@@ -38,8 +38,18 @@ const entityColor = (entity) => {
   return ENTITY_PALETTE[h % ENTITY_PALETTE.length];
 };
 
-const formatSpend = (wcSum) =>
-  "₹" + (wcSum / 100000).toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const formatSpend = (rs) =>
+  "₹" + (Number(rs) || 0).toLocaleString("en-IN", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+// Spend = delivered × rate (same model as the campaign dashboard). The MARKETING
+// rate (₹0.87) applies ONLY to genuine marketing blasts — category MARKETING AND
+// the campaign name contains 'MARKETING'. Everything else is the ₹0.105 utility rate.
+const spendFor = (delivered, category, name) => {
+  const isMarketing =
+    String(category || "").toUpperCase() === "MARKETING" &&
+    /marketing/i.test(String(name || ""));
+  return (Number(delivered) || 0) * (isMarketing ? 0.87 : 0.105);
+};
 
 // Hide noisy columns from the raw-row table.
 const isHiddenCol = (k) => k.replace(/[^a-z]/gi, "").toLowerCase() === "extrajson";
@@ -105,7 +115,7 @@ const CampaignCard = ({ row, cols }) => {
   const [showText, setShowText] = useState(false);
   const name = pick(row, "name");
   const status = pick(row, "status");
-  const wc = Number(pick(row, "wc_credit")) || 0;
+  const spend = spendFor(pick(row, "delivered"), pick(row, "template_category"), pick(row, "name"));
   const text = pick(row, "template_text");
   const metaCols = cols.filter((c) => !META_EXCLUDE.has(c.toLowerCase()));
 
@@ -121,10 +131,10 @@ const CampaignCard = ({ row, cols }) => {
             </span>
           )}
         </div>
-        {wc > 0 && (
+        {spend > 0 && (
           <div className="text-right shrink-0">
             <p className="text-[10px] text-gray-500">Spend</p>
-            <p className="text-sm font-bold text-emerald-600">{formatSpend(wc)}</p>
+            <p className="text-sm font-bold text-emerald-600">{formatSpend(spend)}</p>
           </div>
         )}
       </div>
@@ -264,9 +274,9 @@ const CampaignPortalDetail = () => {
     };
   }, [entity, lander, type, fromDate, toDate]);
 
-  // Roll up the raw rows for the summary strip (counts are exact; spend from wc_credit).
+  // Roll up the raw rows for the summary strip (counts exact; spend = Σ delivered × category rate).
   const totals = useMemo(() => {
-    const t = { total: 0, sent: 0, delivered: 0, read: 0, clicked: 0, failed: 0, wc: 0 };
+    const t = { total: 0, sent: 0, delivered: 0, read: 0, clicked: 0, failed: 0, spend: 0 };
     for (const r of rows) {
       t.total += Number(r.total) || 0;
       t.sent += Number(r.sent) || 0;
@@ -274,7 +284,7 @@ const CampaignPortalDetail = () => {
       t.read += Number(r.read) || 0;
       t.clicked += Number(r.clicked) || 0;
       t.failed += Number(r.failed) || 0;
-      t.wc += Number(r.wc_credit) || 0;
+      t.spend += spendFor(r.delivered, r.template_category, r.name);
     }
     return t;
   }, [rows]);
@@ -289,7 +299,7 @@ const CampaignPortalDetail = () => {
     { label: "Read", value: totals.read.toLocaleString(), Icon: Eye, color: "bg-amber-100 text-amber-600", sub: `${pct(totals.read)}% of total` },
     { label: "Clicked", value: totals.clicked.toLocaleString(), Icon: MousePointerClick, color: "bg-purple-100 text-purple-600", sub: `${pct(totals.clicked)}% of total` },
     { label: "Failed", value: totals.failed.toLocaleString(), Icon: XCircle, color: "bg-rose-100 text-rose-600", sub: `${pct(totals.failed)}% of total` },
-    { label: "Spend", value: formatSpend(totals.wc), Icon: Wallet, color: "bg-green-100 text-green-600", accent: "text-emerald-600" },
+    { label: "Spend", value: formatSpend(totals.spend), Icon: Wallet, color: "bg-green-100 text-green-600", accent: "text-emerald-600" },
   ];
 
   return (
