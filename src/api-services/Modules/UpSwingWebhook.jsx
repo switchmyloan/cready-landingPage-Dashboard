@@ -35,3 +35,10 @@ export const getUpSwingFunnel = async ({ type, fromDate, toDate } = {}) => {
     skipAdminAppend: true,
   });
 };
+
+// Recent BANK_OFFER_AVAILABLE leads — polled by the navbar alert bell.
+export const getUpSwingBankOfferAlerts = async () => {
+  return Api().get(`/upswing-webhook/bank-offer-alerts`, {
+    skipAdminAppend: true,
+  });
+};

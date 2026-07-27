@@ -5,6 +5,7 @@ import { useAuth } from "../../custom-hooks/useAuth";
 import { UserService } from "../../custom-hooks";
 import CallbackReminders from "../CallbackReminders/CallbackReminders";
 import IncredSuccessAlerts from "../IncredSuccessAlerts/IncredSuccessAlerts";
+import UpSwingBankOfferAlerts from "../UpSwingBankOfferAlerts/UpSwingBankOfferAlerts";
 
 function Navbar({ onToggleSidebar }) {
   const navigate = useNavigate();
@@ -108,6 +109,9 @@ function Navbar({ onToggleSidebar }) {
 
         {/* InCred success lead alerts — bell + beep + desktop notif + flash toast */}
         <IncredSuccessAlerts />
+
+        {/* UpSwing bank-offer-available alerts — same pattern, Super Admin + CC2 only */}
+        <UpSwingBankOfferAlerts />
 
         {/* Callback reminders bell — renders only for call-center roles */}
         <CallbackReminders />

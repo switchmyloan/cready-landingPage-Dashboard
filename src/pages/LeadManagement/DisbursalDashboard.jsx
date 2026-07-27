@@ -147,6 +147,15 @@ const fmtDate = (ts) => {
     const d = new Date(ts);
     return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
+// CSV date: IST calendar day (YYYY-MM-DD). NOT toISOString() — that renders in UTC,
+// which shifts an IST-midnight timestamp (e.g. 2026-07-06 00:00 IST) back to the
+// previous day (2026-07-05T18:30Z) and makes the exported date look a day early.
+const csvDate = (v) => {
+    if (!v) return '';
+    const d = new Date(v);
+    if (Number.isNaN(d.getTime())) return String(v);
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+};
 const fmtBucketLabel = (bucket, granularity) => {
     if (!bucket) return '';
     const d = new Date(bucket);
@@ -775,6 +784,14 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
     // When the user has overridden, range token shouldn't drive backend bounds.
     const effRange = localRangeMode === 'custom' ? 'Custom' : range;
 
+    // A lead with no utm_medium IS the organic bucket — shown as QuickLoans on the
+    // high-ticket dashboard and EasyLoan on short (matches the Medium filter labels).
+    const mediumLabel = (m) => {
+        const v = (m || '').trim();
+        if (v) return v;
+        return scope === 'short' ? 'EasyLoan' : 'QuickLoans';
+    };
+
     const [rows, setRows] = useState([]);
     const [total, setTotal] = useState(0);
     const [filteredAmount, setFilteredAmount] = useState(0);
@@ -940,11 +957,11 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 });
             }
 
-            const header = ['LeadID', 'Customer', 'Phone', 'Lender', 'Entity', 'DisbAmount', 'DisbDate', 'LeadCreatedDate', 'SanctionAmount', 'EmploymentType', 'MISStatus', 'ClientStatus'];
+            const header = ['LeadID', 'Customer', 'Phone', 'Lender', 'Medium', 'Entity', 'DisbAmount', 'DisbDate', 'LeadCreatedDate', 'SanctionAmount', 'EmploymentType', 'MISStatus', 'ClientStatus'];
             const rowsCsv = allRows.map(t => [
-                t.lead_id, t.customer_name, t.phone, t.lender, t.entity,
-                t.disb_amt, t.disb_dt ? new Date(t.disb_dt).toISOString() : '',
-                t.lead_created_dt ? new Date(t.lead_created_dt).toISOString() : '',
+                t.lead_id, t.customer_name, t.phone, t.lender, mediumLabel(t.utm_medium), t.entity,
+                t.disb_amt, csvDate(t.disb_dt),
+                csvDate(t.lead_created_dt),
                 t.sanction_amt, t.employment_type, t.mis_status, t.client_status,
             ]);
             const csv = [header, ...rowsCsv]
@@ -1097,6 +1114,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                             <SortHead k="lead_id">Lead ID</SortHead>
                             <SortHead k="customer_name">Customer</SortHead>
                             <SortHead k="lender">Lender</SortHead>
+                            <SortHead k="utm_medium">Medium</SortHead>
                             <SortHead k="disb_amt" align="right">Disb Amount</SortHead>
                             <SortHead k="employment_type">Employment</SortHead>
                             <SortHead k="disb_dt">Disb Date</SortHead>
@@ -1105,7 +1123,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                     </thead>
                     <tbody>
                         {loading && rows.length === 0 && (
-                            <tr><td colSpan={8} className="py-10"><PremiumLoader size="md" label="Loading transactions…" /></td></tr>
+                            <tr><td colSpan={9} className="py-10"><PremiumLoader size="md" label="Loading transactions…" /></td></tr>
                         )}
                         {!loading && rows.length === 0 && (
                             <tr><td colSpan={8} className="text-center py-12 text-gray-400">No disbursals match your filters.</td></tr>
@@ -1128,6 +1146,11 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                                         <LenderAvatar name={t.lender} size={22} />
                                         <span className="text-[12.5px] font-medium text-gray-800">{t.lender || '—'}</span>
                                     </div>
+                                </td>
+                                <td className="px-4 py-3.5">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[11.5px] font-medium border border-indigo-200/60">
+                                        {mediumLabel(t.utm_medium)}
+                                    </span>
                                 </td>
                                 <td className="px-4 py-3.5 text-right">
                                     <div className="inline-flex items-baseline gap-0.5 font-mono text-[14px] font-bold tabular-nums bg-gradient-to-r from-purple-700 to-violet-700 bg-clip-text text-transparent">
