@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, Activity, Hash, Layers, Wallet, BadgeCheck, XCircle, ChevronDown, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Clock, Activity, Hash, Layers, Wallet, BadgeCheck, XCircle, ChevronDown, ChevronRight, Phone, UserRound, MessageSquare } from 'lucide-react';
 
 import { getUpSwingEventDetail } from '../../../api-services/Modules/UpSwingWebhook';
 import PremiumPageLoader from '../../../components/PremiumPageLoader';
+import LeadFeedback from '../../../components/LeadFeedback/LeadFeedback';
 
 // Colour a stage/event badge by what it represents.
 const eventClass = (t) => {
@@ -178,6 +179,7 @@ const UpSwingWebhookDetail = () => {
           <ArrowLeft size={16} /> Back
         </button>
         <div className="flex flex-wrap items-center gap-2">
+          {l.name && <span className="text-base font-bold text-gray-800">{l.name}</span>}
           <EventBadge type={l.eventType} />
           {l.productVariant && (
             <span className="inline-flex items-center gap-1.5 text-sm text-gray-500">
@@ -199,6 +201,28 @@ const UpSwingWebhookDetail = () => {
 
       {error && (
         <div className="mb-4 p-4 border border-red-200 bg-red-50 rounded-lg text-red-700 text-sm">{error}</div>
+      )}
+
+      {/* Customer identity — resolved pci → mrn → phone (upswing.leads) + name
+          (offerLeads by mrn). These CH journey tables carry no PII on their own. */}
+      {(l.name || l.phone || l.mrn) && (
+        <div className="bg-white border border-gray-200/80 rounded-xl shadow-sm p-4 mb-4 flex flex-wrap items-center gap-x-10 gap-y-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-full bg-purple-100 grid place-items-center text-purple-600"><UserRound size={17} /></div>
+            <div>
+              <p className="text-[10.5px] uppercase tracking-wide text-gray-400 font-semibold">Customer</p>
+              <p className="text-sm font-bold text-gray-800">{l.name || <span className="text-gray-400 italic">—</span>}</p>
+            </div>
+          </div>
+          <Field label="Phone">
+            {l.phone
+              ? <a href={`tel:${l.phone}`} className="text-purple-600 font-semibold inline-flex items-center gap-1 hover:underline"><Phone size={12} /> {l.phone}</a>
+              : <span className="text-gray-400 italic">—</span>}
+          </Field>
+          <Field label="MRN">
+            {l.mrn ? <span className="font-mono font-semibold text-gray-800">{l.mrn}</span> : <span className="text-gray-400 italic">—</span>}
+          </Field>
+        </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
@@ -295,6 +319,19 @@ const UpSwingWebhookDetail = () => {
           )}
         </div>
       </div>
+
+      {/* Call-Center Feedback — keyed by the resolved phone, so the disposition is
+          the SAME record as High Offer Leads (lead_feedback). Only when a phone
+          resolved (feedback is phone-keyed). */}
+      {l.phone && (
+        <div className="mt-5">
+          <div className="flex items-center gap-2 mb-3">
+            <MessageSquare size={16} className="text-purple-600" />
+            <h2 className="text-sm font-bold text-gray-800">Call-Center Feedback</h2>
+          </div>
+          <LeadFeedback phone={l.phone} scope="high" />
+        </div>
+      )}
     </div>
   );
 };
