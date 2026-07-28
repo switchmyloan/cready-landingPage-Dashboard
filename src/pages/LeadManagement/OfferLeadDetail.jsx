@@ -145,6 +145,10 @@ const STATUS_META = {
   },
 };
 
+// Static InCred partner apply link (same partnerId for all leads) — shown as an
+// "Apply on InCred" CTA on the InCred card in High Offer Leads.
+const INCRED_APPLY_URL = 'https://www.incred.com/personal-loan/?partnerId=5325522928171033P&source=lsp';
+
 const LenderCard = ({ name, response }) => {
   if (!response || typeof response !== 'object') return null;
 
@@ -213,6 +217,29 @@ const LenderCard = ({ name, response }) => {
             <span className={`inline-flex px-2 py-0.5 text-[11px] font-bold rounded-full ${response.is_offer ? 'bg-emerald-50 text-emerald-600' : 'bg-gray-100 text-gray-500'}`}>
               {response.is_offer ? 'Yes' : 'No'}
             </span>
+          </div>
+        )}
+        {name === 'InCred' && (
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-1">Apply</p>
+            <div className="flex items-center gap-2">
+              <a
+                href={INCRED_APPLY_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-600 to-violet-600 text-white text-[12.5px] font-semibold shadow-sm hover:from-indigo-700 hover:to-violet-700 transition"
+              >
+                <ExternalLink size={13} /> Apply on InCred
+              </a>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard?.writeText(INCRED_APPLY_URL); toast.success('Link copied'); }}
+                className="inline-flex items-center shrink-0 text-gray-500 hover:text-indigo-700"
+                title="Copy apply link"
+              >
+                <Copy size={13} />
+              </button>
+            </div>
           </div>
         )}
         {link && (

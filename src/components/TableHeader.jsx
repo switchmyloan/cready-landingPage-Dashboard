@@ -2720,6 +2720,23 @@ const upSwingTruncCell = ({ getValue }) => {
 export const upSwingEventsColumn = ({ handleEdit }) => [
   { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
   { header: 'PCI', accessorKey: 'pci', cell: upSwingTruncCell },
+  {
+    header: 'Phone',
+    accessorKey: 'phone',
+    cell: ({ row }) => {
+      const ph = row.original.phone;
+      const mrn = row.original.mrn;
+      if (!ph && !mrn) return <span className="text-gray-400 italic">—</span>;
+      return (
+        <div className="leading-tight">
+          {ph
+            ? <a href={`tel:${ph}`} className="font-mono text-sm text-purple-600 hover:underline">{ph}</a>
+            : <span className="text-gray-400 italic">—</span>}
+          {mrn && <div className="text-[11px] text-gray-500 font-mono">MRN {mrn}</div>}
+        </div>
+      );
+    },
+  },
   { header: 'Stage', accessorKey: 'eventType', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
   {
     header: 'Product',

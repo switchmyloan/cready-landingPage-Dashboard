@@ -201,6 +201,8 @@ const UpSwingWebhook = () => {
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
       downloadCsv(`upswing_leads_${Date.now()}.csv`, [
         { header: 'PCI', value: (r) => r.pci },
+        { header: 'Phone', value: (r) => r.phone },
+        { header: 'MRN', value: (r) => r.mrn },
         { header: 'Journey ID', value: (r) => r.journeyId },
         { header: 'FSI', value: (r) => r.fsi },
         { header: 'Stage', value: (r) => r.eventType },
