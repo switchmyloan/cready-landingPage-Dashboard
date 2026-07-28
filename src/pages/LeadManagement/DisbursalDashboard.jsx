@@ -664,10 +664,10 @@ const isHighWhitelistLender = (name) =>
     !HIGH_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
 // The SHORT disbursal view — grid, filter dropdown, CSV, charts — hides Hero
-// (a high-ticket lender), RapidMoney (tracked in the Cready RPM module),
-// Vivifi and Poonawalla; every other lender is shown. Matches the blacklist in
-// the backend short aggregates (trend / lender-stats / employment) + grid SP.
-const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney', 'vivifi', 'poonawalla', 'poonawala']);
+// (a high-ticket lender), RapidMoney (tracked in the Cready RPM module) and
+// Poonawalla; every other lender (incl. Vivifi) is shown. Matches the blacklist
+// in the backend short aggregates (trend / lender-stats / employment) + grid SP.
+const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney', 'poonawalla', 'poonawala']);
 const isShortWhitelistLender = (name) =>
     !SHORT_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 

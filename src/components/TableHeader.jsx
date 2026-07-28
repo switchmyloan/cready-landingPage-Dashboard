@@ -2666,7 +2666,7 @@ export const vivifiApplicationsColumn = ({ handleEdit }) => [
         : <span className="text-gray-400 italic">N/A</span>;
     },
   },
-  { header: 'Name', accessorKey: 'name', cell: ({ getValue }) => getValue() || 'N/A' },
+  { header: 'Eligible Amt', accessorKey: 'eligibleAmount', cell: ({ getValue }) => getValue() || 'N/A' },
   { header: 'Phone', accessorKey: 'phone', cell: vivifiPhoneCell },
   { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
   // {

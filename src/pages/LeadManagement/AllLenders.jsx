@@ -209,11 +209,12 @@ const AllLenders = () => {
           lenderCount: s.lenderCount || 0,
         });
       } else {
-        ToastNotification.error('Failed to fetch lender stats');
+        console.log('Failed to fetch lender stats');
+        // ToastNotification.error('Failed to fetch lender stats');
       }
     } catch (err) {
       console.error(err);
-      ToastNotification.error('Failed to fetch lender stats');
+      // ToastNotification.error('Failed to fetch lender stats');
     } finally {
       setLoading(false);
     }
