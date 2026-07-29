@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar } from 'lucide-react';
+import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar, BookOpen, X, ArrowRight } from 'lucide-react';
 
 import ToastNotification from '@components/Notification/ToastNotification';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
@@ -61,12 +61,136 @@ const RANGE_CHIPS = [
   { key: 'yesterday', label: 'Yesterday' },
 ];
 
+// Official L&T journey order (same as backend HISTORY_ORDER) — shown in the docs.
+const DOCS_JOURNEY = [
+  'OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE Offer', 'Lender Selected',
+  'Demographics (Pre-Offer)', 'Bank Offer Available', 'Offer Selected', 'Aadhaar Verified',
+  'Demographics (Post-Offer)', 'eNACH Initiated', 'eNACH Success', 'VKYC Initiated',
+  'VKYC Success', 'E-Sign Success', 'Loan Disbursed',
+];
+// The worked example — one lead currently at LOAN_REJECTED, and the stages it passed.
+const DOCS_EXAMPLE = ['OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE', 'Lender Selected', 'Demog (Pre)', 'Loan Rejected'];
+
+const DocsSection = ({ n, title, children }) => (
+  <div className="mb-5">
+    <h3 className="flex items-center gap-2 text-[14px] font-bold text-gray-800 mb-2">
+      <span className="grid place-items-center w-5 h-5 rounded-full bg-purple-600 text-white text-[11px] font-bold shrink-0">{n}</span>
+      {title}
+    </h3>
+    <div className="text-[13px] text-gray-600 leading-relaxed space-y-2 pl-7">{children}</div>
+  </div>
+);
+
+const Mono = ({ children }) => (
+  <span className="font-mono text-[11.5px] bg-gray-100 text-gray-700 px-1 py-0.5 rounded">{children}</span>
+);
+
+// Documentation modal — explains how the funnel numbers are computed so the data team
+// can trust/verify the figures. Pure static content (no data fetch).
+const FunnelDocsModal = ({ onClose }) => (
+  <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[88vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+      {/* Header */}
+      <div className="shrink-0 flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-br from-purple-50 to-indigo-50 rounded-t-2xl">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 grid place-items-center text-white shadow"><BookOpen size={18} /></div>
+          <div>
+            <h2 className="text-[15px] font-extrabold text-gray-900 leading-tight">How the UpSwing Funnel works</h2>
+            <p className="text-[11.5px] text-gray-500">Data logic — how each number is computed</p>
+          </div>
+        </div>
+        <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition" aria-label="Close"><X size={18} /></button>
+      </div>
+
+      {/* Body */}
+      <div className="overflow-y-auto px-5 py-4">
+        <DocsSection n="1" title="Two different views — List vs Funnel">
+          <p>This Funnel and the UpSwing <b>List</b> page answer <b>two different questions</b>. Per-stage numbers will <b>not</b> match — only the <b>Total</b> matches (both = distinct pci).</p>
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-[12px]">
+              <thead className="bg-gray-50 text-gray-500">
+                <tr>
+                  <th className="text-left px-3 py-2 font-semibold w-1/4"> </th>
+                  <th className="text-left px-3 py-2 font-semibold">List page</th>
+                  <th className="text-left px-3 py-2 font-semibold">This Funnel</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                <tr><td className="px-3 py-2 font-semibold text-gray-700">Shows</td><td className="px-3 py-2">Current stage (latest event)</td><td className="px-3 py-2">Every stage a lead <b>ever</b> reached</td></tr>
+                <tr><td className="px-3 py-2 font-semibold text-gray-700">Source</td><td className="px-3 py-2"><Mono>pci_latest_event</Mono><br /><span className="text-gray-400 text-[11px]">1 row / lead</span></td><td className="px-3 py-2"><Mono>webhook_events</Mono><br /><span className="text-gray-400 text-[11px]">full history</span></td></tr>
+                <tr><td className="px-3 py-2 font-semibold text-gray-700">A lead appears in</td><td className="px-3 py-2">Only 1 stage</td><td className="px-3 py-2">Every stage it passed</td></tr>
+                <tr><td className="px-3 py-2 font-semibold text-gray-700">Answers</td><td className="px-3 py-2">“Where is each lead <b>now</b>”</td><td className="px-3 py-2">“How <b>far</b> did leads get / drop-off”</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </DocsSection>
+
+        <DocsSection n="2" title="Where the data comes from">
+          <p>ClickHouse <Mono>upswing.webhook_events</Mono> — the UpSwing/L&amp;T append-only event diary. Each lead fires many events as it moves through the journey.</p>
+          <p>The lead universe = <Mono>pci_latest_event</Mono> with the <b>same createdAt date filter</b> as the List, so the <b>Total is identical</b> on both. These tables carry <b>no PII</b> (no name / phone) — only pci + journey events.</p>
+        </DocsSection>
+
+        <DocsSection n="3" title="How each cell is computed (the “reached” rule)">
+          <p>Each cell = <b>distinct leads (pci)</b> created that day that <b>reached</b> that stage.</p>
+          <p><b>“Reached”</b> = fired that stage’s event <b>OR any later</b> journey event (the furthest-stage rule). This keeps the funnel <b>monotonic</b>: if an intermediate event is missing — e.g. the PAN event wasn’t emitted but Pre-BRE was — the lead is still counted as having reached PAN (because reaching Pre-BRE means PAN was passed).</p>
+          <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-amber-800 text-[12px]">
+            <b>So:</b> one lead adds +1 to <b>every column it passed through</b>. Early columns (OTP, Journey, PAN) are near-full because every lead passed them; numbers thin out as leads drop off.
+          </div>
+        </DocsSection>
+
+        <DocsSection n="4" title="Worked example — one rejected lead">
+          <p>In the List this lead shows only <span className="inline-flex px-1.5 py-0.5 rounded bg-rose-50 text-rose-600 text-[11px] font-bold">LOAN_REJECTED</span>. But its full event history is:</p>
+          <div className="flex flex-wrap items-center gap-1.5 py-1">
+            {DOCS_EXAMPLE.map((s, i) => (
+              <span key={s} className="inline-flex items-center gap-1.5">
+                <span className={`inline-flex px-2 py-1 rounded-md text-[11px] font-semibold ${i === DOCS_EXAMPLE.length - 1 ? 'bg-rose-100 text-rose-700' : 'bg-purple-50 text-purple-700'}`}>{s}</span>
+                {i < DOCS_EXAMPLE.length - 1 && <ArrowRight size={12} className="text-gray-300" />}
+              </span>
+            ))}
+          </div>
+          <p>So this <b>one</b> lead counts in <b>{DOCS_EXAMPLE.length} columns</b>. That’s why (e.g.) 77 rejected leads together fill the early columns up to ~the day’s total — each rejected lead still passed OTP → Journey → PAN → Pre-BRE first.</p>
+        </DocsSection>
+
+        <DocsSection n="5" title="Journey order (official L&T spec)">
+          <p>Columns follow L&amp;T’s official event order:</p>
+          <div className="flex flex-wrap gap-1">
+            {DOCS_JOURNEY.map((s, i) => (
+              <span key={s} className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${i === DOCS_JOURNEY.length - 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{i + 1}. {s}</span>
+            ))}
+          </div>
+          <p className="text-[12px]"><b>Note:</b> <b>Lender Selected</b> (FSI — “lead gets created in L&amp;T”) fires right after Pre-BRE and <b>before</b> the Bank Offer. Partner-side events (launch / offer-viewed / dashboard-viewed) and the NSTP field-investigation branch are <b>not</b> L&amp;T journey steps, so they’re excluded from the funnel.</p>
+        </DocsSection>
+
+        <DocsSection n="6" title="Outcomes (rejected / cancelled)">
+          <p>Loan Rejected, Journey Failed, Journey Cancelled and Loan Expired are <b>terminal</b> — not a step everyone passes through. They’re counted <b>raw</b> (leads that ended that way) and shown in <span className="text-rose-600 font-semibold">red</span>, separate from the progression.</p>
+        </DocsSection>
+
+        <DocsSection n="7" title="Totals & KPIs">
+          <ul className="list-disc pl-4 space-y-1">
+            <li><b>Total Leads</b> = distinct pci (matches the List total).</li>
+            <li><b>Disbursed</b> = leads that reached Loan Disbursed.</li>
+            <li><b>Rejected</b> = raw rejected + cancelled + failed + expired.</li>
+            <li><b>In Progress</b> = Total − Disbursed − Rejected.</li>
+          </ul>
+        </DocsSection>
+      </div>
+
+      {/* Footer */}
+      <div className="shrink-0 flex items-center justify-between px-5 py-3 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+        <p className="text-[11px] text-gray-400">Source: ClickHouse <Mono>upswing.webhook_events</Mono> · read-only</p>
+        <button onClick={onClose} className="px-4 py-1.5 rounded-lg bg-purple-600 text-white text-[12.5px] font-bold hover:bg-purple-700 transition">Got it</button>
+      </div>
+    </div>
+  </div>
+);
+
 const UpSwingFunnel = () => {
   const [range, setRange] = useState('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showDocs, setShowDocs] = useState(false);
 
   // Resolve the active range → API params. Custom range wins when both dates set.
   const params = useMemo(() => {
@@ -99,6 +223,8 @@ const UpSwingFunnel = () => {
     <>
       <Toaster />
 
+      {showDocs && <FunnelDocsModal onClose={() => setShowDocs(false)} />}
+
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-100 rounded-xl px-5 py-4 mb-3">
         <div className="flex items-center gap-3">
@@ -110,13 +236,22 @@ const UpSwingFunnel = () => {
             <p className="text-[12px] text-gray-500">Journey history — each lead counted in every stage it reached.</p>
           </div>
         </div>
-        <button
-          onClick={() => data && exportCsv(data)}
-          disabled={!data}
-          className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold shadow-sm hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 transition"
-        >
-          <Download size={15} /> Export CSV
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowDocs(true)}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-purple-200 text-purple-700 text-sm font-bold shadow-sm hover:bg-purple-50 transition"
+            title="How these numbers are computed"
+          >
+            <BookOpen size={15} /> Docs
+          </button>
+          <button
+            onClick={() => data && exportCsv(data)}
+            disabled={!data}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-bold shadow-sm hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 transition"
+          >
+            <Download size={15} /> Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Date filter */}
