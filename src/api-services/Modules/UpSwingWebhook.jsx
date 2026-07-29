@@ -36,6 +36,15 @@ export const getUpSwingFunnel = async ({ type, fromDate, toDate } = {}) => {
   });
 };
 
+// Journey HISTORY funnel — each lead counted in every stage it ever reached
+// (cumulative), from webhook_events. Same date filter as the list.
+export const getUpSwingFunnelHistory = async ({ type, fromDate, toDate } = {}) => {
+  return Api().get(`/upswing-webhook/funnel-history`, {
+    params: { type, fromDate, toDate },
+    skipAdminAppend: true,
+  });
+};
+
 // Recent BANK_OFFER_AVAILABLE leads — polled by the navbar alert bell.
 export const getUpSwingBankOfferAlerts = async () => {
   return Api().get(`/upswing-webhook/bank-offer-alerts`, {

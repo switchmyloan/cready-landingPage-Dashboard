@@ -332,6 +332,7 @@ import {
   ShieldCheck,
   Settings,
   TrendingUp,
+  TrendingDown,
   Megaphone,
   Brain,
   FileDown
@@ -343,7 +344,7 @@ import {
 const ICONS = {
   Home, FileText, Users, HelpCircle, Newspaper, MessageSquare,
   UserPlus, UserMinus, UserCheck, Building2, BookOpen, ClipboardList,
-  ShieldCheck, Settings, TrendingUp, Megaphone, Brain, FileDown
+  ShieldCheck, Settings, TrendingUp, TrendingDown, Megaphone, Brain, FileDown
 };
 
 function Sidebar({ onClose, collapsed, onToggleCollapse }) {

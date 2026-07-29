@@ -199,6 +199,16 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    path: "/upswing-funnel",
+    label: "UpSwing Funnel",
+    icon: "TrendingDown",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.5,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
     icon: "Home",
