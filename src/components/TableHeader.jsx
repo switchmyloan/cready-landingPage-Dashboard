@@ -2699,7 +2699,7 @@ export const vivifiLoansColumn = ({ handleEdit }) => [
   },
   { header: 'Phone', accessorKey: 'phoneNumber', cell: vivifiPhoneCell },
   { header: 'Status', accessorKey: 'status', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
-  { header: 'Amount', accessorKey: 'amount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
+  { header: 'Eligibility', accessorKey: 'eligibleAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
   { header: 'Disbursed', accessorKey: 'disbursalAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
   { header: 'Disbursal Date', accessorKey: 'disbursalDate', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
   { header: 'Updated At', accessorKey: 'updatedAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
