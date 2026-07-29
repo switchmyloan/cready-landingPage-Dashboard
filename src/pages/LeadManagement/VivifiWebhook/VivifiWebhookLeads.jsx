@@ -582,6 +582,7 @@ const LoansPanel = () => {
         { header: 'Lead ID', value: (r) => r.leadId },
         { header: 'Phone', value: (r) => r.phone },
         { header: 'Status', value: (r) => r.status },
+        { header: 'Eligible Amount', value: (r) => r.eligibleAmount },
         { header: 'Amount', value: (r) => r.amount },
         { header: 'Disbursed', value: (r) => r.disbursalAmount },
         { header: 'Disbursal Date', value: (r) => r.disbursalDate },
