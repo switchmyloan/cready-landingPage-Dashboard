@@ -12,12 +12,14 @@ const POLL_MS = 30000;
 // call-center agent(s) who work InCred leads (by email). Everyone else gets no bell.
 const INCRED_ALERT_EMAILS = ['callcenter2@cready.in'];
 
-// "HH:MM · 5m ago"
+// "HH:MM · 5m ago" — always in IST. The backend sends createdAt with a +05:30 offset,
+// so `new Date` gets the correct instant; forcing timeZone here keeps the display in
+// IST regardless of the viewer's browser timezone.
 const fmtWhen = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
+  const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
   const diffMin = Math.round((Date.now() - d.getTime()) / 60000);
   const ago = diffMin <= 0 ? 'now'
     : diffMin < 60 ? `${diffMin}m ago`

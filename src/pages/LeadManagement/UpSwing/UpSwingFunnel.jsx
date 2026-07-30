@@ -63,13 +63,13 @@ const RANGE_CHIPS = [
 
 // Official L&T journey order (same as backend HISTORY_ORDER) — shown in the docs.
 const DOCS_JOURNEY = [
-  'OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE Offer', 'Lender Selected',
-  'Demographics (Pre-Offer)', 'Bank Offer Available', 'Offer Selected', 'Aadhaar Verified',
+  'Launch Initiated', 'OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE Offer', 'Lender Selected',
+  'Bank Offer Available', 'Offer Selected', 'Aadhaar Verified',
   'Demographics (Post-Offer)', 'eNACH Initiated', 'eNACH Success', 'VKYC Initiated',
   'VKYC Success', 'E-Sign Success', 'Loan Disbursed',
 ];
 // The worked example — one lead currently at LOAN_REJECTED, and the stages it passed.
-const DOCS_EXAMPLE = ['OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE', 'Lender Selected', 'Demog (Pre)', 'Loan Rejected'];
+const DOCS_EXAMPLE = ['OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE', 'Lender Selected', 'Loan Rejected'];
 
 const DocsSection = ({ n, title, children }) => (
   <div className="mb-5">
@@ -105,7 +105,7 @@ const FunnelDocsModal = ({ onClose }) => (
       {/* Body */}
       <div className="overflow-y-auto px-5 py-4">
         <DocsSection n="1" title="Two different views — List vs Funnel">
-          <p>This Funnel and the UpSwing <b>List</b> page answer <b>two different questions</b>. Per-stage numbers will <b>not</b> match — only the <b>Total</b> matches (both = distinct pci).</p>
+          <p>This Funnel and the UpSwing <b>List</b> page answer <b>two different questions</b> and will <b>not</b> match — not even the Total. The Funnel counts <b>every</b> lead in the full event log (incl. people who only opened the link); the List shows only the smaller current-snapshot table.</p>
           <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="w-full text-[12px]">
               <thead className="bg-gray-50 text-gray-500">
@@ -117,7 +117,8 @@ const FunnelDocsModal = ({ onClose }) => (
               </thead>
               <tbody className="divide-y divide-gray-100">
                 <tr><td className="px-3 py-2 font-semibold text-gray-700">Shows</td><td className="px-3 py-2">Current stage (latest event)</td><td className="px-3 py-2">Every stage a lead <b>ever</b> reached</td></tr>
-                <tr><td className="px-3 py-2 font-semibold text-gray-700">Source</td><td className="px-3 py-2"><Mono>pci_latest_event</Mono><br /><span className="text-gray-400 text-[11px]">1 row / lead</span></td><td className="px-3 py-2"><Mono>webhook_events</Mono><br /><span className="text-gray-400 text-[11px]">full history</span></td></tr>
+                <tr><td className="px-3 py-2 font-semibold text-gray-700">Source</td><td className="px-3 py-2"><Mono>pci_latest_event</Mono><br /><span className="text-gray-400 text-[11px]">1 row / lead, current snapshot</span></td><td className="px-3 py-2"><Mono>webhook_events</Mono><br /><span className="text-gray-400 text-[11px]">full history, every lead</span></td></tr>
+                <tr><td className="px-3 py-2 font-semibold text-gray-700">Bucketed by</td><td className="px-3 py-2">Snapshot date</td><td className="px-3 py-2">Day the lead <b>first arrived</b></td></tr>
                 <tr><td className="px-3 py-2 font-semibold text-gray-700">A lead appears in</td><td className="px-3 py-2">Only 1 stage</td><td className="px-3 py-2">Every stage it passed</td></tr>
                 <tr><td className="px-3 py-2 font-semibold text-gray-700">Answers</td><td className="px-3 py-2">“Where is each lead <b>now</b>”</td><td className="px-3 py-2">“How <b>far</b> did leads get / drop-off”</td></tr>
               </tbody>
@@ -127,14 +128,14 @@ const FunnelDocsModal = ({ onClose }) => (
 
         <DocsSection n="2" title="Where the data comes from">
           <p>ClickHouse <Mono>upswing.webhook_events</Mono> — the UpSwing/L&amp;T append-only event diary. Each lead fires many events as it moves through the journey.</p>
-          <p>The lead universe = <Mono>pci_latest_event</Mono> with the <b>same createdAt date filter</b> as the List, so the <b>Total is identical</b> on both. These tables carry <b>no PII</b> (no name / phone) — only pci + journey events.</p>
+          <p>The universe = <b>every distinct pci</b> in that log (nothing dropped). Each lead is placed on the day it <b>first arrived</b> — the earliest <Mono>received_at</Mono> (IST) — so its <b>whole journey counts on day one</b>, even if later stages happened days later. The date filter also uses that first-arrival day. No PII (no name / phone) — only pci + journey events.</p>
         </DocsSection>
 
         <DocsSection n="3" title="How each cell is computed (the “reached” rule)">
-          <p>Each cell = <b>distinct leads (pci)</b> created that day that <b>reached</b> that stage.</p>
+          <p>Each cell = <b>distinct leads (pci)</b> that <b>first arrived</b> that day and <b>reached</b> that stage.</p>
           <p><b>“Reached”</b> = fired that stage’s event <b>OR any later</b> journey event (the furthest-stage rule). This keeps the funnel <b>monotonic</b>: if an intermediate event is missing — e.g. the PAN event wasn’t emitted but Pre-BRE was — the lead is still counted as having reached PAN (because reaching Pre-BRE means PAN was passed).</p>
           <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-amber-800 text-[12px]">
-            <b>So:</b> one lead adds +1 to <b>every column it passed through</b>. Early columns (OTP, Journey, PAN) are near-full because every lead passed them; numbers thin out as leads drop off.
+            <b>So:</b> one lead adds +1 to <b>every column it passed through</b>. <b>Launch Initiated</b> equals the Total (everyone who opened the link); the big drop to <b>OTP Login</b> is people who never logged in. Numbers thin out further as leads drop off.
           </div>
         </DocsSection>
 
@@ -152,13 +153,13 @@ const FunnelDocsModal = ({ onClose }) => (
         </DocsSection>
 
         <DocsSection n="5" title="Journey order (official L&T spec)">
-          <p>Columns follow L&amp;T’s official event order:</p>
+          <p>Columns follow L&amp;T’s official event order (with the Cready link-open as the entry):</p>
           <div className="flex flex-wrap gap-1">
             {DOCS_JOURNEY.map((s, i) => (
               <span key={s} className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${i === DOCS_JOURNEY.length - 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{i + 1}. {s}</span>
             ))}
           </div>
-          <p className="text-[12px]"><b>Note:</b> <b>Lender Selected</b> (FSI — “lead gets created in L&amp;T”) fires right after Pre-BRE and <b>before</b> the Bank Offer. Partner-side events (launch / offer-viewed / dashboard-viewed) and the NSTP field-investigation branch are <b>not</b> L&amp;T journey steps, so they’re excluded from the funnel.</p>
+          <p className="text-[12px]"><b>Note:</b> <b>Launch Initiated</b> (the Cready partner link opened) is the funnel entry / top. <b>Lender Selected</b> (FSI — “lead gets created in L&amp;T”) fires right after Pre-BRE and <b>before</b> the Bank Offer. Offer-viewed / dashboard-viewed and the NSTP field-investigation branch are not journey steps, so they’re excluded.</p>
         </DocsSection>
 
         <DocsSection n="6" title="Outcomes (rejected / cancelled)">
@@ -167,10 +168,10 @@ const FunnelDocsModal = ({ onClose }) => (
 
         <DocsSection n="7" title="Totals & KPIs">
           <ul className="list-disc pl-4 space-y-1">
-            <li><b>Total Leads</b> = distinct pci (matches the List total).</li>
+            <li><b>Total Leads</b> = distinct pci in the event log (= Launch Initiated). Does <b>not</b> match the List total — the List is a smaller current-snapshot table.</li>
             <li><b>Disbursed</b> = leads that reached Loan Disbursed.</li>
             <li><b>Rejected</b> = raw rejected + cancelled + failed + expired.</li>
-            <li><b>In Progress</b> = Total − Disbursed − Rejected.</li>
+            <li><b>In Progress</b> = Total − Disbursed − Rejected. Note: this includes leads that only opened the link and never logged in (not yet rejected), so it over-states “active”.</li>
           </ul>
         </DocsSection>
       </div>
@@ -357,9 +358,10 @@ const UpSwingFunnel = () => {
               </table>
             </div>
             <p className="px-4 py-2.5 text-[11px] text-gray-400 border-t border-gray-100">
-              Rows = lead created-date; columns = journey stages. Each cell = distinct leads created that day that
-              <b> ever reached</b> that stage (full event history) — a lead counts in every stage it passed through.
-              Scroll right for all {data.stages.length} stages. Bottom row = grand totals.
+              Rows = the day each lead <b>first arrived</b> (min event time); columns = journey stages. Each cell =
+              distinct leads that first arrived that day and <b>ever reached</b> that stage (full event history) — a
+              lead counts in every stage it passed through, all under its first-arrival day. Scroll right for all
+              {' '}{data.stages.length} stages. Bottom row = grand totals.
             </p>
           </div>
         </>
@@ -376,8 +378,8 @@ const UpSwingFunnel = () => {
         ]}
         dataSource={[
           'ClickHouse upswing.webhook_events — the append-only event diary (distinct pci per event type).',
-          'Scoped to the same lead universe as the UpSwing list (upswing.pci_latest_event, createdAt filter).',
-          'Different from the UpSwing list’s stage funnel, which shows each lead only at its CURRENT stage.',
+          'Every distinct lead in the log; each bucketed on the day it FIRST arrived (min received_at, IST).',
+          'Different from the UpSwing list (a smaller current-snapshot table) — totals will not match.',
         ]}
         flow={[
           'UpSwing sends webhooks',
