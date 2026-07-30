@@ -12,20 +12,21 @@ const POLL_MS = 30000;
 // call-center agent(s) who work InCred leads (by email). Everyone else gets no bell.
 const INCRED_ALERT_EMAILS = ['callcenter2@cready.in'];
 
-// "HH:MM · 5m ago" — always in IST. The backend sends createdAt with a +05:30 offset,
-// so `new Date` gets the correct instant; forcing timeZone here keeps the display in
-// IST regardless of the viewer's browser timezone.
+// "30 Jul, 11:27 am · 5m ago" — always in IST. The backend sends createdAt with a
+// +05:30 offset, so `new Date` gets the correct instant; forcing timeZone here keeps
+// the date + time in IST regardless of the viewer's browser timezone.
 const fmtWhen = (iso) => {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
+  const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', timeZone: 'Asia/Kolkata' });
   const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' });
   const diffMin = Math.round((Date.now() - d.getTime()) / 60000);
   const ago = diffMin <= 0 ? 'now'
     : diffMin < 60 ? `${diffMin}m ago`
     : diffMin < 1440 ? `${Math.floor(diffMin / 60)}h ago`
     : `${Math.floor(diffMin / 1440)}d ago`;
-  return `${time} · ${ago}`;
+  return `${date}, ${time} · ${ago}`;
 };
 
 // Pleasant ascending notification chime (G5 → C6 → E6) via WebAudio — soft sine
@@ -189,8 +190,10 @@ const IncredSuccessAlerts = () => {
                 <CheckCircle2 size={22} className="text-gray-300" />
                 <p className="text-[12.5px] text-gray-400">No InCred success leads recently.</p>
               </div>
-            ) : items.map((it) => (
-              <div key={it.id} className="px-4 py-3 border-b border-gray-50 hover:bg-orange-50/30 transition">
+            ) : items.map((it) => {
+              const done = !!it.hasFeedback; // call-center already dispositioned this lead
+              return (
+              <div key={it.id} className={`px-4 py-3 border-b border-gray-50 transition ${done ? 'bg-amber-50/60 hover:bg-amber-50' : 'hover:bg-orange-50/30'}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[13px] font-bold text-gray-800 truncate">{it.name || 'Unknown customer'}</p>
@@ -214,9 +217,15 @@ const IncredSuccessAlerts = () => {
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
                   <Clock size={11} /> {fmtWhen(it.createdAt)}
+                  {done && (
+                    <span className="ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wide" title="Call-center feedback already logged">
+                      <CheckCircle2 size={9} /> Feedback
+                    </span>
+                  )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}

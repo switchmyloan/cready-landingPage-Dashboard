@@ -63,13 +63,27 @@ const RANGE_CHIPS = [
 
 // Official L&T journey order (same as backend HISTORY_ORDER) — shown in the docs.
 const DOCS_JOURNEY = [
-  'Launch Initiated', 'OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE Offer', 'Lender Selected',
+  'Redirected', 'OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE Offer', 'Lender Selected',
   'Bank Offer Available', 'Offer Selected', 'Aadhaar Verified',
   'Demographics (Post-Offer)', 'eNACH Initiated', 'eNACH Success', 'VKYC Initiated',
   'VKYC Success', 'E-Sign Success', 'Loan Disbursed',
 ];
 // The worked example — one lead currently at LOAN_REJECTED, and the stages it passed.
 const DOCS_EXAMPLE = ['OTP Login', 'Journey Created', 'PAN Verified', 'Pre-BRE', 'Lender Selected', 'Loan Rejected'];
+
+// Step-to-step conversion ratios shown above the matrix. Each = to.total / from.total,
+// keyed on the funnel stage keys (Redirected = Launch Initiated, OTP Verified = OTP
+// Login). Computed from the grand-stage totals, so they honour the active date filter.
+const RATIO_STEPS = [
+  { from: 'REDIRECTED', to: 'MOTP_LOGIN_SUCCESS', label: 'Redirected → OTP Verified' },
+  { from: 'MOTP_LOGIN_SUCCESS', to: 'FSI_SELECTED', label: 'OTP Verified → Lender Selected' },
+  { from: 'FSI_SELECTED', to: 'BANK_OFFER_AVAILABLE', label: 'Lender Selected → Bank Offer Available' },
+  { from: 'BANK_OFFER_AVAILABLE', to: 'OFFER_SELECTED', label: 'Bank Offer Available → Offer Selected' },
+  { from: 'OFFER_SELECTED', to: 'LOAN_DISBURSED', label: 'Offer Selected → Disbursed' },
+];
+// stageKey that the ratio lands ON → the stage it converts FROM. Lets the grand-total
+// row print a small conversion % under each of those stage columns.
+const RATIO_BY_TO = Object.fromEntries(RATIO_STEPS.map((r) => [r.to, { from: r.from, label: r.label }]));
 
 const DocsSection = ({ n, title, children }) => (
   <div className="mb-5">
@@ -127,15 +141,15 @@ const FunnelDocsModal = ({ onClose }) => (
         </DocsSection>
 
         <DocsSection n="2" title="Where the data comes from">
-          <p>ClickHouse <Mono>upswing.webhook_events</Mono> — the UpSwing/L&amp;T append-only event diary. Each lead fires many events as it moves through the journey.</p>
-          <p>The universe = <b>every distinct pci</b> in that log (nothing dropped). Each lead is placed on the day it <b>first arrived</b> — the earliest <Mono>received_at</Mono> (IST) — so its <b>whole journey counts on day one</b>, even if later stages happened days later. The date filter also uses that first-arrival day. No PII (no name / phone) — only pci + journey events.</p>
+          <p>The journey (OTP Login onward) comes from ClickHouse <Mono>upswing.webhook_events</Mono> — L&amp;T's append-only event diary. Universe = leads that reached <b>OTP</b> (real journey leads). Each is placed on the day it <b>first arrived</b> (earliest <Mono>received_at</Mono>, IST), so its whole journey counts on day one.</p>
+          <p>The <b>Redirected</b> entry column is NOT a webhook figure — L&amp;T's launch webhook stopped arriving after 24 Jul, so it's taken from Cready's own <Mono>selectedLenders</Mono> (rows where <Mono>lenderName = 'LnT'</Mono> = the customer clicked L&amp;T on the Cready dashboard), counted per IST day. Because it's the pre-journey click count, <b>Redirected can exceed the Total</b> (Total = leads that actually OTP'd).</p>
         </DocsSection>
 
         <DocsSection n="3" title="How each cell is computed (the “reached” rule)">
           <p>Each cell = <b>distinct leads (pci)</b> that <b>first arrived</b> that day and <b>reached</b> that stage.</p>
           <p><b>“Reached”</b> = fired that stage’s event <b>OR any later</b> journey event (the furthest-stage rule). This keeps the funnel <b>monotonic</b>: if an intermediate event is missing — e.g. the PAN event wasn’t emitted but Pre-BRE was — the lead is still counted as having reached PAN (because reaching Pre-BRE means PAN was passed).</p>
           <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 text-amber-800 text-[12px]">
-            <b>So:</b> one lead adds +1 to <b>every column it passed through</b>. <b>Launch Initiated</b> equals the Total (everyone who opened the link); the big drop to <b>OTP Login</b> is people who never logged in. Numbers thin out further as leads drop off.
+            <b>So:</b> one lead adds +1 to <b>every column it passed through</b>. The big drop from <b>Redirected</b> to <b>OTP Login</b> is people who were sent to L&amp;T but never logged in. Numbers thin out further as leads drop off.
           </div>
         </DocsSection>
 
@@ -159,7 +173,7 @@ const FunnelDocsModal = ({ onClose }) => (
               <span key={s} className={`inline-flex px-2 py-0.5 rounded-md text-[11px] font-medium ${i === DOCS_JOURNEY.length - 1 ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>{i + 1}. {s}</span>
             ))}
           </div>
-          <p className="text-[12px]"><b>Note:</b> <b>Launch Initiated</b> (the Cready partner link opened) is the funnel entry / top. <b>Lender Selected</b> (FSI — “lead gets created in L&amp;T”) fires right after Pre-BRE and <b>before</b> the Bank Offer. Offer-viewed / dashboard-viewed and the NSTP field-investigation branch are not journey steps, so they’re excluded.</p>
+          <p className="text-[12px]"><b>Note:</b> <b>Redirected</b> (Cready <Mono>selectedLenders</Mono> LnT click) is the entry / top — from Postgres, not the webhook. <b>Lender Selected</b> (FSI — “lead gets created in L&amp;T”) fires right after Pre-BRE and <b>before</b> the Bank Offer. Offer-viewed / dashboard-viewed and the NSTP field-investigation branch are not journey steps, so they’re excluded.</p>
         </DocsSection>
 
         <DocsSection n="6" title="Outcomes (rejected / cancelled)">
@@ -219,6 +233,8 @@ const UpSwingFunnel = () => {
   const s = data?.summary || {};
   const total = Number(s.totalLeads) || 0;
   const inProgress = Math.max(total - (Number(s.disbursed) || 0) - (Number(s.rejected) || 0), 0);
+  // Grand total per stage key → drives the conversion-ratio tiles.
+  const stageTotal = Object.fromEntries((data?.stages || []).map((st) => [st.key, Number(st.total) || 0]));
 
   return (
     <>
@@ -336,9 +352,19 @@ const UpSwingFunnel = () => {
                         <td className={`sticky left-[120px] z-10 ${rowBg} px-3 py-2 text-right text-[13px] font-extrabold text-gray-900 tabular-nums border-l border-gray-100`}>{fmtNum(row.total)}</td>
                         {data.stages.map((st) => {
                           const v = row.byStage[st.key] || 0;
+                          // Per-row conversion % under the ratio-target stages (from this
+                          // same row's previous key stage). Shown only where the cell has a value.
+                          const step = RATIO_BY_TO[st.key];
+                          const fromV = step ? (row.byStage[step.from] || 0) : 0;
+                          const pct = step && v > 0 && fromV > 0 ? (v / fromV) * 100 : null;
                           return (
                             <td key={st.key} className={`px-3 py-2 text-right text-[12.5px] tabular-nums ${v ? 'text-gray-800 font-medium' : 'text-gray-300'}`}>
                               {v ? fmtNum(v) : '—'}
+                              {pct != null && (
+                                <span className="block text-[9px] font-semibold text-purple-500 leading-tight" title={`${step.label} conversion`}>
+                                  {pct.toFixed(1)}%
+                                </span>
+                              )}
                             </td>
                           );
                         })}
@@ -350,18 +376,34 @@ const UpSwingFunnel = () => {
                   <tr className="bg-gray-100">
                     <td className="sticky left-0 z-10 bg-gray-100 px-4 py-2.5 text-[12px] font-bold uppercase tracking-wide text-gray-600">Total</td>
                     <td className="sticky left-[120px] z-10 bg-gray-200/70 px-3 py-2.5 text-right text-[13px] font-extrabold text-gray-900 tabular-nums">{fmtNum(total)}</td>
-                    {data.stages.map((st) => (
-                      <td key={st.key} className="px-3 py-2.5 text-right text-[12.5px] font-bold text-gray-800 tabular-nums">{fmtNum(st.total)}</td>
-                    ))}
+                    {data.stages.map((st) => {
+                      // Small conversion % under the stages that are a ratio target
+                      // (into = st.total, from = the previous key stage's grand total).
+                      const step = RATIO_BY_TO[st.key];
+                      const fromTotal = step ? (stageTotal[step.from] || 0) : 0;
+                      const pct = step && fromTotal > 0 ? (st.total / fromTotal) * 100 : null;
+                      return (
+                        <td key={st.key} className="px-3 py-2.5 text-right text-[12.5px] font-bold text-gray-800 tabular-nums">
+                          {fmtNum(st.total)}
+                          {pct != null && (
+                            <span className="block text-[9.5px] font-bold text-purple-600 leading-tight" title={`${step.label} conversion`}>
+                              {pct.toFixed(1)}%
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 </tfoot>
               </table>
             </div>
             <p className="px-4 py-2.5 text-[11px] text-gray-400 border-t border-gray-100">
-              Rows = the day each lead <b>first arrived</b> (min event time); columns = journey stages. Each cell =
-              distinct leads that first arrived that day and <b>ever reached</b> that stage (full event history) — a
-              lead counts in every stage it passed through, all under its first-arrival day. Scroll right for all
-              {' '}{data.stages.length} stages. Bottom row = grand totals.
+              Rows = the day each lead <b>first arrived</b> (min event time); columns = journey stages. Each webhook cell =
+              distinct leads that first arrived that day and <b>ever reached</b> that stage. <b>Redirected</b> = Cready L&amp;T
+              clicks (Postgres <code>selectedLenders</code>) — the pre-journey entry, so it can exceed the Total (= leads that
+              OTP’d). Scroll right for all {data.stages.length} stages. Bottom row = grand totals; the small{' '}
+              <span className="text-purple-600 font-semibold">purple %</span> under a stage = conversion into it from the
+              previous key step (Redirected→OTP→Lender→Bank Offer→Offer→Disbursed).
             </p>
           </div>
         </>
@@ -377,9 +419,9 @@ const UpSwingFunnel = () => {
           'Green rows = disbursed, red rows = rejected / cancelled outcomes.',
         ]}
         dataSource={[
-          'ClickHouse upswing.webhook_events — the append-only event diary (distinct pci per event type).',
-          'Every distinct lead in the log; each bucketed on the day it FIRST arrived (min received_at, IST).',
-          'Different from the UpSwing list (a smaller current-snapshot table) — totals will not match.',
+          'Journey (OTP onward): ClickHouse upswing.webhook_events — leads that reached OTP, bucketed by first-arrival day (IST).',
+          'Redirected entry: Cready Postgres selectedLenders (lenderName = LnT) — the launch webhook stopped after 24 Jul, so this is the reliable redirect count.',
+          'Redirected can exceed the Total (Total = leads that OTP’d). Different from the UpSwing list — totals will not match.',
         ]}
         flow={[
           'UpSwing sends webhooks',

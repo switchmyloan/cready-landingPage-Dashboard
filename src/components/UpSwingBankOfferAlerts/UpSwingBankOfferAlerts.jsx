@@ -30,18 +30,19 @@ const STAGE_LABELS = {
 const stageLabel = (s) => STAGE_LABELS[s] || String(s || '').replace(/_/g, ' ');
 const isDisbursed = (s) => s === 'LOAN_DISBURSED';
 
-// "HH:MM · 5m ago"
+// "30 Jul, 11:27 am · 5m ago" (IST — the backend already emits IST wall-clock)
 const fmtWhen = (iso) => {
   if (!iso) return '';
   const d = new Date(String(iso).replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) return '';
+  const date = d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
   const time = d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
   const diffMin = Math.round((Date.now() - d.getTime()) / 60000);
   const ago = diffMin <= 0 ? 'now'
     : diffMin < 60 ? `${diffMin}m ago`
     : diffMin < 1440 ? `${Math.floor(diffMin / 60)}h ago`
     : `${Math.floor(diffMin / 1440)}d ago`;
-  return `${time} · ${ago}`;
+  return `${date}, ${time} · ${ago}`;
 };
 
 // Descending two-note chime (C6 → G5) via WebAudio — deliberately different from the
