@@ -68,6 +68,15 @@ const classifyLenderResponse = (resp, name) => {
   //            it would fall through to 'reject').
   // if (name === 'InCred' && (resp?.data?.response?.response?.APPLICATION_ID || resp?.data?.response?.response?.isAllowed === true)) return 'success';
    if (name === 'InCred') {
+    // Canonical InCred success (same signal the InCred alert / All Lenders card / backend
+    // use): message "Lead processed successfully" = the lead was pushed & processed; a
+    // populated LOAN_OFFERS array = an offer came back. Either means SUCCESS, and takes
+    // priority — a processed lead is a success even if InCred's BRE returned no offer /
+    // a REJECTED sub-status this time. Note the response is top-level here (resp.message,
+    // resp.LOAN_OFFERS), not nested under data.response.response.
+    const incMsg = (resp?.message || '').toString().toLowerCase();
+    if (incMsg.includes('lead processed successfully')
+        || (Array.isArray(resp?.LOAN_OFFERS) && resp.LOAN_OFFERS.length > 0)) return 'success';
     const inc = resp?.data?.response?.response;
     if (inc?.STATUS === 'REJECTED') return 'reject';
     if (inc?.APPLICATION_ID || inc?.isAllowed === true) return 'success';

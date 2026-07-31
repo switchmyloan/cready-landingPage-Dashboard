@@ -15,6 +15,11 @@ const classifyLenderResponse = (resp) => {
   // Successfully" / "Lead processed successfully" would otherwise fall to 'reject'.)
   if (resp?.data?.response?.response?.APPLICATION_ID) return 'success';
   if (resp?.data?.response?.response?.isAllowed === true) return 'success';
+  // InCred top-level shape: message "Lead processed successfully" / a populated
+  // LOAN_OFFERS array = the lead was processed → success (mirrors OfferLeadDetail).
+  // Both are InCred-specific signals, so this can't mis-classify other lenders.
+  if ((resp?.message || '').toString().toLowerCase().includes('lead processed successfully')
+      || (Array.isArray(resp?.LOAN_OFFERS) && resp.LOAN_OFFERS.length > 0)) return 'success';
 
   const message = (resp.message || '').toString().toLowerCase().trim();
   if (!message) return 'reject';
