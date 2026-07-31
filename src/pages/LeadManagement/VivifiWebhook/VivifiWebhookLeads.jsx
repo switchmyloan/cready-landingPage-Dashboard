@@ -86,9 +86,12 @@ const csvEscape = (v) => {
   const s = v === null || v === undefined ? '' : String(v);
   return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
+// Trim a stored datetime string (already IST — the ClickHouse server runs in
+// Asia/Kolkata) to "YYYY-MM-DD HH:MM" for a clean export cell.
+const fmtDT = (s) => (s ? String(s).replace('T', ' ').slice(0, 16) : '');
 const downloadCsv = (filename, cols, rows) => {
   const head = cols.map((c) => csvEscape(c.header)).join(',');
-  const body = rows.map((r) => cols.map((c) => csvEscape(c.value(r))).join(',')).join('\n');
+  const body = rows.map((r, i) => cols.map((c) => csvEscape(c.value(r, i))).join(',')).join('\n');
   const blob = new Blob(['﻿' + head + '\n' + body], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -345,6 +348,8 @@ const KpiCard = ({ icon: Icon, label, value, sub, tone = 'purple' }) => {
     green: 'from-emerald-500 to-green-500',
     amber: 'from-amber-500 to-orange-500',
     blue: 'from-sky-500 to-blue-500',
+    red: 'from-rose-500 to-red-500',
+    gray: 'from-gray-400 to-gray-500',
   };
   return (
     <div className="flex items-center gap-3 bg-white border border-gray-200/80 rounded-xl px-4 py-3 shadow-sm min-w-[180px]">
@@ -431,12 +436,15 @@ const ApplicationsPanel = () => {
       });
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
       downloadCsv(`vivifi_applications_${Date.now()}.csv`, [
+        { header: 'SN', value: (r, i) => i + 1 },
         { header: 'Lead ID', value: (r) => r.leadId },
         { header: 'Name', value: (r) => r.name },
         { header: 'Phone', value: (r) => r.phone },
         { header: 'Status', value: (r) => r.status },
+        { header: 'Eligible Amount', value: (r) => r.eligibleAmount },
         { header: 'Rejection Reason', value: (r) => r.rejectionReason },
-        { header: 'Updated At', value: (r) => r.updatedAt },
+        { header: 'Created At', value: (r) => fmtDT(r.createdAt) },
+        { header: 'Updated At', value: (r) => fmtDT(r.updatedAt) },
       ], all);
     } catch (err) {
       console.error(err);
@@ -450,6 +458,29 @@ const ApplicationsPanel = () => {
 
   return (
     <>
+      {/* Eligible-amount KPIs — total first, then one card per stage (journey order). */}
+      <div className="flex flex-wrap gap-3 mb-3">
+        <KpiCard
+          icon={TrendingUp}
+          tone="purple"
+          label="Total Eligible Amount"
+          value={inr(summary.eligibleAmount)}
+          sub={`across ${(summary.total || 0).toLocaleString('en-IN')} applications`}
+        />
+        {[...(summary.byStatus || [])]
+          .sort((a, b) => stageRank(a.status) - stageRank(b.status))
+          .map((s) => (
+            <KpiCard
+              key={s.status}
+              icon={IndianRupee}
+              tone={toneForStatus(s.status)}
+              label={s.status || 'Unknown'}
+              value={inr(s.eligibleAmount)}
+              sub={`${(s.count || 0).toLocaleString('en-IN')} leads`}
+            />
+          ))}
+      </div>
+
       {/* Stage chips (dynamic statuses) — click to filter */}
       <div className="flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3 mb-3 shadow-sm">
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Stages:</span>
@@ -579,14 +610,16 @@ const LoansPanel = () => {
       });
       if (!all.length) { ToastNotification.error('No rows to export'); return; }
       downloadCsv(`vivifi_loans_${Date.now()}.csv`, [
+        { header: 'SN', value: (r, i) => i + 1 },
         { header: 'Lead ID', value: (r) => r.leadId },
         { header: 'Phone', value: (r) => r.phone },
         { header: 'Status', value: (r) => r.status },
         { header: 'Eligible Amount', value: (r) => r.eligibleAmount },
-        { header: 'Amount', value: (r) => r.amount },
-        { header: 'Disbursed', value: (r) => r.disbursalAmount },
-        { header: 'Disbursal Date', value: (r) => r.disbursalDate },
-        { header: 'Updated At', value: (r) => r.updatedAt },
+        { header: 'Loan Amount', value: (r) => r.amount },
+        { header: 'Disbursed Amount', value: (r) => r.disbursalAmount },
+        { header: 'Disbursal Date', value: (r) => fmtDT(r.disbursalDate) },
+        { header: 'Created At', value: (r) => fmtDT(r.createdAt) },
+        { header: 'Updated At', value: (r) => fmtDT(r.updatedAt) },
       ], all);
     } catch (err) {
       console.error(err);
