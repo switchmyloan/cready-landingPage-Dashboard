@@ -637,7 +637,7 @@ const LoansPanel = () => {
       <div className="flex flex-wrap gap-3 mb-3">
         {/* <KpiCard icon={IndianRupee} tone="green" label="Disbursed (This Month)" value={inr(summary.disbursedAmountThisMonth)} sub={`${summary.disbursedCountThisMonth || 0} loans`} /> */}
         {/* <KpiCard icon={TrendingUp} tone="purple" label="Total Disbursed" value={inr(summary.disbursedAmount)} sub={`${summary.disbursedCount || 0} loans`} /> */}
-        <KpiCard icon={TrendingUp} tone="purple" label="Total Eligible Amount" value={inr(summary.eligibleAmount)} sub={`across ${(summary.total || 0).toLocaleString('en-IN')} loans`} />
+        <KpiCard icon={TrendingUp} tone="purple" label="Total Eligible Amount" value={inr((summary.eligibleAmount || 0) - (summary.pendingEligibleAmount || 0))} sub={`across ${(summary.disbursedCount || 0).toLocaleString('en-IN')} disbursed loans`} />
         <KpiCard icon={Clock} tone="amber" label="Pending Disbursal" value={inr(summary.pendingEligibleAmount)} sub="eligible · not yet disbursed" />
         <KpiCard icon={CheckCircle2} tone="blue" label="Avg Ticket" value={inr(Math.round(summary.avgTicket || 0))} sub="per disbursed loan" />
       </div>
