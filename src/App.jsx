@@ -69,6 +69,9 @@ import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/Vivifi
 import UpSwingWebhook from './pages/LeadManagement/UpSwing/UpSwingWebhook';
 import UpSwingWebhookDetail from './pages/LeadManagement/UpSwing/UpSwingWebhookDetail';
 import UpSwingFunnel from './pages/LeadManagement/UpSwing/UpSwingFunnel';
+import ApolloWebhook from './pages/LeadManagement/Apollo/ApolloWebhook';
+import ApolloWebhookDetail from './pages/LeadManagement/Apollo/ApolloWebhookDetail';
+import ApolloFunnel from './pages/LeadManagement/Apollo/ApolloFunnel';
 import RouteChangeAborter from './components/RouteChangeAborter';
 
 function App() {
@@ -108,6 +111,9 @@ function App() {
             <Route path="upswing-webhook" element={<UpSwingWebhook />} />
             <Route path="upswing-webhook/:id" element={<UpSwingWebhookDetail />} />
             <Route path="upswing-funnel" element={<UpSwingFunnel />} />
+            <Route path="apollo-webhook" element={<ApolloWebhook />} />
+            <Route path="apollo-webhook/:id" element={<ApolloWebhookDetail />} />
+            <Route path="apollo-funnel" element={<ApolloFunnel />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />

@@ -2786,3 +2786,39 @@ export const upSwingEventsColumn = ({ handleEdit }) => [
   { header: 'Last Event', accessorKey: 'eventTimestamp', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
   { header: 'Actions', id: 'actions-upswing', cell: vivifiEyeCell(handleEdit, 'View lead detail') },
 ];
+
+// Apollo leads list — one row per loan_id (apollo_events_latest). No PII; keyed on
+// loan_id / user_id with UTM attribution + current journey stage.
+export const apolloEventsColumn = ({ handleEdit }) => [
+  { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
+  { header: 'Loan ID', accessorKey: 'loanId', cell: upSwingTruncCell },
+  { header: 'User ID', accessorKey: 'userId', cell: ({ getValue }) => <span className="font-mono text-sm text-gray-700">{getValue() || '—'}</span> },
+  {
+    header: 'Campaign',
+    accessorKey: 'utmCampaign',
+    cell: ({ row }) => {
+      const src = row.original.utmSource;
+      const camp = row.original.utmCampaign;
+      if (!src && !camp) return <span className="text-gray-400 italic">—</span>;
+      return (
+        <div className="leading-tight">
+          {camp && <div className="text-sm font-medium text-gray-800 font-mono">{camp}</div>}
+          {src && <div className="text-[11px] text-gray-500">{src}</div>}
+        </div>
+      );
+    },
+  },
+  { header: 'Stage', accessorKey: 'stageLabel', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
+  {
+    header: 'Disbursed',
+    accessorKey: 'disbursementAmount',
+    cell: ({ getValue }) => {
+      const v = getValue();
+      return v == null
+        ? <span className="text-gray-400 italic">—</span>
+        : <span className="text-sm font-semibold text-emerald-700">{vivifiFmtInr(v)}</span>;
+    },
+  },
+  { header: 'Created At', accessorKey: 'createdAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
+  { header: 'Actions', id: 'actions-apollo', cell: vivifiEyeCell(handleEdit, 'View lead detail') },
+];
