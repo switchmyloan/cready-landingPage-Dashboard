@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar, BookOpen, X, ArrowRight } from 'lucide-react';
+import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar, BookOpen, X, ArrowRight, Megaphone } from 'lucide-react';
 
 import ToastNotification from '@components/Notification/ToastNotification';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
@@ -206,13 +206,15 @@ const UpSwingFunnel = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
+  const [medium, setMedium] = useState(''); // utm_medium filter (from upswing.leads)
 
-  // Resolve the active range → API params. Custom range wins when both dates set.
+  // Resolve the active range + medium → API params. Custom range wins when both dates set.
   const params = useMemo(() => {
-    if (range === 'custom' && fromDate && toDate) return { fromDate, toDate };
-    if (range === 'today' || range === 'yesterday') return { type: range };
-    return {};
-  }, [range, fromDate, toDate]);
+    const base = medium ? { medium } : {};
+    if (range === 'custom' && fromDate && toDate) return { ...base, fromDate, toDate };
+    if (range === 'today' || range === 'yesterday') return { ...base, type: range };
+    return base;
+  }, [range, fromDate, toDate, medium]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -301,6 +303,19 @@ const UpSwingFunnel = () => {
           onChange={(e) => { setToDate(e.target.value); setRange('custom'); }}
           className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-[12px] outline-none focus:border-purple-400"
         />
+        <span className="mx-1 h-5 w-px bg-gray-200" />
+        <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide inline-flex items-center gap-1.5">
+          <Megaphone size={13} /> Medium:
+        </span>
+        <select
+          value={medium}
+          onChange={(e) => setMedium(e.target.value)}
+          className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[12px] font-medium outline-none focus:border-purple-400 capitalize"
+        >
+          <option value="">All</option>
+          {(data?.mediums || []).map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+
         <button onClick={fetchData} className="ml-1 px-3 py-1.5 rounded-lg border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50 transition">
           Refresh
         </button>

@@ -38,9 +38,9 @@ export const getUpSwingFunnel = async ({ type, fromDate, toDate } = {}) => {
 
 // Journey HISTORY funnel — each lead counted in every stage it ever reached
 // (cumulative), from webhook_events. Same date filter as the list.
-export const getUpSwingFunnelHistory = async ({ type, fromDate, toDate } = {}) => {
+export const getUpSwingFunnelHistory = async ({ type, fromDate, toDate, medium } = {}) => {
   return Api().get(`/upswing-webhook/funnel-history`, {
-    params: { type, fromDate, toDate },
+    params: { type, fromDate, toDate, medium },
     skipAdminAppend: true,
   });
 };
