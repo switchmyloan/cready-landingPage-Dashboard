@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import { Brain, RefreshCw } from "lucide-react";
 import {
     getIntelligenceFilterOptions,
-    getDataQuality,
+    // getDataQuality,  // COMMENTED — this ~10-20s uncached call gated the whole page loader
+    //                     (firstLoad cleared only in its .finally). Page now renders immediately.
 } from "../../api-services/Modules/Intelligence";
 import PremiumPageLoader from "../../components/PremiumPageLoader";
 import ModuleInfoCard from "../../components/ModuleInfoCard";
@@ -44,8 +45,8 @@ const Intelligence = () => {
     const [utmSource, setUtmSource] = useState(() => searchParams.get("utmSource") || "");
 
     const [options, setOptions] = useState({ mediums: [], sources: [] });
-    const [dq, setDq] = useState(null);
-    const [firstLoad, setFirstLoad] = useState(true);
+    // const [dq, setDq] = useState(null);   // COMMENTED — data-quality gating disabled
+    const [firstLoad] = useState(false);      // was useState(true); page no longer waits on data-quality
     const [refreshKey, setRefreshKey] = useState(0);
 
     const cfg = useMemo(() => MODULES.find((m) => m.key === module) || MODULES[0], [module]);
@@ -101,27 +102,31 @@ const Intelligence = () => {
     }, [cfg.scope]);
 
     // Data-quality gates drive what every widget is allowed to render.
-    useEffect(() => {
-        if (customIncomplete) return undefined;
-        const controller = new AbortController();
-        getDataQuality({ ...filters, signal: controller.signal })
-            .then((res) => {
-                if (!controller.signal.aborted) setDq(res?.data?.data || null);
-            })
-            .catch(() => {
-                if (!controller.signal.aborted) setDq(null);
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setFirstLoad(false);
-            });
-        return () => controller.abort();
-    }, [filters, customIncomplete]);
+    // COMMENTED — getDataQuality is a ~10-20s uncached call and the page loader was gated
+    // on it (firstLoad cleared only in its .finally), so the whole page hung until it
+    // returned. Disabled so the page + widgets render immediately; `blocked` defaults to []
+    // (no metric gating). Re-enable once getDataQuality is cached/optimised.
+    // useEffect(() => {
+    //     if (customIncomplete) return undefined;
+    //     const controller = new AbortController();
+    //     getDataQuality({ ...filters, signal: controller.signal })
+    //         .then((res) => {
+    //             if (!controller.signal.aborted) setDq(res?.data?.data || null);
+    //         })
+    //         .catch(() => {
+    //             if (!controller.signal.aborted) setDq(null);
+    //         })
+    //         .finally(() => {
+    //             if (!controller.signal.aborted) setFirstLoad(false);
+    //         });
+    //     return () => controller.abort();
+    // }, [filters, customIncomplete]);
 
     // The gate BANNERS are not rendered, but the gates themselves still drive the
     // UI: `blocked` is what hides metrics that aren't measurable (approval, age,
     // geography) from the metric selectors and tables, so a widget can't quietly
     // present a near-zero approval rate as a real one.
-    const blocked = dq?.blocked || [];
+    const blocked = [];  // was dq?.blocked || [] — data-quality gating disabled (fetch commented)
 
     const refresh = useCallback(() => setRefreshKey((k) => k + 1), []);
 

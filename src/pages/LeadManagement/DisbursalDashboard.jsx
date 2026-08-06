@@ -818,8 +818,9 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
         if (effRange === 'Custom' && (!effFromDate || !effToDate)) return;
         setLoading(true);
         getDisbursalTransactions({
-            currentPage: page,
-            perPage,
+            // currentPage/perPage intentionally omitted — the backend returns the FULL set
+            // (no server pagination; see disbursal.services getTransactions). Pagination is
+            // done client-side over the loaded rows, so page changes never refetch.
             range: effRange,
             fromDate: effFromDate,
             toDate: effToDate,
@@ -845,7 +846,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
             })
             .catch(e => { if (!signal?.aborted) console.error(e); })
             .finally(() => { if (!signal?.aborted) setLoading(false); });
-    }, [page, perPage, effRange, effFromDate, effToDate, lenderFilter, empFilter, scope, utmSource, utmMedium]);
+    }, [effRange, effFromDate, effToDate, lenderFilter, empFilter, scope, utmSource, utmMedium]);
 
     useEffect(() => {
         // Cancel in-flight transactions request when filters / page change.
@@ -855,7 +856,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
         fetchData(controller.signal);
         return () => controller.abort();
     }, [fetchData]);
-    useEffect(() => { setPage(1); }, [lenderFilter, empFilter, effRange, effFromDate, effToDate, utmSource, utmMedium]);
+    useEffect(() => { setPage(1); }, [lenderFilter, empFilter, effRange, effFromDate, effToDate, utmSource, utmMedium, search]);
 
     // Report the grid's current totals up so the dashboard KPI cards render
     // straight from the monitoring grid (no separate /kpis fetch). Reflects the
@@ -870,8 +871,6 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
             avgTicket: total ? filteredAmount / total : 0,
         });
     }, [onStats, loading, total, filteredAmount]);
-
-    const totalPages = Math.max(1, Math.ceil(total / perPage));
 
     // Client-side filter + sort. Search matches against lead_id, customer_name,
     // phone, phone10, lender, external_user_id — case-insensitive substring.
@@ -906,6 +905,17 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
         });
         return arr;
     }, [rows, search, sortKey, sortDir]);
+
+    // Client-side pagination — the backend returns the full set, so slice the
+    // search-filtered/sorted rows to the current page here. Total pages track the
+    // filtered length, not the raw fetched count.
+    const totalPages = Math.max(1, Math.ceil(displayRows.length / perPage));
+    const pagedRows = useMemo(
+        () => displayRows.slice((page - 1) * perPage, page * perPage),
+        [displayRows, page, perPage]
+    );
+    // Keep the page in range if the filtered set shrinks below the current page.
+    useEffect(() => { if (page > totalPages) setPage(totalPages); }, [page, totalPages]);
 
     const toggleSort = (k) => {
         if (sortKey === k) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -1125,10 +1135,10 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                         {loading && rows.length === 0 && (
                             <tr><td colSpan={9} className="py-10"><PremiumLoader size="md" label="Loading transactions…" /></td></tr>
                         )}
-                        {!loading && rows.length === 0 && (
+                        {!loading && displayRows.length === 0 && (
                             <tr><td colSpan={8} className="text-center py-12 text-gray-400">No disbursals match your filters.</td></tr>
                         )}
-                        {displayRows.map((t, idx) => (
+                        {pagedRows.map((t, idx) => (
                             <tr
                                 key={`${t.lead_id || idx}-${idx}`}
                                 className={`group transition-all border-b border-gray-100 last:border-b-0 ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/30'
@@ -1181,7 +1191,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
             <div className="px-5 py-3 flex justify-between items-center border-t border-gray-100 bg-gradient-to-r from-gray-50/60 via-white to-purple-50/40">
                 <div className="flex items-center gap-3">
                     <span className="text-[12px] text-gray-500">
-                        Showing <span className="font-semibold text-gray-700">{total === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, total)}</span> of <span className="font-semibold text-purple-700">{fmtNum(total)}</span>
+                        Showing <span className="font-semibold text-gray-700">{displayRows.length === 0 ? 0 : (page - 1) * perPage + 1}–{Math.min(page * perPage, displayRows.length)}</span> of <span className="font-semibold text-purple-700">{fmtNum(displayRows.length)}</span>
                     </span>
                     <select value={perPage} onChange={e => { setPerPage(Number(e.target.value)); setPage(1); }}
                         className="rounded-md border border-gray-200 bg-white px-2 py-1 text-[12px] outline-none focus:border-purple-500">
