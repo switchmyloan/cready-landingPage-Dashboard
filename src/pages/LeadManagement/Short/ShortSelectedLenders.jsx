@@ -224,7 +224,7 @@ const ShortSelectedLenders = () => {
 
   const handleExport = () => setExportModalOpen(true);
 
-  const handleExportSubmit = async ({ startDate, endDate, mode }) => {
+  const handleExportSubmit = async () => {
     setExportLoading(true);
     const urlParams = new URLSearchParams({ mode: "download" });
     let downloadFileName;
@@ -233,18 +233,18 @@ const ShortSelectedLenders = () => {
     const date = now.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
     const time = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }).replace(/:/g, "-").replace(" ", "");
 
-    if (mode === "today" || mode === "yesterday") {
-      urlParams.append("type", mode);
-      downloadFileName = `SML_Short_Selected_Lenders_${date}_${time}.csv`;
-    } else if (mode === "range" && startDate && endDate) {
-      urlParams.append("fromDate", startDate);
-      urlParams.append("toDate", endDate);
-      downloadFileName = `SML_Short_Selected_Lenders_${startDate}_to_${endDate}.csv`;
-    } else {
-      ToastNotification.error("Please select valid export filter.");
-      setExportLoading(false);
-      return;
+    // Date params mirror the table's own applied filter (same mapping as the list fetch).
+    if (query.filter_date) {
+      urlParams.append("type", query.filter_date);
+    } else if (query.startDate && query.endDate) {
+      urlParams.append("fromDate", query.startDate);
+      urlParams.append("toDate", query.endDate);
     }
+    // else: no date param -> export the whole current view.
+
+    downloadFileName = (query.startDate && query.endDate)
+      ? `SML_Short_Selected_Lenders_${query.startDate}_to_${query.endDate}.csv`
+      : `SML_Short_Selected_Lenders_${date}_${time}.csv`;
 
     if (query.lenderName) urlParams.append("lenderName", query.lenderName);
     if (query.status) urlParams.append("status", query.status);

@@ -7,6 +7,7 @@ import {
 import { getFeedbackRecords, exportFeedbackRecords } from '../../api-services/Modules/Leads';
 import { FEEDBACK_STATUSES } from '../../components/LeadFeedback/LeadFeedback';
 import ToastNotification from '../../components/Notification/ToastNotification';
+import ExportModal from '../../components/ExportModal';
 import { useAuth } from '../../custom-hooks/useAuth';
 
 const SCOPES = [
@@ -48,6 +49,7 @@ const FeedbackRecords = ({ embedded = false, agent, minMonthlyIncome, maxMonthly
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super-admin';
   const [exporting, setExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [scope, setScope] = useState('all');
   const [status, setStatus] = useState('');
   const [utmMedium, setUtmMedium] = useState('');
@@ -146,6 +148,14 @@ const FeedbackRecords = ({ embedded = false, agent, minMonthlyIncome, maxMonthly
     }
   };
 
+  // OTP-gated entry point: the ExportModal verifies identity, then we run the
+  // existing export, which already uses the page's current filters (scope, date,
+  // medium/source, status, search, bands). No date is asked for again.
+  const handleExportSubmit = async () => {
+    await handleExport();
+    setExportModalOpen(false);
+  };
+
   const total = pagination.total || 0;
   const totalPages = pagination.totalPages || 0;
 
@@ -241,7 +251,7 @@ const FeedbackRecords = ({ embedded = false, agent, minMonthlyIncome, maxMonthly
 
         {isSuperAdmin && (
           <button
-            onClick={handleExport}
+            onClick={() => setExportModalOpen(true)}
             disabled={exporting}
             className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50"
           >
@@ -375,6 +385,13 @@ const FeedbackRecords = ({ embedded = false, agent, minMonthlyIncome, maxMonthly
           </div>
         )}
       </div>
+
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        onSubmit={handleExportSubmit}
+        isSubmitting={exporting}
+      />
     </div>
   );
 };

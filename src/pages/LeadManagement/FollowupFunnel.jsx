@@ -12,6 +12,7 @@ import { TrendingUp, TrendingDown, AlarmClock, Timer, ShieldAlert } from 'lucide
 import { getFollowupFunnel, exportStageLeads } from '../../api-services/Modules/Leads';
 import ToastNotification from '../../components/Notification/ToastNotification';
 import StageLeadsModal from '../../components/StageLeadsModal/StageLeadsModal';
+import ExportModal from '../../components/ExportModal';
 import { useAuth } from '../../custom-hooks/useAuth';
 
 const SCOPES = [
@@ -148,6 +149,7 @@ const FollowupFunnel = ({ embedded = false, agent, minMonthlyIncome, maxMonthlyI
   const [loading, setLoading] = useState(true);
   const [activeStage, setActiveStage] = useState(null); // { stage, label } when a card is clicked
   const [exporting, setExporting] = useState(false);
+  const [exportModalOpen, setExportModalOpen] = useState(false);
   const [utmMedium, setUtmMedium] = useState('');
   const [utmSource, setUtmSource] = useState('');
 
@@ -240,6 +242,13 @@ const FollowupFunnel = ({ embedded = false, agent, minMonthlyIncome, maxMonthlyI
     } finally {
       setExporting(false);
     }
+  };
+
+  // OTP-gated entry: the modal verifies identity, then we run the export (which
+  // already uses the funnel's current filters/scope), then close.
+  const handleExportSubmit = async () => {
+    await handleExport();
+    setExportModalOpen(false);
   };
 
   return (
@@ -350,7 +359,7 @@ const FollowupFunnel = ({ embedded = false, agent, minMonthlyIncome, maxMonthlyI
 
         {isSuperAdmin && (
           <button
-            onClick={handleExport}
+            onClick={() => setExportModalOpen(true)}
             disabled={exporting}
             className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 transition disabled:opacity-50"
             title="Export every lead (Total Leads, current scope) as CSV"
@@ -652,6 +661,13 @@ const FollowupFunnel = ({ embedded = false, agent, minMonthlyIncome, maxMonthlyI
           onClose={() => setActiveStage(null)}
         />
       )}
+
+      <ExportModal
+        open={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        onSubmit={handleExportSubmit}
+        isSubmitting={exporting}
+      />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Landmark, Clock, CheckCircle2, X, Info, BadgeIndianRupee } from 'lucide-react';
+import { Landmark, Clock, CheckCircle2, X, Info, BadgeIndianRupee, Phone } from 'lucide-react';
 import { getUpSwingBankOfferAlerts } from '../../api-services/Modules/UpSwingWebhook';
 import { useAuth } from '../../custom-hooks/useAuth';
 
@@ -209,6 +209,17 @@ const UpSwingBankOfferAlerts = () => {
                         {it.bankOfferedInterest != null && <span className="text-[11px] font-medium text-gray-500">@ {it.bankOfferedInterest}%</span>}
                       </p>
                     )}
+                    {/* The dialable number — the caller's whole reason for this alert. */}
+                    {it.phone && (
+                      <a
+                        href={`tel:${it.phone}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-0.5 flex items-center gap-1 text-[12.5px] font-bold font-mono text-gray-800 hover:text-indigo-700 hover:underline w-fit"
+                        title="Call this lead"
+                      >
+                        <Phone size={11} className="text-indigo-500" /> {it.phone}
+                      </a>
+                    )}
                     <p className="text-[11px] text-gray-500 font-mono truncate mt-0.5" title={it.pci}>
                       {it.productVariant ? `${it.productVariant} · ` : ''}{String(it.pci || '').slice(0, 14)}…
                     </p>
@@ -253,6 +264,11 @@ const UpSwingBankOfferAlerts = () => {
             <p className="text-[12px] text-gray-600 truncate">
               {flash.bankOfferedAmount != null ? `${fmtInr(flash.bankOfferedAmount)} · ` : ''}{flash.productVariant || 'UL-PERSONAL'}
             </p>
+            {flash.phone && (
+              <a href={`tel:${flash.phone}`} className="text-[12px] font-bold font-mono text-indigo-700 hover:underline flex items-center gap-1 mt-0.5 w-fit">
+                <Phone size={11} /> {flash.phone}
+              </a>
+            )}
           </div>
           <button
             onClick={() => setFlash(null)}

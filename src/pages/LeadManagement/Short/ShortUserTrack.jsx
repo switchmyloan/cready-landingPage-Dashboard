@@ -729,16 +729,9 @@ const ShortUserTrack = () => {
 
   const handleExport = () => setExportModalOpen(true);
 
-  const handleExportSubmit = async ({
-    startDate,
-    endDate,
-    mode,
-    otp,
-    hashedOtp,
-  }) => {
+  const handleExportSubmit = async ({ otp, hashedOtp } = {}) => {
     setExportLoading(true);
     let urlParams = new URLSearchParams({ mode: "download", otp, hashedOtp });
-    let downloadFileName;
 
     const now = new Date();
     const date = now
@@ -753,18 +746,21 @@ const ShortUserTrack = () => {
       .replace(/:/g, "-")
       .replace(" ", "");
 
-    if (mode === "today" || mode === "yesterday") {
-      urlParams.append("type", mode);
-      downloadFileName = `Short_User_Track_${date}_${time}.csv`;
-    } else if (mode === "range" && startDate && endDate) {
-      urlParams.append("fromDate", startDate);
-      urlParams.append("toDate", endDate);
-      downloadFileName = `Short_User_Track_${startDate}_to_${endDate}.csv`;
-    } else {
-      ToastNotification.error("Please select valid export filter.");
-      setExportLoading(false);
-      return;
+    // Source the export's date window from the table's own applied filter
+    // (mirrors the list fetch's type / fromDate / toDate mapping) instead of
+    // the ExportModal, which no longer collects a date range. When neither a
+    // preset nor a custom range is set, export the whole current view.
+    if (query.filter_date) {
+      urlParams.append("type", query.filter_date);
+    } else if (query.startDate && query.endDate) {
+      urlParams.append("fromDate", query.startDate);
+      urlParams.append("toDate", query.endDate);
     }
+
+    const downloadFileName =
+      query.startDate && query.endDate
+        ? `Short_User_Track_${query.startDate}_to_${query.endDate}.csv`
+        : `Short_User_Track_${date}_${time}.csv`;
 
     if (query.search) urlParams.append("search", query.search);
     if (query.stage) urlParams.append("stage", query.stage);

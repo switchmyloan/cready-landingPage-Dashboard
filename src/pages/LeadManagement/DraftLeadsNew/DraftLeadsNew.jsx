@@ -223,7 +223,7 @@ const DraftLeadsNew = () => {
 
   const handleExport = () => setExportModalOpen(true);
 
-  const handleExportSubmit = async ({ startDate, endDate, mode }) => {
+  const handleExportSubmit = async () => {
     setExportLoading(true);
     const urlParams = new URLSearchParams({ mode: "download" });
     let downloadFileName;
@@ -232,17 +232,18 @@ const DraftLeadsNew = () => {
     const date = now.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
     const time = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }).replace(/:/g, "-").replace(" ", "");
 
-    if (mode === "today" || mode === "yesterday") {
-      urlParams.append("type", mode);
+    // Export the table's current view — mirror how the LIST fetch derives its
+    // date params from the applied filter state (type / fromDate / toDate).
+    if (query.filter_date) {
+      urlParams.append("type", query.filter_date);
       downloadFileName = `SML_Draft_Leads_New_${date}_${time}.csv`;
-    } else if (mode === "range" && startDate && endDate) {
-      urlParams.append("fromDate", startDate);
-      urlParams.append("toDate", endDate);
-      downloadFileName = `SML_Draft_Leads_New_${startDate}_to_${endDate}.csv`;
+    } else if (query.startDate && query.endDate) {
+      urlParams.append("fromDate", query.startDate);
+      urlParams.append("toDate", query.endDate);
+      downloadFileName = `SML_Draft_Leads_New_${query.startDate}_to_${query.endDate}.csv`;
     } else {
-      ToastNotification.error("Please select valid export filter.");
-      setExportLoading(false);
-      return;
+      // No date filter applied — export the whole current view.
+      downloadFileName = `SML_Draft_Leads_New_${date}_${time}.csv`;
     }
 
     // Apply currently active filters to export so CSV matches what user sees

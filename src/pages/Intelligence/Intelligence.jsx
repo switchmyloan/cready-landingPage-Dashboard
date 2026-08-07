@@ -39,8 +39,23 @@ const Intelligence = () => {
     const [module, setModule] = useState(() => searchParams.get("module") || "high");
     const [section, setSection] = useState(() => searchParams.get("section") || "time");
     const [range, setRange] = useState(() => searchParams.get("range") || "90D");
-    const [fromDate, setFromDate] = useState(() => searchParams.get("fromDate") || "");
-    const [toDate, setToDate] = useState(() => searchParams.get("toDate") || "");
+    // Seed the dates SYNCHRONOUSLY from the range on the very first render. If we
+    // started these at "" and only filled them from the useEffect below, every
+    // widget would fetch once with empty dates, then the effect would change
+    // `filters` and every widget would abort + refetch — the double-fetch storm
+    // (canceled + re-issued kpis/slots/daily/…) that made the page take ~50s.
+    // Seeding here makes render 1 already correct, so the effect's setState on
+    // mount is a no-op (same value → React bails) and each widget fetches ONCE.
+    const [fromDate, setFromDate] = useState(() => {
+        const r = searchParams.get("range") || "90D";
+        if (r !== "Custom") { const d = dateForRange(r); if (d) return d.fromDate; }
+        return searchParams.get("fromDate") || "";
+    });
+    const [toDate, setToDate] = useState(() => {
+        const r = searchParams.get("range") || "90D";
+        if (r !== "Custom") { const d = dateForRange(r); if (d) return d.toDate; }
+        return searchParams.get("toDate") || "";
+    });
     const [utmMedium, setUtmMedium] = useState(() => searchParams.get("utmMedium") || "");
     const [utmSource, setUtmSource] = useState(() => searchParams.get("utmSource") || "");
 

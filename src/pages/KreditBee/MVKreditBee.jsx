@@ -167,7 +167,7 @@ const MVKreditBee = () => {
 
   const handleExport = () => setExportModalOpen(true);
 
-  const handleExportSubmit = async ({ startDate, endDate, mode }) => {
+  const handleExportSubmit = async () => {
     setExportLoading(true);
     let urlParams = new URLSearchParams({ mode: "download" });
     let downloadFileName;
@@ -176,17 +176,16 @@ const MVKreditBee = () => {
     const date = now.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
     const time = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }).replace(/:/g, "-").replace(" ", "");
 
-    if (mode === "today" || mode === "yesterday") {
-      urlParams.append("type", mode);
+    if (query.filter_date) {
+      urlParams.append("type", query.filter_date);
       downloadFileName = `MV_Leads_${date}_${time}.csv`;
-    } else if (mode === "range" && startDate && endDate) {
-      urlParams.append("fromDate", startDate);
-      urlParams.append("toDate", endDate);
-      downloadFileName = `SML_MV_SUCCESS_Leads_${startDate}_to_${endDate}.csv`;
+    } else if (query.startDate && query.endDate) {
+      urlParams.append("fromDate", query.startDate);
+      urlParams.append("toDate", query.endDate);
+      downloadFileName = `SML_MV_SUCCESS_Leads_${query.startDate}_to_${query.endDate}.csv`;
     } else {
-      ToastNotification.error("Please select valid export filter.");
-      setExportLoading(false);
-      return;
+      // no date filter applied -> export the whole current view
+      downloadFileName = `MV_Leads_${date}_${time}.csv`;
     }
 
     try {

@@ -1,18 +1,13 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { X, ShieldCheck, FileDown, Calendar } from "lucide-react";
-import ToastNotification from "./Notification/ToastNotification";
+import { X, ShieldCheck, FileDown, Filter } from "lucide-react";
 import OtpVerification from "./OtpVerification";
 
-const getYYYYMMDD = (date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-};
-
+// Export is OTP-gated, and always exports the CURRENT filtered view of the table
+// the user is looking at — the date range and every other filter come from the
+// page's own filter bar, NOT from this modal. Re-asking for a date here only ever
+// let the export disagree with what the user had on screen, so it was removed:
+// the modal now collects the OTP and nothing else.
 const ExportModal = ({ open, onClose, onSubmit, isSubmitting = false }) => {
-  const [dates, setDates] = useState({ startDate: "", endDate: "" });
-  const [exportMode, setExportMode] = useState("range");
   const [otpData, setOtpData] = useState({
     otp: "",
     hashedOtp: "",
@@ -22,8 +17,6 @@ const ExportModal = ({ open, onClose, onSubmit, isSubmitting = false }) => {
 
   useEffect(() => {
     if (open) {
-      setDates({ startDate: "", endDate: "" });
-      setExportMode("range");
       setOtpData({ otp: "", hashedOtp: "", mobileNumber: "", otpSent: false });
     }
   }, [open]);
@@ -34,56 +27,11 @@ const ExportModal = ({ open, onClose, onSubmit, isSubmitting = false }) => {
 
   if (!open) return null;
 
-  const handleDateChange = (e) => {
-    if (exportMode === "range") {
-      setDates({ ...dates, [e.target.name]: e.target.value });
-    }
-  };
-
-  const handleModeChange = (e) => {
-    const newMode = e.target.value;
-    setExportMode(newMode);
-    if (newMode !== "range") {
-      setDates({ startDate: "", endDate: "" });
-    }
-  };
-
-  const calculateDateRange = () => {
-    const today = new Date();
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-
-    if (exportMode === "today") {
-      const dateString = getYYYYMMDD(today);
-      return { startDate: dateString, endDate: dateString };
-    }
-    if (exportMode === "yesterday") {
-      const dateString = getYYYYMMDD(yesterday);
-      return { startDate: dateString, endDate: dateString };
-    }
-    return dates;
-  };
-
   const handleSubmit = (e) => {
     e.preventDefault();
     if (isSubmitting) return;
-
-    const { startDate, endDate } = calculateDateRange();
-
-    if (exportMode === "range" && (!startDate || !endDate)) {
-      ToastNotification.error(
-        "Please select a start and end date for the range.",
-      );
-      return;
-    }
-
-    onSubmit({
-      startDate,
-      endDate,
-      mode: exportMode,
-      otp: otpData.otp,
-      hashedOtp: otpData.hashedOtp,
-    });
+    // Date + filters are the page's job now — the modal only proves identity.
+    onSubmit({ otp: otpData.otp, hashedOtp: otpData.hashedOtp });
   };
 
   return (
@@ -106,103 +54,14 @@ const ExportModal = ({ open, onClose, onSubmit, isSubmitting = false }) => {
           <OtpVerification onChange={handleOtpChange} resetSignal={open} />
 
           {otpData.otpSent && (
-            <>
-              <div className="my-6 border-t border-gray-200" />
-
-              <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                  <Calendar className="text-blue-600" />
-                  Select Export Range
-                </h3>
-
-                <div className="grid grid-cols-3 gap-4">
-                  <label
-                    htmlFor="radio-today"
-                    className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer transition-all ${exportMode === "today" ? "bg-blue-50 border-blue-500 text-blue-700" : "border-gray-300 hover:border-blue-400"}`}
-                  >
-                    <input
-                      type="radio"
-                      id="radio-today"
-                      name="exportMode"
-                      value="today"
-                      checked={exportMode === "today"}
-                      onChange={handleModeChange}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">Today</span>
-                  </label>
-                  <label
-                    htmlFor="radio-yesterday"
-                    className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer transition-all ${exportMode === "yesterday" ? "bg-blue-50 border-blue-500 text-blue-700" : "border-gray-300 hover:border-blue-400"}`}
-                  >
-                    <input
-                      type="radio"
-                      id="radio-yesterday"
-                      name="exportMode"
-                      value="yesterday"
-                      checked={exportMode === "yesterday"}
-                      onChange={handleModeChange}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">Yesterday</span>
-                  </label>
-                  <label
-                    htmlFor="radio-range"
-                    className={`flex items-center justify-center p-4 border rounded-lg cursor-pointer transition-all ${exportMode === "range" ? "bg-blue-50 border-blue-500 text-blue-700" : "border-gray-300 hover:border-blue-400"}`}
-                  >
-                    <input
-                      type="radio"
-                      id="radio-range"
-                      name="exportMode"
-                      value="range"
-                      checked={exportMode === "range"}
-                      onChange={handleModeChange}
-                      className="sr-only"
-                    />
-                    <span className="text-sm font-medium">Date Range</span>
-                  </label>
-                </div>
-              </div>
-
-              {exportMode === "range" && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-gray-200">
-                  <div>
-                    <label
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                      htmlFor="startDate"
-                    >
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      id="startDate"
-                      name="startDate"
-                      value={dates.startDate}
-                      onChange={handleDateChange}
-                      required={exportMode === "range"}
-                      className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      className="block text-sm font-medium text-gray-700 mb-2"
-                      htmlFor="endDate"
-                    >
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      id="endDate"
-                      name="endDate"
-                      value={dates.endDate}
-                      onChange={handleDateChange}
-                      required={exportMode === "range"}
-                      className="mt-1 block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-                    />
-                  </div>
-                </div>
-              )}
-            </>
+            <div className="flex items-start gap-2.5 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3">
+              <Filter size={16} className="text-blue-600 mt-0.5 shrink-0" />
+              <p className="text-[12.5px] text-gray-600 leading-relaxed">
+                Export will use the filters currently applied to the table
+                (date range, search, and every other filter) — exactly the view
+                you see on screen.
+              </p>
+            </div>
           )}
 
           <div className="flex justify-end space-x-4 pt-4 border-t border-gray-200">

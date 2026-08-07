@@ -20,6 +20,7 @@ import { getLenderMeta, getLenderInitials } from '../../utils/lenderLogos';
 import ModuleInfoCard from '../../components/ModuleInfoCard';
 import PremiumLoader from '../../components/PremiumLoader';
 import MilestoneCelebration from '../../components/MilestoneCelebration/MilestoneCelebration';
+import ExportModal from '../../components/ExportModal';
 
 const LenderAvatar = ({ name, size = 24 }) => {
     const meta = getLenderMeta(name);
@@ -933,6 +934,9 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
         </th>
     );
 
+    const [exportModalOpen, setExportModalOpen] = useState(false);
+    const [exporting, setExporting] = useState(false);
+
     // Export the FULL filtered set (not just the current page). Uses the
     // same effective dates / lender / employment / utm filters as the table,
     // so what the user sees in the picker is what they get in the CSV.
@@ -987,6 +991,13 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
         } catch (e) {
             console.error('Export failed:', e);
         }
+    };
+
+    // OTP-gated entry: the modal verifies identity, then we run exportCsv (which
+    // already exports the table's current filtered view), then close.
+    const handleExportSubmit = async () => {
+        setExporting(true);
+        try { await exportCsv(); } finally { setExporting(false); setExportModalOpen(false); }
     };
 
     // Status pill — small helper so the badge gets a richer money-themed
@@ -1052,10 +1063,17 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                         <button onClick={() => fetchData()} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 bg-white text-[12.5px] font-medium text-gray-600 hover:text-purple-700 hover:border-purple-300 hover:bg-purple-50/50 transition">
                             <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh
                         </button>
-                        <button onClick={exportCsv} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 text-white text-[12.5px] font-semibold shadow-sm shadow-purple-500/30 hover:shadow-md hover:shadow-purple-500/40 hover:from-purple-700 hover:to-violet-700 transition">
+                        <button onClick={() => setExportModalOpen(true)} className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-violet-600 text-white text-[12.5px] font-semibold shadow-sm shadow-purple-500/30 hover:shadow-md hover:shadow-purple-500/40 hover:from-purple-700 hover:to-violet-700 transition">
                             <FileDown size={13} /> Export CSV
                         </button>
                     </div>
+
+                    <ExportModal
+                        open={exportModalOpen}
+                        onClose={() => setExportModalOpen(false)}
+                        onSubmit={handleExportSubmit}
+                        isSubmitting={exporting}
+                    />
                 </div>
 
                 <div className="flex items-center gap-2 mt-4 flex-wrap">

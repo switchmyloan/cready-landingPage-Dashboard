@@ -990,13 +990,7 @@ const CreadyRpm = () => {
 
   const handleExport = () => setExportModalOpen(true);
 
-  const handleExportSubmit = async ({
-    startDate,
-    endDate,
-    mode,
-    otp,
-    hashedOtp,
-  }) => {
+  const handleExportSubmit = async ({ otp, hashedOtp } = {}) => {
     setExportLoading(true);
     let urlParams = new URLSearchParams({ mode: "download", otp, hashedOtp });
     let downloadFileName;
@@ -1014,17 +1008,18 @@ const CreadyRpm = () => {
       .replace(/:/g, "-")
       .replace(" ", "");
 
-    if (mode === "today" || mode === "yesterday") {
-      urlParams.append("type", mode);
+    // Date params mirror the table's own applied filter (same mapping the list
+    // fetch uses): preset -> type, custom range -> fromDate/toDate, else none.
+    if (query.filter_date) {
+      urlParams.append("type", query.filter_date);
       downloadFileName = `Cready_RPM_${date}_${time}.csv`;
-    } else if (mode === "range" && startDate && endDate) {
-      urlParams.append("fromDate", startDate);
-      urlParams.append("toDate", endDate);
-      downloadFileName = `Cready_RPM_${startDate}_to_${endDate}.csv`;
+    } else if (query.startDate && query.endDate) {
+      urlParams.append("fromDate", query.startDate);
+      urlParams.append("toDate", query.endDate);
+      downloadFileName = `Cready_RPM_${query.startDate}_to_${query.endDate}.csv`;
     } else {
-      ToastNotification.error("Please select valid export filter.");
-      setExportLoading(false);
-      return;
+      // No date filter → export the whole current view.
+      downloadFileName = `Cready_RPM_${date}_${time}.csv`;
     }
 
     if (query.search) urlParams.append("search", query.search);
