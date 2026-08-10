@@ -45,6 +45,15 @@ export const getUpSwingFunnelHistory = async ({ type, fromDate, toDate, medium }
   });
 };
 
+// Drill-down: current status of leads who reached ONE funnel stage. `day` (a single
+// first-arrival day) scopes it to one matrix cell; omit it for the overall (range).
+export const getUpSwingFunnelStageStatus = async ({ stage, type, fromDate, toDate, medium, day } = {}) => {
+  return Api().get(`/upswing-webhook/funnel-stage-status`, {
+    params: { stage, type, fromDate, toDate, medium, day },
+    skipAdminAppend: true,
+  });
+};
+
 // Recent BANK_OFFER_AVAILABLE leads — polled by the navbar alert bell.
 export const getUpSwingBankOfferAlerts = async () => {
   return Api().get(`/upswing-webhook/bank-offer-alerts`, {

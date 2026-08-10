@@ -5,7 +5,7 @@ import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar,
 import ToastNotification from '@components/Notification/ToastNotification';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
 import PremiumLoader from '../../../components/PremiumLoader';
-import { getUpSwingFunnelHistory } from '../../../api-services/Modules/UpSwingWebhook';
+import { getUpSwingFunnelHistory, getUpSwingFunnelStageStatus } from '../../../api-services/Modules/UpSwingWebhook';
 
 const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtPct = (n) => `${Number(n || 0)}%`;
@@ -207,6 +207,10 @@ const UpSwingFunnel = () => {
   const [loading, setLoading] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [medium, setMedium] = useState(''); // utm_medium filter (from upswing.leads)
+  // Stage drill-down: click a stage → where are the leads who reached it NOW?
+  const [drill, setDrill] = useState(null);        // { key, label } of the open stage
+  const [drillData, setDrillData] = useState(null); // { reached, statuses:[...] }
+  const [drillLoading, setDrillLoading] = useState(false);
 
   // Resolve the active range + medium → API params. Custom range wins when both dates set.
   const params = useMemo(() => {
@@ -231,6 +235,27 @@ const UpSwingFunnel = () => {
   }, [params]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Only journey progression stages are drillable — "Redirected" (a Cready count)
+  // and the red terminal outcomes have no "where are they now" breakdown.
+  const isDrillable = (st) => !!st && st.key !== 'REDIRECTED' && st.tone !== 'red';
+
+  const openDrill = useCallback(async (st, day = null) => {
+    if (!isDrillable(st)) return;
+    setDrill({ key: st.key, label: st.label, day });
+    setDrillData(null);
+    setDrillLoading(true);
+    try {
+      const res = await getUpSwingFunnelStageStatus({ stage: st.key, ...params, day });
+      if (res?.data?.success) setDrillData(res.data.data);
+      else ToastNotification.error('Failed to load stage breakdown');
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Failed to load stage breakdown');
+    } finally {
+      setDrillLoading(false);
+    }
+  }, [params]);
 
   const s = data?.summary || {};
   const total = Number(s.totalLeads) || 0;
@@ -347,15 +372,19 @@ const UpSwingFunnel = () => {
                   <tr>
                     <th className="sticky left-0 z-20 bg-gray-50 text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 min-w-[120px]">Date</th>
                     <th className="sticky left-[120px] z-20 bg-gray-100 text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 min-w-[70px]">Total</th>
-                    {data.stages.map((st) => (
-                      <th
-                        key={st.key}
-                        title={st.key}
-                        className={`text-right px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-wide whitespace-nowrap ${st.tone === 'red' ? 'text-rose-600' : st.tone === 'green' ? 'text-emerald-600' : 'text-gray-500'}`}
-                      >
-                        {st.label}
-                      </th>
-                    ))}
+                    {data.stages.map((st) => {
+                      const drillable = isDrillable(st);
+                      return (
+                        <th
+                          key={st.key}
+                          title={drillable ? `${st.key} — click to see where these leads are now` : st.key}
+                          onClick={() => drillable && openDrill(st)}
+                          className={`text-right px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-wide whitespace-nowrap ${st.tone === 'red' ? 'text-rose-600' : st.tone === 'green' ? 'text-emerald-600' : 'text-gray-500'} ${drillable ? 'cursor-pointer hover:text-purple-700 hover:underline underline-offset-2' : ''}`}
+                        >
+                          {st.label}
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
@@ -372,9 +401,20 @@ const UpSwingFunnel = () => {
                           const step = RATIO_BY_TO[st.key];
                           const fromV = step ? (row.byStage[step.from] || 0) : 0;
                           const pct = step && v > 0 && fromV > 0 ? (v / fromV) * 100 : null;
+                          // Click a non-zero journey cell → that day's leads at this stage, now.
+                          const cellDrillable = isDrillable(st) && v > 0;
                           return (
                             <td key={st.key} className={`px-3 py-2 text-right text-[12.5px] tabular-nums ${v ? 'text-gray-800 font-medium' : 'text-gray-300'}`}>
-                              {v ? fmtNum(v) : '—'}
+                              {cellDrillable ? (
+                                <button
+                                  type="button"
+                                  onClick={() => openDrill(st, row.date)}
+                                  title={`${st.label} · ${fmtDate(row.date)} — where are these leads now?`}
+                                  className="tabular-nums cursor-pointer hover:text-purple-700 hover:underline underline-offset-2"
+                                >
+                                  {fmtNum(v)}
+                                </button>
+                              ) : (v ? fmtNum(v) : '—')}
                               {pct != null && (
                                 <span className="block text-[9px] font-semibold text-purple-500 leading-tight" title={`${step.label} conversion`}>
                                   {pct.toFixed(1)}%
@@ -397,9 +437,19 @@ const UpSwingFunnel = () => {
                       const step = RATIO_BY_TO[st.key];
                       const fromTotal = step ? (stageTotal[step.from] || 0) : 0;
                       const pct = step && fromTotal > 0 ? (st.total / fromTotal) * 100 : null;
+                      const drillable = isDrillable(st);
                       return (
                         <td key={st.key} className="px-3 py-2.5 text-right text-[12.5px] font-bold text-gray-800 tabular-nums">
-                          {fmtNum(st.total)}
+                          {drillable ? (
+                            <button
+                              type="button"
+                              onClick={() => openDrill(st)}
+                              title="Where are these leads now?"
+                              className="tabular-nums cursor-pointer hover:text-purple-700 hover:underline underline-offset-2"
+                            >
+                              {fmtNum(st.total)}
+                            </button>
+                          ) : fmtNum(st.total)}
                           {pct != null && (
                             <span className="block text-[9.5px] font-bold text-purple-600 leading-tight" title={`${step.label} conversion`}>
                               {pct.toFixed(1)}%
@@ -418,7 +468,8 @@ const UpSwingFunnel = () => {
               clicks (Postgres <code>selectedLenders</code>) — the pre-journey entry, so it can exceed the Total (= leads that
               OTP’d). Scroll right for all {data.stages.length} stages. Bottom row = grand totals; the small{' '}
               <span className="text-purple-600 font-semibold">purple %</span> under a stage = conversion into it from the
-              previous key step (Redirected→OTP→Lender→Bank Offer→Offer→Disbursed).
+              previous key step (Redirected→OTP→Lender→Bank Offer→Offer→Disbursed).{' '}
+              <b className="text-purple-700">Click any stage</b> (its header or grand total) to see where those leads are <b>now</b>.
             </p>
           </div>
         </>
@@ -446,6 +497,63 @@ const UpSwingFunnel = () => {
           'Cumulative funnel + drop-off',
         ]}
       />
+
+      {/* Stage drill-down — click any journey stage to see the CURRENT status of the
+          leads who reached it (where they actually are now, not the furthest they got). */}
+      {drill && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setDrill(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-violet-50">
+              <div>
+                <h3 className="text-[15px] font-bold text-gray-800">
+                  {drill.label} — where are they now?
+                  {drill.day ? <span className="font-semibold text-[13px] text-purple-600"> · {fmtDate(drill.day)}</span> : ''}
+                </h3>
+                <p className="text-[11.5px] text-gray-500 mt-0.5">
+                  Current status of leads who reached <b>{drill.label}</b>
+                  {drill.day ? <> and <b>first arrived on {fmtDate(drill.day)}</b></> : ''}
+                  {drillData ? <> · <span className="font-semibold text-purple-700">{fmtNum(drillData.reached)} reached</span></> : ''}
+                </p>
+              </div>
+              <button onClick={() => setDrill(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition" aria-label="Close"><X size={18} /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              {drillLoading ? (
+                <div className="py-10 text-center text-[13px] text-gray-400">Loading…</div>
+              ) : !drillData || (drillData.statuses || []).length === 0 ? (
+                <div className="py-10 text-center text-[13px] text-gray-400">No data for this stage.</div>
+              ) : (
+                <div className="space-y-2.5">
+                  {drillData.statuses.map((x) => {
+                    const barColor = x.tone === 'green' ? 'bg-emerald-500' : x.tone === 'red' ? 'bg-rose-500' : 'bg-purple-400';
+                    const textColor = x.tone === 'green' ? 'text-emerald-700' : x.tone === 'red' ? 'text-rose-700' : 'text-gray-700';
+                    return (
+                      <div key={x.key}>
+                        <div className="flex items-center justify-between text-[12.5px] mb-0.5">
+                          <span className={`font-semibold ${textColor}`} title={x.key}>{x.label}</span>
+                          <span className="tabular-nums text-gray-500"><span className="font-bold text-gray-800">{fmtNum(x.leads)}</span> · {x.pct}%</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                          <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(Number(x.pct) || 0, 2)}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                <b>Reached</b> = leads whose furthest journey stage is <b>{drill.label}</b> or later (same as the funnel column).{' '}
+                <b>Current status</b> = the latest event that arrived per lead — a re-login can show an earlier stage
+                (e.g. OTP Login), so this is where they <i>actually</i> are now, not the furthest they got.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
