@@ -58,6 +58,15 @@ export const getDisbursalLenderStatsShort = async ({ range = '7D', fromDate, toD
         signal,
     });
 
+// REVERSE of lender-stats: one lender's disbursals split by utm_medium.
+// Returns { lender, totalDisbursals, totalAmount, mediums:[{medium,disbursals,amount,avgTicket,sharePct,amountSharePct}] }.
+export const getDisbursalMediumStats = async ({ range = '7D', fromDate, toDate, scope, utmSource, utmMedium, lender, signal } = {}) =>
+    Api().get(`${base}/medium-stats`, {
+        params: { range, fromDate, toDate, scope, utmSource, utmMedium, lender },
+        skipAdminAppend: true,
+        signal,
+    });
+
 export const getDisbursalLenderBreakdown = async ({ range = '7D', fromDate, toDate, scope, utmSource, utmMedium, lender, signal } = {}) =>
     Api().get(`${base}/lender-breakdown`, {
         params: { range, fromDate, toDate, scope, utmSource, utmMedium, lender },

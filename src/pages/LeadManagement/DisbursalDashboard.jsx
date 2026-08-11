@@ -12,7 +12,7 @@ import {
 import {
     getDisbursalKpis, getDisbursalTrend, getDisbursalTrendShort,
     getDisbursalLenderStats, getDisbursalLenderStatsShort,
-    getDisbursalLenderBreakdown,
+    getDisbursalLenderBreakdown, getDisbursalMediumStats,
     getDisbursalEmploymentMix, getDisbursalEmploymentMixShort,
     getDisbursalTransactions, getDisbursalFilterOptions,
 } from '../../api-services/Modules/Disbursal';
@@ -493,6 +493,92 @@ const EmploymentMix = ({ range, scope, fromDate, toDate, utmSource, utmMedium, o
     );
 };
 
+/* LENDER → MEDIUM BREAKDOWN
+ * The REVERSE of the lender charts: pick a lender, see its disbursals split by
+ * utm_medium (count · amount · share) — for campaign analysis ("which mediums drive
+ * this lender's disbursals?"). Reuses the same date/source/medium filters. */
+const LenderMediumBreakdown = ({ range, scope, fromDate, toDate, utmSource, utmMedium, lenders = [] }) => {
+    const [lender, setLender] = useState('');
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(false);
+
+    // Default to the top lender once the list arrives (keep the user's pick after).
+    useEffect(() => {
+        if (!lender && lenders.length) setLender(lenders[0].name);
+    }, [lenders, lender]);
+
+    useEffect(() => {
+        if (!lender) return;
+        if (range === 'Custom' && (!fromDate || !toDate)) return;
+        const controller = new AbortController();
+        setLoading(true);
+        getDisbursalMediumStats({ range, scope, fromDate, toDate, utmSource, utmMedium, lender, signal: controller.signal })
+            .then((res) => { if (!controller.signal.aborted) setData(res?.data?.data || null); })
+            .catch((e) => { if (!controller.signal.aborted) console.error(e); })
+            .finally(() => { if (!controller.signal.aborted) setLoading(false); });
+        return () => controller.abort();
+    }, [lender, range, scope, fromDate, toDate, utmSource, utmMedium]);
+
+    const mediums = data?.mediums || [];
+    const maxShare = mediums.reduce((m, x) => Math.max(m, x.sharePct), 0) || 1;
+
+    return (
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                    <h3 className="text-[14.5px] font-semibold tracking-tight text-gray-900">Lender → Medium breakdown</h3>
+                    <p className="text-[12.5px] text-gray-500 mt-1">A lender's disbursals split by utm_medium — for campaign analysis</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[12px] text-gray-500">Lender:</span>
+                    <select
+                        value={lender}
+                        onChange={(e) => setLender(e.target.value)}
+                        className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-[12.5px] font-medium outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-200 max-w-[180px]"
+                    >
+                        {lenders.length === 0 && <option value="">No lenders</option>}
+                        {lenders.map((l) => <option key={l.name} value={l.name}>{l.name}</option>)}
+                    </select>
+                </div>
+            </div>
+
+            {data && !loading && (
+                <p className="text-[12px] text-gray-500 mt-3">
+                    <span className="font-bold text-purple-700">{fmtNum(data.totalDisbursals)}</span> disbursals ·{' '}
+                    <span className="font-bold text-gray-800">{fmtINR(data.totalAmount)}</span> across{' '}
+                    {mediums.length} medium{mediums.length === 1 ? '' : 's'}
+                </p>
+            )}
+
+            <div className="mt-3 min-h-[160px]">
+                {loading ? (
+                    <PremiumLoader fullHeight size="md" sublabel="Splitting by medium…" />
+                ) : !mediums.length ? (
+                    <div className="min-h-[160px] grid place-items-center text-gray-400 text-sm">No disbursals for this lender in range</div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+                        {mediums.map((m) => (
+                            <div key={m.medium}>
+                                <div className="flex items-center justify-between text-[12.5px] mb-1">
+                                    <span className="font-medium text-gray-800 truncate max-w-[140px]" title={m.medium}>{m.medium}</span>
+                                    <span className="inline-flex items-baseline gap-2">
+                                        <span className="font-mono font-semibold text-gray-900">{fmtNum(m.disbursals)}</span>
+                                        <span className="font-mono text-[11px] text-purple-600 font-semibold min-w-[42px] text-right">{m.sharePct}%</span>
+                                    </span>
+                                </div>
+                                <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-purple-600 to-violet-500" style={{ width: `${Math.max((m.sharePct / maxShare) * 100, 3)}%` }} />
+                                </div>
+                                <div className="text-[10.5px] text-gray-400 mt-0.5">{fmtINR(m.amount)} · avg {fmtINR(m.avgTicket)}</div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 /* LENDER DATE-WISE BREAKDOWN MODAL */
 const LenderBreakdownModal = ({ lender, range, scope, fromDate, toDate, utmSource, utmMedium, onClose }) => {
     const [data, setData] = useState([]);
@@ -660,7 +746,7 @@ const LenderBreakdownModal = ({ lender, range, scope, fromDate, toDate, utmSourc
 // RapidMoney (a short-ticket lender tracked in the Cready RPM module),
 // RamFinCorp and LendingPlate; every other lender is shown. Matches the blacklist
 // in the backend high aggregates (trend / lender-stats / employment) + grid handling.
-const HIGH_HIDDEN_LENDERS = new Set(['rpm', 'rapidmoney', 'ramfincorp', 'lendingplate']);
+const HIGH_HIDDEN_LENDERS = new Set(['rpm', 'rapidmoney', 'ramfincorp', 'lendingplate', 'mpokket']);
 const isHighWhitelistLender = (name) =>
     !HIGH_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
@@ -1880,6 +1966,10 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
                 <LenderChart kind="amount" data={lenderStats} loading={lenderLoading} onLenderClick={setSelectedLender} />
                 <LenderChart kind="count" data={lenderStats} loading={lenderLoading} onLenderClick={setSelectedLender} />
+            </div>
+
+            <div className="mb-4">
+                <LenderMediumBreakdown range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} lenders={lenderStats} />
             </div>
 
             <TransactionsTable range={range} scope={scope} fromDate={fromDate} toDate={toDate} utmSource={utmSource} utmMedium={utmMedium} />
