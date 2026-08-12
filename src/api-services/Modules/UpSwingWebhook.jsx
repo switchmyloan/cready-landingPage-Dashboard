@@ -45,6 +45,15 @@ export const getUpSwingFunnelHistory = async ({ type, fromDate, toDate, medium }
   });
 };
 
+// The "by event day" funnel — each event counted on the day it happened
+// (vs funnel-history which buckets each lead on its first-arrival day).
+export const getUpSwingFunnelHistoryByEvent = async ({ type, fromDate, toDate, medium } = {}) => {
+  return Api().get(`/upswing-webhook/funnel-history-by-event`, {
+    params: { type, fromDate, toDate, medium },
+    skipAdminAppend: true,
+  });
+};
+
 // Drill-down: current status of leads who reached ONE funnel stage. `day` (a single
 // first-arrival day) scopes it to one matrix cell; omit it for the overall (range).
 export const getUpSwingFunnelStageStatus = async ({ stage, type, fromDate, toDate, medium, day } = {}) => {

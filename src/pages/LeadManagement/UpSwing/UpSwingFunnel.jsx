@@ -5,7 +5,7 @@ import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar,
 import ToastNotification from '@components/Notification/ToastNotification';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
 import PremiumLoader from '../../../components/PremiumLoader';
-import { getUpSwingFunnelHistory, getUpSwingFunnelStageStatus, getUpSwingFunnelStageLeads } from '../../../api-services/Modules/UpSwingWebhook';
+import { getUpSwingFunnelHistory, getUpSwingFunnelHistoryByEvent, getUpSwingFunnelStageStatus, getUpSwingFunnelStageLeads } from '../../../api-services/Modules/UpSwingWebhook';
 
 const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtPct = (n) => `${Number(n || 0)}%`;
@@ -207,6 +207,10 @@ const UpSwingFunnel = () => {
   const [loading, setLoading] = useState(false);
   const [showDocs, setShowDocs] = useState(false);
   const [medium, setMedium] = useState(''); // utm_medium filter (from upswing.leads)
+  // View mode: 'arrival' = each lead on its FIRST-arrival day, cumulative (the
+  // original). 'event' = each event counted on the day it HAPPENED (today's OTP
+  // logins / disbursals). Toggling just swaps which endpoint we call.
+  const [viewMode, setViewMode] = useState('arrival');
   // Stage drill-down: click a stage → where are the leads who reached it NOW?
   const [drill, setDrill] = useState(null);        // { key, label } of the open stage
   const [drillData, setDrillData] = useState(null); // { reached, statuses:[...] }
@@ -226,7 +230,8 @@ const UpSwingFunnel = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getUpSwingFunnelHistory(params);
+      const fn = viewMode === 'event' ? getUpSwingFunnelHistoryByEvent : getUpSwingFunnelHistory;
+      const res = await fn(params);
       if (res?.data?.success) setData(res.data.data);
       else ToastNotification.error('Failed to load funnel');
     } catch (err) {
@@ -235,13 +240,15 @@ const UpSwingFunnel = () => {
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [params, viewMode]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Only journey progression stages are drillable — "Redirected" (a Cready count)
   // and the red terminal outcomes have no "where are they now" breakdown.
-  const isDrillable = (st) => !!st && st.key !== 'REDIRECTED' && st.tone !== 'red';
+  // Drill-down ("where are they now?") only makes sense for the first-arrival funnel
+  // — the event-day view counts per event, not per reached-stage — so it's disabled there.
+  const isDrillable = useCallback((st) => !!st && !data?.byEvent && st.key !== 'REDIRECTED' && st.tone !== 'red', [data]);
 
   const openDrill = useCallback(async (st, day = null) => {
     if (!isDrillable(st)) return;
@@ -259,7 +266,7 @@ const UpSwingFunnel = () => {
     } finally {
       setDrillLoading(false);
     }
-  }, [params]);
+  }, [params, isDrillable]);
 
   // Second-level drill: fetch the actual leads (pci + phone) at ONE status of the
   // open stage's breakdown — "who is currently <status>".
@@ -300,7 +307,11 @@ const UpSwingFunnel = () => {
           </div>
           <div>
             <h1 className="text-[18px] font-extrabold text-gray-900 leading-tight">UpSwing Funnel</h1>
-            <p className="text-[12px] text-gray-500">Journey history — each lead counted in every stage it reached.</p>
+            <p className="text-[12px] text-gray-500">
+              {viewMode === 'event'
+                ? 'By event day — each event counted on the day it happened (today’s OTP logins, disbursals…).'
+                : 'Journey history — each lead counted, on its create day, in every stage it reached.'}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -319,6 +330,30 @@ const UpSwingFunnel = () => {
             <Download size={15} /> Export CSV
           </button>
         </div>
+      </div>
+
+      {/* View toggle — first-arrival (create day) vs event day. Same filters, different anchor. */}
+      <div className="flex flex-wrap items-center gap-3 mb-3">
+        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Count by:</span>
+        <div className="inline-flex rounded-lg border border-gray-200 bg-white p-0.5 shadow-sm">
+          <button
+            onClick={() => setViewMode('arrival')}
+            className={`px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold transition ${viewMode === 'arrival' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            Create day
+          </button>
+          <button
+            onClick={() => setViewMode('event')}
+            className={`px-3.5 py-1.5 rounded-md text-[12.5px] font-semibold transition ${viewMode === 'event' ? 'bg-purple-600 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}
+          >
+            Event day
+          </button>
+        </div>
+        <span className="text-[11px] text-gray-400">
+          {viewMode === 'event'
+            ? 'Each event on the day it happened — e.g. “how many disbursed today”.'
+            : 'Each lead on its create/first-arrival day, in every stage it ever reached (cumulative).'}
+        </span>
       </div>
 
       {/* Date filter */}
@@ -387,7 +422,11 @@ const UpSwingFunnel = () => {
           <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-3">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100">
               <Filter size={15} className="text-purple-600" />
-              <h3 className="text-[14px] font-bold text-gray-800">Journey History — leads reaching each stage, by date</h3>
+              <h3 className="text-[14px] font-bold text-gray-800">
+                {data?.byEvent
+                  ? 'Event activity — events that happened on each day'
+                  : 'Journey History — leads reaching each stage, by create day'}
+              </h3>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm border-collapse">
@@ -421,7 +460,7 @@ const UpSwingFunnel = () => {
                           const v = row.byStage[st.key] || 0;
                           // Per-row conversion % under the ratio-target stages (from this
                           // same row's previous key stage). Shown only where the cell has a value.
-                          const step = RATIO_BY_TO[st.key];
+                          const step = data?.byEvent ? null : RATIO_BY_TO[st.key];
                           const fromV = step ? (row.byStage[step.from] || 0) : 0;
                           const pct = step && v > 0 && fromV > 0 ? (v / fromV) * 100 : null;
                           // Click a non-zero journey cell → that day's leads at this stage, now.
@@ -457,7 +496,7 @@ const UpSwingFunnel = () => {
                     {data.stages.map((st) => {
                       // Small conversion % under the stages that are a ratio target
                       // (into = st.total, from = the previous key stage's grand total).
-                      const step = RATIO_BY_TO[st.key];
+                      const step = data?.byEvent ? null : RATIO_BY_TO[st.key];
                       const fromTotal = step ? (stageTotal[step.from] || 0) : 0;
                       const pct = step && fromTotal > 0 ? (st.total / fromTotal) * 100 : null;
                       const drillable = isDrillable(st);
@@ -486,13 +525,24 @@ const UpSwingFunnel = () => {
               </table>
             </div>
             <p className="px-4 py-2.5 text-[11px] text-gray-400 border-t border-gray-100">
-              Rows = the day each lead <b>first arrived</b> (min event time); columns = journey stages. Each webhook cell =
-              distinct leads that first arrived that day and <b>ever reached</b> that stage. <b>Redirected</b> = Cready L&amp;T
-              clicks (Postgres <code>selectedLenders</code>) — the pre-journey entry, so it can exceed the Total (= leads that
-              OTP’d). Scroll right for all {data.stages.length} stages. Bottom row = grand totals; the small{' '}
-              <span className="text-purple-600 font-semibold">purple %</span> under a stage = conversion into it from the
-              previous key step (Redirected→OTP→Lender→Bank Offer→Offer→Disbursed).{' '}
-              <b className="text-purple-700">Click any stage</b> (its header or grand total) to see where those leads are <b>now</b>.
+              {data?.byEvent ? (
+                <>
+                  Rows = the day an <b>event happened</b> (IST). Each cell = <b>distinct leads</b> that fired that event <b>that day</b>
+                  (e.g. how many disbursed / OTP-logged that day) — NOT cumulative, a lead appears under each day it acted.
+                  A column grand total is distinct leads that fired it anywhere in range (so it can be less than the sum of the days).
+                  <b>Redirected</b> = Cready L&amp;T clicks per day. Scroll right for all {data.stages.length} stages.
+                </>
+              ) : (
+                <>
+                  Rows = the day each lead <b>first arrived / was created</b> (min event time); columns = journey stages. Each webhook
+                  cell = distinct leads that first arrived that day and <b>ever reached</b> that stage. <b>Redirected</b> = Cready
+                  L&amp;T clicks (Postgres <code>selectedLenders</code>) — the pre-journey entry, so it can exceed the Total (= leads
+                  that OTP’d). Scroll right for all {data.stages.length} stages. Bottom row = grand totals; the small{' '}
+                  <span className="text-purple-600 font-semibold">purple %</span> under a stage = conversion into it from the
+                  previous key step (Redirected→OTP→Lender→Bank Offer→Offer→Disbursed).{' '}
+                  <b className="text-purple-700">Click any stage</b> (its header or grand total) to see where those leads are <b>now</b>.
+                </>
+              )}
             </p>
           </div>
         </>
