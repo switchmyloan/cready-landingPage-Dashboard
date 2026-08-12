@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { Toaster } from 'react-hot-toast';
-import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar, BookOpen, X, ArrowRight, Megaphone } from 'lucide-react';
+import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar, BookOpen, X, ArrowRight, Megaphone, ChevronLeft, Phone } from 'lucide-react';
 
 import ToastNotification from '@components/Notification/ToastNotification';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
 import PremiumLoader from '../../../components/PremiumLoader';
-import { getUpSwingFunnelHistory, getUpSwingFunnelStageStatus } from '../../../api-services/Modules/UpSwingWebhook';
+import { getUpSwingFunnelHistory, getUpSwingFunnelStageStatus, getUpSwingFunnelStageLeads } from '../../../api-services/Modules/UpSwingWebhook';
 
 const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtPct = (n) => `${Number(n || 0)}%`;
@@ -211,6 +211,9 @@ const UpSwingFunnel = () => {
   const [drill, setDrill] = useState(null);        // { key, label } of the open stage
   const [drillData, setDrillData] = useState(null); // { reached, statuses:[...] }
   const [drillLoading, setDrillLoading] = useState(false);
+  // Second-level drill: the actual leads behind ONE status (e.g. WHO is rejected).
+  const [statusLeads, setStatusLeads] = useState(null);       // { status, label, tone, count, leads:[...]|null }
+  const [statusLeadsLoading, setStatusLeadsLoading] = useState(false);
 
   // Resolve the active range + medium → API params. Custom range wins when both dates set.
   const params = useMemo(() => {
@@ -244,6 +247,7 @@ const UpSwingFunnel = () => {
     if (!isDrillable(st)) return;
     setDrill({ key: st.key, label: st.label, day });
     setDrillData(null);
+    setStatusLeads(null);   // start on the breakdown view, not a stale leads sub-view
     setDrillLoading(true);
     try {
       const res = await getUpSwingFunnelStageStatus({ stage: st.key, ...params, day });
@@ -256,6 +260,25 @@ const UpSwingFunnel = () => {
       setDrillLoading(false);
     }
   }, [params]);
+
+  // Second-level drill: fetch the actual leads (pci + phone) at ONE status of the
+  // open stage's breakdown — "who is currently <status>".
+  const openStatusLeads = useCallback(async (x) => {
+    if (!drill) return;
+    setStatusLeads({ status: x.key, label: x.label, tone: x.tone, count: x.leads, leads: null });
+    setStatusLeadsLoading(true);
+    try {
+      const res = await getUpSwingFunnelStageLeads({ stage: drill.key, status: x.key, ...params, day: drill.day || undefined });
+      if (res?.data?.success) {
+        setStatusLeads((prev) => (prev && prev.status === x.key ? { ...prev, leads: res.data.data.leads || [], count: res.data.data.count } : prev));
+      } else ToastNotification.error('Failed to load leads');
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Failed to load leads');
+    } finally {
+      setStatusLeadsLoading(false);
+    }
+  }, [drill, params]);
 
   const s = data?.summary || {};
   const total = Number(s.totalLeads) || 0;
@@ -501,43 +524,88 @@ const UpSwingFunnel = () => {
       {/* Stage drill-down — click any journey stage to see the CURRENT status of the
           leads who reached it (where they actually are now, not the furthest they got). */}
       {drill && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => setDrill(null)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={() => { setDrill(null); setStatusLeads(null); }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* Header — breakdown title, or (in the leads sub-view) a back arrow + status title */}
             <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-violet-50">
-              <div>
-                <h3 className="text-[15px] font-bold text-gray-800">
-                  {drill.label} — where are they now?
-                  {drill.day ? <span className="font-semibold text-[13px] text-purple-600"> · {fmtDate(drill.day)}</span> : ''}
-                </h3>
-                <p className="text-[11.5px] text-gray-500 mt-0.5">
-                  Current status of leads who reached <b>{drill.label}</b>
-                  {drill.day ? <> and <b>first arrived on {fmtDate(drill.day)}</b></> : ''}
-                  {drillData ? <> · <span className="font-semibold text-purple-700">{fmtNum(drillData.reached)} reached</span></> : ''}
-                </p>
+              <div className="flex items-start gap-2 min-w-0">
+                {statusLeads && (
+                  <button onClick={() => setStatusLeads(null)} className="mt-0.5 p-1 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-white/70 transition shrink-0" title="Back"><ChevronLeft size={16} /></button>
+                )}
+                <div className="min-w-0">
+                  {statusLeads ? (
+                    <>
+                      <h3 className="text-[15px] font-bold text-gray-800 truncate">{drill.label} → {statusLeads.label}</h3>
+                      <p className="text-[11.5px] text-gray-500 mt-0.5">
+                        Leads currently at <b>{statusLeads.label}</b> · <span className="font-semibold text-purple-700">{fmtNum(statusLeads.count)}</span>
+                        {drill.day ? <> · {fmtDate(drill.day)}</> : ''}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="text-[15px] font-bold text-gray-800">
+                        {drill.label} — where are they now?
+                        {drill.day ? <span className="font-semibold text-[13px] text-purple-600"> · {fmtDate(drill.day)}</span> : ''}
+                      </h3>
+                      <p className="text-[11.5px] text-gray-500 mt-0.5">
+                        Current status of leads who reached <b>{drill.label}</b>
+                        {drill.day ? <> and <b>first arrived on {fmtDate(drill.day)}</b></> : ''}
+                        {drillData ? <> · <span className="font-semibold text-purple-700">{fmtNum(drillData.reached)} reached</span></> : ''}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-              <button onClick={() => setDrill(null)} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition" aria-label="Close"><X size={18} /></button>
+              <button onClick={() => { setDrill(null); setStatusLeads(null); }} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition shrink-0" aria-label="Close"><X size={18} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
-              {drillLoading ? (
+              {statusLeads ? (
+                // ── Leads sub-view: who is at this status ──
+                (statusLeadsLoading || statusLeads.leads === null) ? (
+                  <div className="py-10 text-center text-[13px] text-gray-400">Loading…</div>
+                ) : statusLeads.leads.length === 0 ? (
+                  <div className="py-10 text-center text-[13px] text-gray-400">No leads.</div>
+                ) : (
+                  <div className="flex flex-col divide-y divide-gray-100">
+                    {statusLeads.leads.map((l) => (
+                      <div key={l.pci} className="flex items-center justify-between py-2 gap-3">
+                        <div className="min-w-0">
+                          {l.phone ? (
+                            <a href={`tel:${l.phone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 font-mono font-bold text-[13px] text-gray-800 hover:text-purple-700 hover:underline" title="Call">
+                              <Phone size={11} className="text-indigo-500" /> {l.phone}
+                            </a>
+                          ) : <span className="text-[12px] text-gray-400">no phone</span>}
+                          <div className="text-[10.5px] text-gray-400 font-mono truncate max-w-[240px]" title={l.pci}>{l.pci}</div>
+                        </div>
+                        <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap">{l.at}</span>
+                      </div>
+                    ))}
+                    {statusLeads.count > statusLeads.leads.length && (
+                      <div className="py-2 text-[11px] text-gray-400 text-center">Showing first {fmtNum(statusLeads.leads.length)} of {fmtNum(statusLeads.count)}</div>
+                    )}
+                  </div>
+                )
+              ) : drillLoading ? (
                 <div className="py-10 text-center text-[13px] text-gray-400">Loading…</div>
               ) : !drillData || (drillData.statuses || []).length === 0 ? (
                 <div className="py-10 text-center text-[13px] text-gray-400">No data for this stage.</div>
               ) : (
+                // ── Breakdown: status rows are clickable → the leads sub-view ──
                 <div className="space-y-2.5">
                   {drillData.statuses.map((x) => {
                     const barColor = x.tone === 'green' ? 'bg-emerald-500' : x.tone === 'red' ? 'bg-rose-500' : 'bg-purple-400';
                     const textColor = x.tone === 'green' ? 'text-emerald-700' : x.tone === 'red' ? 'text-rose-700' : 'text-gray-700';
                     return (
-                      <div key={x.key}>
+                      <button key={x.key} type="button" onClick={() => openStatusLeads(x)} className="w-full text-left group" title={`See who is ${x.label}`}>
                         <div className="flex items-center justify-between text-[12.5px] mb-0.5">
-                          <span className={`font-semibold ${textColor}`} title={x.key}>{x.label}</span>
+                          <span className={`font-semibold ${textColor} group-hover:underline`} title={x.key}>{x.label}</span>
                           <span className="tabular-nums text-gray-500"><span className="font-bold text-gray-800">{fmtNum(x.leads)}</span> · {x.pct}%</span>
                         </div>
                         <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
                           <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.max(Number(x.pct) || 0, 2)}%` }} />
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
@@ -545,11 +613,16 @@ const UpSwingFunnel = () => {
             </div>
 
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
-              <p className="text-[11px] text-gray-500 leading-relaxed">
-                <b>Reached</b> = leads whose furthest journey stage is <b>{drill.label}</b> or later (same as the funnel column).{' '}
-                <b>Current status</b> = the latest event that arrived per lead — a re-login can show an earlier stage
-                (e.g. OTP Login), so this is where they <i>actually</i> are now, not the furthest they got.
-              </p>
+              {statusLeads ? (
+                <p className="text-[11px] text-gray-500 leading-relaxed">Tap a phone to call. These leads reached <b>{drill.label}</b> and are currently at <b>{statusLeads.label}</b>.</p>
+              ) : (
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  <b>Reached</b> = leads whose furthest journey stage is <b>{drill.label}</b> or later.{' '}
+                  <b>Current status</b> = the latest event that arrived per lead — where they <i>actually</i> are now,
+                  not the furthest they got. Pure OTP-login re-visits are excluded as noise.{' '}
+                  <span className="text-purple-600 font-semibold">Click a status</span> to see who's in it.
+                </p>
+              )}
             </div>
           </div>
         </div>

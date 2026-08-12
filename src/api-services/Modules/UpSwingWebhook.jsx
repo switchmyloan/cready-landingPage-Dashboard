@@ -54,6 +54,15 @@ export const getUpSwingFunnelStageStatus = async ({ stage, type, fromDate, toDat
   });
 };
 
+// Deeper drill: the actual leads (pci + phone) behind ONE status of that breakdown
+// (e.g. who is currently "Loan Rejected" among leads who reached this stage).
+export const getUpSwingFunnelStageLeads = async ({ stage, status, type, fromDate, toDate, medium, day } = {}) => {
+  return Api().get(`/upswing-webhook/funnel-stage-status-leads`, {
+    params: { stage, status, type, fromDate, toDate, medium, day },
+    skipAdminAppend: true,
+  });
+};
+
 // Recent BANK_OFFER_AVAILABLE leads — polled by the navbar alert bell.
 export const getUpSwingBankOfferAlerts = async () => {
   return Api().get(`/upswing-webhook/bank-offer-alerts`, {
