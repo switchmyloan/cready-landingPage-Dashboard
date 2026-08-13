@@ -145,6 +145,7 @@ const OfferLeads = () => {
     utmSource: '',
     feedbackStatus: '',
     trackingEvent: '',
+    lntActivity: '',
     hotLeads: '',
   };
 
@@ -261,6 +262,7 @@ const OfferLeads = () => {
     AyeFinance: 'Aye Finance',
     FlexiLoans: 'FlexiLoans',
     'IDFC First Bank': 'IDFC First Bank',
+    LTF: 'LTF (L&T)',
   };
 
   // Lender dropdown options — populated from the DB so it always reflects the
@@ -327,6 +329,8 @@ const OfferLeads = () => {
         utmSource: query.utmSource || undefined,
         feedbackStatus: query.feedbackStatus || undefined,
         trackingEvent: query.trackingEvent || undefined,
+        // "LnT Activity" = leads whose phone clicked L&T (selectedLenders 'LnT').
+        lntActivity: query.lntActivity || undefined,
         // Hot Leads: only leads where the selected lender ('all' = any) returned a success.
         // Only sent for users allowed to see the filter (belt-and-suspenders with the UI gate).
         hotLeads: canSeeHotLeads ? (query.hotLeads || undefined) : undefined,
@@ -359,7 +363,7 @@ const OfferLeads = () => {
     query.dobFromDate, query.dobToDate, query.loanPurpose,
     query.minMonthlyIncome, query.maxMonthlyIncome, query.lender,
     query.disbStatus, query.city, query.employmentType, query.utmMedium, query.utmSource,
-    query.feedbackStatus, query.trackingEvent, query.hotLeads, canSeeHotLeads, salaryBand, isCallCenter, agentId,
+    query.feedbackStatus, query.trackingEvent, query.lntActivity, query.hotLeads, canSeeHotLeads, salaryBand, isCallCenter, agentId,
   ]);
 
   useEffect(() => {
@@ -458,6 +462,7 @@ const OfferLeads = () => {
       utmMedium: '',
       utmSource: '',
       trackingEvent: '',
+      lntActivity: '',
       hotLeads: '',
     }));
   }, [salaryBand]);
@@ -492,6 +497,12 @@ const OfferLeads = () => {
 
   const handleTrackingFilter = useCallback((newTracking) => {
     setQuery(prev => ({ ...prev, trackingEvent: newTracking, page_no: 1 }));
+  }, []);
+
+  // "LnT Activity" filter — leads whose phone clicked L&T (UpSwing). Mirrors the
+  // InCred Activity control; the single option = "went to L&T".
+  const handleLntFilter = useCallback((value) => {
+    setQuery(prev => ({ ...prev, lntActivity: value, page_no: 1 }));
   }, []);
 
   // Hot Leads filter — leads where the selected lender ('all' = any) returned a success.
@@ -921,6 +932,32 @@ const OfferLeads = () => {
                   onClick={() => handleTrackingFilter('')}
                   className="text-[11px] px-2 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition flex-shrink-0"
                   title="Clear tracking filter"
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* LnT (UpSwing) activity — leads who clicked/redirected to L&T */}
+          <div className="flex flex-col gap-1 min-w-0">
+            <label className="text-[11px] font-bold tracking-[0.08em] uppercase text-gray-500">
+              LnT Activity
+            </label>
+            <div className="flex items-center gap-1.5">
+              <select
+                value={query.lntActivity}
+                onChange={(e) => handleLntFilter(e.target.value)}
+                className="flex-1 min-w-0 border border-gray-200 bg-white rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-400 transition"
+              >
+                <option value="">All Activity</option>
+                <option value="went_to_lnt">LnT: Went to L&T</option>
+              </select>
+              {query.lntActivity && (
+                <button
+                  onClick={() => handleLntFilter('')}
+                  className="text-[11px] px-2 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition flex-shrink-0"
+                  title="Clear LnT filter"
                 >
                   ×
                 </button>

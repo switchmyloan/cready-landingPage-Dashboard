@@ -156,6 +156,7 @@ export const getOfferLeads = async ({
   feedbackStatus,
   distinct,
   trackingEvent,
+  lntActivity,
   agentId,
   hotLeads,
 } = {}) => {
@@ -183,6 +184,7 @@ export const getOfferLeads = async ({
             feedbackStatus,
             distinct,
             trackingEvent,
+            lntActivity,
             // Persisted call-center assignment: agentId filters the list to the
             // leads assigned to this agent (lead_assignments). hotLeads is the
             // hot-leads flag.

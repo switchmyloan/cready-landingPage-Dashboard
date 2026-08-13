@@ -43,6 +43,20 @@ const exportCsv = (data) => {
   URL.revokeObjectURL(url);
 };
 
+// Generic CSV download from a 2D array of rows (first row = header).
+const downloadCsv = (rows, filename) => {
+  const body = rows.map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob(['﻿' + body], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+
 const Kpi = ({ icon, label, value, sub, tone }) => (
   <div className={`flex-1 min-w-[160px] rounded-xl border px-4 py-3 shadow-sm ${tone}`}>
     <div className="flex items-center gap-1.5 mb-1 opacity-80">
@@ -286,6 +300,20 @@ const UpSwingFunnel = () => {
       setStatusLeadsLoading(false);
     }
   }, [drill, params]);
+
+  // Export the drill modal's current view as CSV — the leads list when a status is
+  // open, else the status breakdown for the stage.
+  const exportDrill = useCallback(() => {
+    if (!drill) return;
+    const slug = (x) => String(x || '').replace(/[^a-zA-Z0-9]+/g, '_');
+    if (statusLeads && Array.isArray(statusLeads.leads)) {
+      const rows = [['Phone', 'PCI', 'LastEvent'], ...statusLeads.leads.map((l) => [l.phone || '', l.pci, l.at])];
+      downloadCsv(rows, `upswing_${slug(drill.key)}_${slug(statusLeads.status)}_leads.csv`);
+    } else if (drillData && Array.isArray(drillData.statuses)) {
+      const rows = [['Status', 'StatusKey', 'Leads', 'Percent'], ...drillData.statuses.map((x) => [x.label, x.key, x.leads, `${x.pct}%`])];
+      downloadCsv(rows, `upswing_${slug(drill.key)}_status_breakdown.csv`);
+    }
+  }, [drill, drillData, statusLeads]);
 
   const s = data?.summary || {};
   const total = Number(s.totalLeads) || 0;
@@ -606,7 +634,17 @@ const UpSwingFunnel = () => {
                   )}
                 </div>
               </div>
-              <button onClick={() => { setDrill(null); setStatusLeads(null); }} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition shrink-0" aria-label="Close"><X size={18} /></button>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  onClick={exportDrill}
+                  disabled={statusLeads ? !(statusLeads.leads && statusLeads.leads.length) : !(drillData && drillData.statuses && drillData.statuses.length)}
+                  className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-purple-700 hover:bg-white/70 disabled:opacity-40 transition text-[12px] font-semibold"
+                  title="Export this view as CSV"
+                >
+                  <Download size={14} /> Export
+                </button>
+                <button onClick={() => { setDrill(null); setStatusLeads(null); }} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition" aria-label="Close"><X size={18} /></button>
+              </div>
             </div>
 
             <div className="flex-1 overflow-y-auto px-5 py-4">
