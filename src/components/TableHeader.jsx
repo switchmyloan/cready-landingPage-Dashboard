@@ -1,4 +1,4 @@
-import { Edit2, Image, Trash2, Eye, Phone } from 'lucide-react';
+import { Edit2, Image, Trash2, Eye, Phone, Landmark } from 'lucide-react';
 const S3_IMAGE_PATH = import.meta.env.VITE_IMAGE_URL
 
 // ---------- Cell formatting helpers ----------
@@ -118,7 +118,7 @@ const trackingEventsColumn = {
   cell: ({ getValue }) => <TrackingEventsCell value={getValue()} />,
 };
 
-export const offerLeadsColumn = ({ handleEdit, showTracking = false }) => [
+export const offerLeadsColumn = ({ handleEdit, showTracking = false, showLntOffer = false, onLntOffer }) => [
   {
     header: 'Name',
     accessorKey: 'name',
@@ -262,13 +262,26 @@ export const offerLeadsColumn = ({ handleEdit, showTracking = false }) => [
     header: 'Actions',
     accessorKey: 'actions',
     cell: ({ row }) => (
-      <button
-        onClick={() => handleEdit(row.original)}
-        className="p-2 rounded-lg hover:bg-purple-100 text-purple-600 transition"
-        title="View details"
-      >
-        <Eye size={18} />
-      </button>
+      <div className="flex items-center gap-1">
+        {/* L&T Offer — shown only in the LNT Bank Offer view; opens the UpSwing
+            detail (L&T offer + journey), the same page the alert bell's "i" opens. */}
+        {showLntOffer && onLntOffer && (
+          <button
+            onClick={() => onLntOffer(row.original)}
+            className="p-2 rounded-lg hover:bg-indigo-100 text-indigo-600 transition"
+            title="View L&T offer (UpSwing)"
+          >
+            <Landmark size={17} />
+          </button>
+        )}
+        <button
+          onClick={() => handleEdit(row.original)}
+          className="p-2 rounded-lg hover:bg-purple-100 text-purple-600 transition"
+          title="View details"
+        >
+          <Eye size={18} />
+        </button>
+      </div>
     ),
   },
 ];

@@ -159,6 +159,7 @@ export const getOfferLeads = async ({
   lntActivity,
   agentId,
   hotLeads,
+  lntBankOffer,
 } = {}) => {
     return Api().get(`/offer-leads`, {
         params: {
@@ -190,6 +191,7 @@ export const getOfferLeads = async ({
             // hot-leads flag.
             agentId,
             hotLeads,
+            lntBankOffer,
         },
         skipAdminAppend: true,
     });

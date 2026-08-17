@@ -5,7 +5,7 @@ import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar,
 import ToastNotification from '@components/Notification/ToastNotification';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
 import PremiumLoader from '../../../components/PremiumLoader';
-import { getUpSwingFunnelHistory, getUpSwingFunnelHistoryByEvent, getUpSwingFunnelStageStatus, getUpSwingFunnelStageLeads } from '../../../api-services/Modules/UpSwingWebhook';
+import { getUpSwingFunnelHistory, getUpSwingFunnelHistoryByEvent, getUpSwingFunnelStageStatus, getUpSwingFunnelStageLeads, getUpSwingFunnelEventDayLeads } from '../../../api-services/Modules/UpSwingWebhook';
 
 const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtPct = (n) => `${Number(n || 0)}%`;
@@ -264,6 +264,12 @@ const UpSwingFunnel = () => {
   // — the event-day view counts per event, not per reached-stage — so it's disabled there.
   const isDrillable = useCallback((st) => !!st && !data?.byEvent && st.key !== 'REDIRECTED' && st.tone !== 'red', [data]);
 
+  // Event-day matrix cells are drillable too, but into a DIRECT leads list (who
+  // fired this event that day) — not a "where are they now" breakdown. Everything
+  // except the Cready "Redirected" count (phone-keyed, not a webhook event);
+  // red outcomes ARE included here (clicking "Loan Rejected · 22" is exactly the point).
+  const isEventDrillable = useCallback((st) => !!st && !!data?.byEvent && st.key !== 'REDIRECTED', [data]);
+
   const openDrill = useCallback(async (st, day = null) => {
     if (!isDrillable(st)) return;
     setDrill({ key: st.key, label: st.label, day });
@@ -301,19 +307,60 @@ const UpSwingFunnel = () => {
     }
   }, [drill, params]);
 
-  // Export the drill modal's current view as CSV — the leads list when a status is
-  // open, else the status breakdown for the stage.
-  const exportDrill = useCallback(() => {
+  // Event-day drill: leads (pci + phone) who fired THIS event on THIS day (or across
+  // the whole range when day is null). Goes straight to the modal's leads sub-view —
+  // there's no reached-stage breakdown for an event-day count. Reuses statusLeads,
+  // flagged byEvent so the modal shows event-day wording and no "back to breakdown".
+  const openEventDayLeads = useCallback(async (st, day = null) => {
+    if (!isEventDrillable(st)) return;
+    setDrill({ key: st.key, label: st.label, day: day || null, byEvent: true });
+    setDrillData(null);
+    setStatusLeads({ status: st.key, label: st.label, tone: st.tone, count: null, leads: null, byEvent: true });
+    setStatusLeadsLoading(true);
+    try {
+      const res = await getUpSwingFunnelEventDayLeads({ event: st.key, ...params, day: day || undefined });
+      if (res?.data?.success) {
+        const d = res.data.data || {};
+        setStatusLeads((prev) => (prev && prev.status === st.key ? { ...prev, leads: d.leads || [], count: d.count || 0 } : prev));
+      } else ToastNotification.error('Failed to load leads');
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Failed to load leads');
+    } finally {
+      setStatusLeadsLoading(false);
+    }
+  }, [params, isEventDrillable]);
+
+  // Export the drill modal as CSV. In the one-status sub-view → just those leads. In
+  // the breakdown view → the ACTUAL leads behind EVERY status (the users inside), one
+  // row per lead with its status — fetched fresh (no status = all) so the caller gets
+  // every underlying phone, not just the status counts.
+  const [exporting, setExporting] = useState(false);
+  const exportDrill = useCallback(async () => {
     if (!drill) return;
     const slug = (x) => String(x || '').replace(/[^a-zA-Z0-9]+/g, '_');
     if (statusLeads && Array.isArray(statusLeads.leads)) {
-      const rows = [['Phone', 'PCI', 'LastEvent'], ...statusLeads.leads.map((l) => [l.phone || '', l.pci, l.at])];
+      const rows = [['Phone', 'PCI', 'Status', 'When'], ...statusLeads.leads.map((l) => [l.phone || '', l.pci, statusLeads.label, l.at])];
       downloadCsv(rows, `upswing_${slug(drill.key)}_${slug(statusLeads.status)}_leads.csv`);
-    } else if (drillData && Array.isArray(drillData.statuses)) {
-      const rows = [['Status', 'StatusKey', 'Leads', 'Percent'], ...drillData.statuses.map((x) => [x.label, x.key, x.leads, `${x.pct}%`])];
-      downloadCsv(rows, `upswing_${slug(drill.key)}_status_breakdown.csv`);
+      return;
     }
-  }, [drill, drillData, statusLeads]);
+    if (!drillData) return;
+    try {
+      setExporting(true);
+      const res = await getUpSwingFunnelStageLeads({ stage: drill.key, ...params, day: drill.day || undefined });
+      const leads = res?.data?.data?.leads || [];
+      if (!leads.length) { ToastNotification.error('No leads to export'); return; }
+      const labelOf = (k) => (drillData.statuses.find((s2) => s2.key === k)?.label) || k;
+      const rows = [['Phone', 'PCI', 'Status', 'When'], ...leads.map((l) => [l.phone || '', l.pci, labelOf(l.status), l.at])];
+      downloadCsv(rows, `upswing_${slug(drill.key)}_all_leads.csv`);
+      if (leads.length >= 5000) ToastNotification.success('Exported first 5000 leads (cap reached).');
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  }, [drill, drillData, statusLeads, params]);
 
   const s = data?.summary || {};
   const total = Number(s.totalLeads) || 0;
@@ -463,12 +510,12 @@ const UpSwingFunnel = () => {
                     <th className="sticky left-0 z-20 bg-gray-50 text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 min-w-[120px]">Date</th>
                     <th className="sticky left-[120px] z-20 bg-gray-100 text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 min-w-[70px]">Total</th>
                     {data.stages.map((st) => {
-                      const drillable = isDrillable(st);
+                      const drillable = data?.byEvent ? isEventDrillable(st) : isDrillable(st);
                       return (
                         <th
                           key={st.key}
-                          title={drillable ? `${st.key} — click to see where these leads are now` : st.key}
-                          onClick={() => drillable && openDrill(st)}
+                          title={drillable ? (data?.byEvent ? `${st.key} — click to see the leads for this event` : `${st.key} — click to see where these leads are now`) : st.key}
+                          onClick={() => drillable && (data?.byEvent ? openEventDayLeads(st) : openDrill(st))}
                           className={`text-right px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-wide whitespace-nowrap ${st.tone === 'red' ? 'text-rose-600' : st.tone === 'green' ? 'text-emerald-600' : 'text-gray-500'} ${drillable ? 'cursor-pointer hover:text-purple-700 hover:underline underline-offset-2' : ''}`}
                         >
                           {st.label}
@@ -491,15 +538,16 @@ const UpSwingFunnel = () => {
                           const step = data?.byEvent ? null : RATIO_BY_TO[st.key];
                           const fromV = step ? (row.byStage[step.from] || 0) : 0;
                           const pct = step && v > 0 && fromV > 0 ? (v / fromV) * 100 : null;
-                          // Click a non-zero journey cell → that day's leads at this stage, now.
-                          const cellDrillable = isDrillable(st) && v > 0;
+                          // Click a non-zero cell → create-day: that day's leads at this
+                          // stage now; event-day: the leads who fired this event that day.
+                          const cellDrillable = (data?.byEvent ? isEventDrillable(st) : isDrillable(st)) && v > 0;
                           return (
                             <td key={st.key} className={`px-3 py-2 text-right text-[12.5px] tabular-nums ${v ? 'text-gray-800 font-medium' : 'text-gray-300'}`}>
                               {cellDrillable ? (
                                 <button
                                   type="button"
-                                  onClick={() => openDrill(st, row.date)}
-                                  title={`${st.label} · ${fmtDate(row.date)} — where are these leads now?`}
+                                  onClick={() => (data?.byEvent ? openEventDayLeads(st, row.date) : openDrill(st, row.date))}
+                                  title={data?.byEvent ? `${st.label} · ${fmtDate(row.date)} — see the leads` : `${st.label} · ${fmtDate(row.date)} — where are these leads now?`}
                                   className="tabular-nums cursor-pointer hover:text-purple-700 hover:underline underline-offset-2"
                                 >
                                   {fmtNum(v)}
@@ -527,14 +575,14 @@ const UpSwingFunnel = () => {
                       const step = data?.byEvent ? null : RATIO_BY_TO[st.key];
                       const fromTotal = step ? (stageTotal[step.from] || 0) : 0;
                       const pct = step && fromTotal > 0 ? (st.total / fromTotal) * 100 : null;
-                      const drillable = isDrillable(st);
+                      const drillable = data?.byEvent ? isEventDrillable(st) : isDrillable(st);
                       return (
                         <td key={st.key} className="px-3 py-2.5 text-right text-[12.5px] font-bold text-gray-800 tabular-nums">
                           {drillable ? (
                             <button
                               type="button"
-                              onClick={() => openDrill(st)}
-                              title="Where are these leads now?"
+                              onClick={() => (data?.byEvent ? openEventDayLeads(st) : openDrill(st))}
+                              title={data?.byEvent ? 'See the leads for this event' : 'Where are these leads now?'}
                               className="tabular-nums cursor-pointer hover:text-purple-700 hover:underline underline-offset-2"
                             >
                               {fmtNum(st.total)}
@@ -607,11 +655,20 @@ const UpSwingFunnel = () => {
             {/* Header — breakdown title, or (in the leads sub-view) a back arrow + status title */}
             <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-violet-50">
               <div className="flex items-start gap-2 min-w-0">
-                {statusLeads && (
+                {statusLeads && !statusLeads.byEvent && (
                   <button onClick={() => setStatusLeads(null)} className="mt-0.5 p-1 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-white/70 transition shrink-0" title="Back"><ChevronLeft size={16} /></button>
                 )}
                 <div className="min-w-0">
                   {statusLeads ? (
+                    statusLeads.byEvent ? (
+                      <>
+                        <h3 className="text-[15px] font-bold text-gray-800 truncate">{statusLeads.label}{drill.day ? <span className="font-semibold text-[13px] text-purple-600"> · {fmtDate(drill.day)}</span> : ''}</h3>
+                        <p className="text-[11.5px] text-gray-500 mt-0.5">
+                          Leads who fired <b>{statusLeads.label}</b>{drill.day ? <> on <b>{fmtDate(drill.day)}</b></> : <> in this range</>}
+                          {statusLeads.count != null ? <> · <span className="font-semibold text-purple-700">{fmtNum(statusLeads.count)}</span></> : ''}
+                        </p>
+                      </>
+                    ) : (
                     <>
                       <h3 className="text-[15px] font-bold text-gray-800 truncate">{drill.label} → {statusLeads.label}</h3>
                       <p className="text-[11.5px] text-gray-500 mt-0.5">
@@ -619,6 +676,7 @@ const UpSwingFunnel = () => {
                         {drill.day ? <> · {fmtDate(drill.day)}</> : ''}
                       </p>
                     </>
+                    )
                   ) : (
                     <>
                       <h3 className="text-[15px] font-bold text-gray-800">
@@ -637,11 +695,11 @@ const UpSwingFunnel = () => {
               <div className="flex items-center gap-1 shrink-0">
                 <button
                   onClick={exportDrill}
-                  disabled={statusLeads ? !(statusLeads.leads && statusLeads.leads.length) : !(drillData && drillData.statuses && drillData.statuses.length)}
+                  disabled={exporting || (statusLeads ? !(statusLeads.leads && statusLeads.leads.length) : !(drillData && drillData.statuses && drillData.statuses.length))}
                   className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-purple-700 hover:bg-white/70 disabled:opacity-40 transition text-[12px] font-semibold"
-                  title="Export this view as CSV"
+                  title={statusLeads ? 'Export these leads as CSV' : 'Export every lead behind this stage as CSV'}
                 >
-                  <Download size={14} /> Export
+                  <Download size={14} /> {exporting ? 'Exporting…' : 'Export'}
                 </button>
                 <button onClick={() => { setDrill(null); setStatusLeads(null); }} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition" aria-label="Close"><X size={18} /></button>
               </div>
@@ -702,12 +760,17 @@ const UpSwingFunnel = () => {
 
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50">
               {statusLeads ? (
-                <p className="text-[11px] text-gray-500 leading-relaxed">Tap a phone to call. These leads reached <b>{drill.label}</b> and are currently at <b>{statusLeads.label}</b>.</p>
+                statusLeads.byEvent ? (
+                  <p className="text-[11px] text-gray-500 leading-relaxed">Tap a phone to call. These leads fired <b>{statusLeads.label}</b>{drill.day ? <> on <b>{fmtDate(drill.day)}</b></> : <> in this range</>} (distinct per lead — latest firing shown).</p>
+                ) : (
+                  <p className="text-[11px] text-gray-500 leading-relaxed">Tap a phone to call. These leads reached <b>{drill.label}</b> and are currently at <b>{statusLeads.label}</b>.</p>
+                )
               ) : (
                 <p className="text-[11px] text-gray-500 leading-relaxed">
                   <b>Reached</b> = leads whose furthest journey stage is <b>{drill.label}</b> or later.{' '}
-                  <b>Current status</b> = the latest event that arrived per lead — where they <i>actually</i> are now,
-                  not the furthest they got. Pure OTP-login re-visits are excluded as noise.{' '}
+                  <b>Current status</b> = the latest event per lead — where they <i>actually</i> are now,
+                  not the furthest they got. A later OTP-login re-visit is skipped, so the lead is shown
+                  under the real stage it was last at (offer → OTP → shown under Offer).{' '}
                   <span className="text-purple-600 font-semibold">Click a status</span> to see who's in it.
                 </p>
               )}

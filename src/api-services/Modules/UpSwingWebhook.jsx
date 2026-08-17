@@ -72,6 +72,23 @@ export const getUpSwingFunnelStageLeads = async ({ stage, status, type, fromDate
   });
 };
 
+// Drill for the by-event-day matrix: the actual leads (pci + phone) who fired ONE
+// event on ONE day. Omit `day` for the event's whole range (header/footer click).
+export const getUpSwingFunnelEventDayLeads = async ({ event, type, fromDate, toDate, medium, day } = {}) => {
+  return Api().get(`/upswing-webhook/funnel-event-day-leads`, {
+    params: { event, type, fromDate, toDate, medium, day },
+    skipAdminAppend: true,
+  });
+};
+
+// Resolve a phone → its UpSwing pci, so the Offer Leads list can open the L&T detail
+// page (same page the alert bell's "i" button opens). Returns { pci } (or null).
+export const getUpSwingPciByPhone = async (phone) => {
+  return Api().get(`/upswing-webhook/pci-by-phone/${encodeURIComponent(phone)}`, {
+    skipAdminAppend: true,
+  });
+};
+
 // Recent BANK_OFFER_AVAILABLE leads — polled by the navbar alert bell.
 export const getUpSwingBankOfferAlerts = async () => {
   return Api().get(`/upswing-webhook/bank-offer-alerts`, {

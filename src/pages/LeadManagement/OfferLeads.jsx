@@ -11,6 +11,7 @@ import OfferLeadsLenderStatsChart from '../../components/OfferLeadsLenderStatsCh
 import ExportModal from '../../components/ExportModal';
 import ModuleInfoCard from '../../components/ModuleInfoCard';
 import ToastNotification from '../../components/Notification/ToastNotification';
+import { getUpSwingPciByPhone } from '../../api-services/Modules/UpSwingWebhook';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { getSalaryBand, isCallCenterRole } from '../../custom-hooks/callCenterBands';
 import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
@@ -147,6 +148,7 @@ const OfferLeads = () => {
     trackingEvent: '',
     lntActivity: '',
     hotLeads: '',
+    lntBankOffer: '',
   };
 
   const [query, setQuery] = useState(() => {
@@ -334,6 +336,8 @@ const OfferLeads = () => {
         // Hot Leads: only leads where the selected lender ('all' = any) returned a success.
         // Only sent for users allowed to see the filter (belt-and-suspenders with the UI gate).
         hotLeads: canSeeHotLeads ? (query.hotLeads || undefined) : undefined,
+        // LNT Hot Leads: L&T leads who currently have a bank offer (UpSwing). Same gate.
+        lntBankOffer: canSeeHotLeads ? (query.lntBankOffer || undefined) : undefined,
         // Customer-care view: one row per phone (latest by createdAt).
         distinct: isCallCenter ? 'true' : undefined,
         // Pooled call-center agent → backend filters to their assigned leads.
@@ -363,7 +367,7 @@ const OfferLeads = () => {
     query.dobFromDate, query.dobToDate, query.loanPurpose,
     query.minMonthlyIncome, query.maxMonthlyIncome, query.lender,
     query.disbStatus, query.city, query.employmentType, query.utmMedium, query.utmSource,
-    query.feedbackStatus, query.trackingEvent, query.lntActivity, query.hotLeads, canSeeHotLeads, salaryBand, isCallCenter, agentId,
+    query.feedbackStatus, query.trackingEvent, query.lntActivity, query.hotLeads, query.lntBankOffer, canSeeHotLeads, salaryBand, isCallCenter, agentId,
   ]);
 
   useEffect(() => {
@@ -464,6 +468,7 @@ const OfferLeads = () => {
       trackingEvent: '',
       lntActivity: '',
       hotLeads: '',
+      lntBankOffer: '',
     }));
   }, [salaryBand]);
 
@@ -504,6 +509,28 @@ const OfferLeads = () => {
   const handleLntFilter = useCallback((value) => {
     setQuery(prev => ({ ...prev, lntActivity: value, page_no: 1 }));
   }, []);
+
+  // LNT Hot Leads — L&T leads who currently have a bank offer (UpSwing pipeline).
+  const handleLntBankOfferFilter = useCallback((value) => {
+    setQuery(prev => ({ ...prev, lntBankOffer: value, page_no: 1 }));
+  }, []);
+
+  // Open a lead's L&T offer detail (UpSwing) — the same page the alert bell's "i"
+  // button opens. Offer leads are phone-keyed while the UpSwing detail is pci-keyed,
+  // so resolve phone→pci first, then navigate to the shared detail route.
+  const handleLntOffer = useCallback(async (rowData) => {
+    const phone = rowData?.phone;
+    if (!phone) { ToastNotification.error('No phone for this lead'); return; }
+    try {
+      const res = await getUpSwingPciByPhone(phone);
+      const pci = res?.data?.data?.pci;
+      if (pci) navigate(`/upswing-webhook/${encodeURIComponent(pci)}`);
+      else ToastNotification.error('No L&T journey found for this lead');
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Failed to open L&T offer');
+    }
+  }, [navigate]);
 
   // Hot Leads filter — leads where the selected lender ('all' = any) returned a success.
   const handleHotLeadsFilter = useCallback((value) => {
@@ -1025,6 +1052,35 @@ const OfferLeads = () => {
                 ×
               </button>
             )}
+
+            {/* LNT Hot Leads — L&T leads who currently have a bank offer (UpSwing
+                pipeline: BANK_OFFER_AVAILABLE & beyond, up to but not disbursed —
+                the same set the navbar alert surfaces). */}
+            <span className="mx-1 h-5 w-px bg-gray-200" aria-hidden="true" />
+            <label className="text-[12.5px] font-bold text-gray-700 inline-flex items-center gap-1 whitespace-nowrap">
+              🔥 LNT Bank Offer
+            </label>
+            <select
+              value={query.lntBankOffer}
+              onChange={(e) => handleLntBankOfferFilter(e.target.value)}
+              className={`border rounded-lg px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-orange-200 transition ${
+                query.lntBankOffer
+                  ? 'bg-orange-50 border-orange-300 text-orange-700 font-semibold'
+                  : 'bg-white border-gray-300 text-gray-700'
+              }`}
+            >
+              <option value="">Off (all leads)</option>
+              <option value="true">Has Bank Offer</option>
+            </select>
+            {query.lntBankOffer && (
+              <button
+                onClick={() => handleLntBankOfferFilter('')}
+                className="text-[11px] px-2 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition"
+                title="Clear LNT bank offer filter"
+              >
+                ×
+              </button>
+            )}
           </div>
         )}
 
@@ -1035,10 +1091,18 @@ const OfferLeads = () => {
             </span>
           </div>
         )}
+
+        {query.lntBankOffer && (
+          <div className="mt-2 pt-2 pl-2 border-t border-orange-100/70">
+            <span className="text-[11px] text-gray-500 italic">
+              🏦 Showing <b className="text-orange-700 not-italic">all leads who currently hold an L&T bank offer</b> — the date filter is ignored (this is a live status, same as the alert bell). Only leads that also exist in Offer Leads appear here.
+            </span>
+          </div>
+        )}
       </div>
 
       <MainTable
-        columns={offerLeadsColumn({ handleEdit, showTracking: true })}
+        columns={offerLeadsColumn({ handleEdit, showTracking: true, showLntOffer: !!query.lntBankOffer, onLntOffer: handleLntOffer })}
         data={rawData}
         totalDataCount={filteredCount}
         loading={loading}
