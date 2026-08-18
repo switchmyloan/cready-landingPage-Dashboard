@@ -47,3 +47,13 @@ export const getVivifiLeadEvents = async (leadId) => {
     skipAdminAppend: true,
   });
 };
+
+// Live "hot leads" (awaiting VKYC / e-Sign / e-Mandate / loan-chosen) — polled by the
+// navbar alert bell. `agentId` scopes it to that call-center agent's OWN assigned
+// leads (lead_assignments); omit (Super Admin) for all.
+export const getVivifiHotLeadAlerts = async ({ agentId } = {}) => {
+  return Api().get(`/vivifi-webhook-leads/hot-alerts`, {
+    params: { agentId },
+    skipAdminAppend: true,
+  });
+};

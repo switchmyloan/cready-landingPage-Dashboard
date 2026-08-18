@@ -209,6 +209,16 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    path: "/upswing-disbursals",
+    label: "UpSwing Disbursals",
+    icon: "IndianRupee",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.7,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/apollo-webhook",
     label: "Apollo",
     icon: "ClipboardList",

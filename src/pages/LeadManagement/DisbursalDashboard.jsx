@@ -744,9 +744,10 @@ const LenderBreakdownModal = ({ lender, range, scope, fromDate, toDate, utmSourc
 
 // The HIGH disbursal view — grid, filter dropdown, CSV, charts — hides
 // RapidMoney (a short-ticket lender tracked in the Cready RPM module),
-// RamFinCorp and LendingPlate; every other lender is shown. Matches the blacklist
-// in the backend high aggregates (trend / lender-stats / employment) + grid handling.
-const HIGH_HIDDEN_LENDERS = new Set(['rpm', 'rapidmoney', 'ramfincorp', 'lendingplate', 'mpokket']);
+// LendingPlate and Mpokket; every other lender is shown (RamFinCorp included).
+// Matches the blacklist in the backend high aggregates (trend / lender-stats /
+// employment) + grid handling.
+const HIGH_HIDDEN_LENDERS = new Set(['rpm', 'rapidmoney', 'lendingplate', 'mpokket']);
 const isHighWhitelistLender = (name) =>
     !HIGH_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 

@@ -89,6 +89,15 @@ export const getUpSwingPciByPhone = async (phone) => {
   });
 };
 
+// UpSwing disbursals — dedicated list over the upswing.upswing_disbursed feed
+// (pci + phone + ₹ figures), paginated + date + search, with a KPI summary.
+export const getUpSwingDisbursals = async ({ search = '', perPage = 10, currentPage = 1, type, fromDate, toDate } = {}) => {
+  return Api().get(`/upswing-webhook/disbursals`, {
+    params: { search, perPage, currentPage, type, fromDate, toDate },
+    skipAdminAppend: true,
+  });
+};
+
 // Recent BANK_OFFER_AVAILABLE leads — polled by the navbar alert bell.
 export const getUpSwingBankOfferAlerts = async () => {
   return Api().get(`/upswing-webhook/bank-offer-alerts`, {

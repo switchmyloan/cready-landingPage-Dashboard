@@ -6,6 +6,7 @@ import { UserService } from "../../custom-hooks";
 import CallbackReminders from "../CallbackReminders/CallbackReminders";
 import IncredSuccessAlerts from "../IncredSuccessAlerts/IncredSuccessAlerts";
 import UpSwingBankOfferAlerts from "../UpSwingBankOfferAlerts/UpSwingBankOfferAlerts";
+import VivifiHotLeadsAlerts from "../VivifiHotLeadsAlerts/VivifiHotLeadsAlerts";
 
 function Navbar({ onToggleSidebar }) {
   const navigate = useNavigate();
@@ -112,6 +113,10 @@ function Navbar({ onToggleSidebar }) {
 
         {/* UpSwing bank-offer-available alerts — same pattern, Super Admin + CC2 only */}
         <UpSwingBankOfferAlerts />
+
+        {/* Vivifi hot-lead alerts (awaiting VKYC / e-Sign / e-Mandate / loan-chosen) —
+            shared across ALL call-center agents + Super Admin */}
+        <VivifiHotLeadsAlerts />
 
         {/* Callback reminders bell — renders only for call-center roles */}
         <CallbackReminders />
