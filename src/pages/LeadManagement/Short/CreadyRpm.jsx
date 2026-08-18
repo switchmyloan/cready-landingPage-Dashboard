@@ -117,8 +117,13 @@ const AF_PRESETS = [
 const AfTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
   const p = payload[0].payload;
+  // Day-wise bars carry an hour-wise breakdown (`hours`) — show it on hover so the
+  // caller sees WHEN that day's AF payments came in. Only hours with a count appear.
+  const hours = Array.isArray(p.hours) ? p.hours.filter((h) => h.count > 0) : [];
+  // Peak hour of the day (highest AF-paid count) — surfaced as "Best time".
+  const best = hours.length ? hours.reduce((a, b) => (b.count > a.count ? b : a)) : null;
   return (
-    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-lg">
+    <div className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-lg max-w-[240px]">
       <p className="font-semibold text-gray-900">{p.label}</p>
       <p className="mt-0.5 text-gray-600">
         AF Paid: <span className="font-semibold text-purple-600">{p.count}</span>
@@ -129,6 +134,32 @@ const AfTooltip = ({ active, payload }) => {
           ₹{Number(p.amount).toLocaleString("en-IN")}
         </span>
       </p>
+      {hours.length > 0 && (
+        <div className="mt-1.5 border-t border-gray-100 pt-1.5">
+          <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+            By time
+          </p>
+          <div className="grid max-h-40 grid-cols-2 gap-x-3 gap-y-0.5 overflow-y-auto">
+            {hours.map((h) => (
+              <div key={h.hour} className="flex items-center justify-between gap-2">
+                <span className="tabular-nums text-gray-500">
+                  {String(h.hour).padStart(2, "0")}:00
+                </span>
+                <span className="font-semibold tabular-nums text-purple-600">{h.count}</span>
+              </div>
+            ))}
+          </div>
+          {best && (
+            <p className="mt-1.5 border-t border-gray-100 pt-1.5 text-[11px] text-gray-600">
+              Best time:{" "}
+              <span className="font-semibold text-purple-700">
+                {String(best.hour).padStart(2, "0")}:00
+              </span>{" "}
+              <span className="text-gray-400">({best.count})</span>
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -179,6 +210,10 @@ const AfPaidTrendModal = ({ open, onClose }) => {
     let cancelled = false;
     setLoading(true);
     getCreadyRpmAfPaidTrend({
+      // Pass the preset as `type` so today/yesterday use the SAME DB-side IST day the
+      // AF Paid card uses (getAfPaidStats) — the trend total then matches the card
+      // exactly, instead of drifting when the browser date ≠ the DB's IST date.
+      type: preset === 'today' ? 'today' : preset === 'yest' ? 'yesterday' : undefined,
       fromDate: effFrom || undefined,
       toDate: effTo || undefined,
       granularity,
@@ -195,7 +230,7 @@ const AfPaidTrendModal = ({ open, onClose }) => {
     return () => {
       cancelled = true;
     };
-  }, [open, effFrom, effTo, granularity]);
+  }, [open, effFrom, effTo, granularity, preset]);
 
   useEffect(() => {
     if (!open) return undefined;
