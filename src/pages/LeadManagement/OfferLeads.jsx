@@ -1092,7 +1092,7 @@ const OfferLeads = () => {
           </div>
         )}
 
-        {query.lntBankOffer && (
+        {canSeeHotLeads && query.lntBankOffer && (
           <div className="mt-2 pt-2 pl-2 border-t border-orange-100/70">
             <span className="text-[11px] text-gray-500 italic">
               🏦 Showing <b className="text-orange-700 not-italic">all leads who currently hold an L&T bank offer</b> — the date filter is ignored (this is a live status, same as the alert bell). Only leads that also exist in Offer Leads appear here.
