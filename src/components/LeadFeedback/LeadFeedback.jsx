@@ -7,6 +7,7 @@ import {
 import {
   getLeadFeedback, saveLeadFeedback,
   getShortLeadFeedback, saveShortLeadFeedback,
+  getVyaparLeadFeedback, saveVyaparLeadFeedback,
 } from '../../api-services/Modules/Leads';
 import { useAuth } from '../../custom-hooks/useAuth';
 import ToastNotification from '../Notification/ToastNotification';
@@ -200,11 +201,16 @@ const ActivityTimeline = ({ log, loading }) => (
 // A per-lead feedback card. Keyed by phone — the same record is shown/edited
 // across the three modules of a ticket (backend normalizes the phone to its last
 // 10 digits, so format differences don't matter). `scope` selects which table is
-// used: 'high' → lead_feedback, 'short' → short_feedback (kept separate).
+// used: 'high' → lead_feedback, 'short' → short_feedback, 'vyapar' →
+// vyapar_feedback (each kept separate).
 const LeadFeedback = ({ phone, scope = 'high' }) => {
   const { user } = useAuth();
-  const fetchFeedback = scope === 'short' ? getShortLeadFeedback : getLeadFeedback;
-  const persistFeedback = scope === 'short' ? saveShortLeadFeedback : saveLeadFeedback;
+  const fetchFeedback = scope === 'vyapar' ? getVyaparLeadFeedback
+    : scope === 'short' ? getShortLeadFeedback
+    : getLeadFeedback;
+  const persistFeedback = scope === 'vyapar' ? saveVyaparLeadFeedback
+    : scope === 'short' ? saveShortLeadFeedback
+    : saveLeadFeedback;
   const [status, setStatus] = useState('');
   const [remark, setRemark] = useState('');
   const [nextAction, setNextAction] = useState('');
