@@ -759,7 +759,7 @@ const isHighWhitelistLender = (name) =>
 // (a high-ticket lender), RapidMoney (tracked in the Cready RPM module) and
 // Poonawalla; every other lender (incl. Vivifi) is shown. Matches the blacklist in
 // the backend short aggregates (trend / lender-stats / employment) + grid SP.
-const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney', 'poonawalla', 'poonawala']);
+const SHORT_HIDDEN_LENDERS = new Set(['hero', 'herofincorp', 'rpm', 'rapidmoney', 'poonawalla', 'poonawala', 'lt', 'lnt', 'ltf', 'landt', 'ayefinance', 'ayefin']);
 const isShortWhitelistLender = (name) =>
     !SHORT_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
