@@ -90,6 +90,34 @@ export const getDisbursalEmploymentMixShort = async ({ range = '7D', fromDate, t
         signal,
     });
 
+// Vyapar trend — same shape as getDisbursalTrend, hitting the dedicated
+// /disbursal/trend-vyapar endpoint (joins vyaparOfferLeads). Used by the
+// /vyapar-disbursal-dashboard route only.
+export const getDisbursalTrendVyapar = async ({ range = '30D', granularity = 'daily', fromDate, toDate, scope, utmSource, utmMedium, signal } = {}) =>
+    Api().get(`${base}/trend-vyapar`, {
+        params: { range, granularity, fromDate, toDate, scope, utmSource, utmMedium },
+        skipAdminAppend: true,
+        signal,
+    });
+
+// Vyapar lender stats — joins vyaparOfferLeads. Used by the
+// /vyapar-disbursal-dashboard route only.
+export const getDisbursalLenderStatsVyapar = async ({ range = '7D', fromDate, toDate, scope, utmSource, utmMedium, signal } = {}) =>
+    Api().get(`${base}/lender-stats-vyapar`, {
+        params: { range, fromDate, toDate, scope, utmSource, utmMedium },
+        skipAdminAppend: true,
+        signal,
+    });
+
+// Vyapar employment mix — joins vyaparOfferLeads. Used by the
+// /vyapar-disbursal-dashboard route only.
+export const getDisbursalEmploymentMixVyapar = async ({ range = '7D', fromDate, toDate, scope, utmSource, utmMedium, signal } = {}) =>
+    Api().get(`${base}/employment-mix-vyapar`, {
+        params: { range, fromDate, toDate, scope, utmSource, utmMedium },
+        skipAdminAppend: true,
+        signal,
+    });
+
 export const getDisbursalTransactions = async ({
     currentPage = 1,
     perPage = 10,

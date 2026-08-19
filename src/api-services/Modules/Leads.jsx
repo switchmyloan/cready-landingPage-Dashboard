@@ -932,6 +932,285 @@ export const getIncredSuccessAlerts = async ({ agentId } = {}) =>
 export const dismissShortCallback = async (phone) =>
     Api().put(`/short-feedback/callback-done`, { phone }, { skipAdminAppend: true });
 
+// ---------- Vyapar (vyapar_*) CMS endpoints ----------
+// Parallel to the Short Ticket block above; mirrors the exact shape of each
+// getShort* function but hits the /vyapar-* backend paths.
+
+export const getVyaparUserTrack = async ({
+  search = '',
+  perPage = 10,
+  currentPage = 1,
+  type,
+  fromDate,
+  toDate,
+  stage,
+  medium,
+  source,
+  feedbackStatus,
+  lender,
+} = {}) => {
+    return Api().get(`/vyapar-user-track`, {
+        params: {
+            currentPage,
+            perPage,
+            search,
+            type,
+            fromDate,
+            toDate,
+            stage,
+            medium,
+            source,
+            feedbackStatus,
+            lender,
+        },
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparDistinctMediums = async () => {
+    return Api().get(`/vyapar-user-track/distinct-mediums`, {
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparUserTrackDetail = async ({ phone } = {}) => {
+    return Api().get(`/vyapar-user-track/detail`, {
+        params: { phone },
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparOfferLeads = async ({
+  search = '',
+  perPage = 10,
+  currentPage = 1,
+  type,
+  fromDate,
+  toDate,
+  minLoanAmount,
+  maxLoanAmount,
+  dobFromDate,
+  dobToDate,
+  loanPurpose,
+  minMonthlyIncome,
+  maxMonthlyIncome,
+  lender,
+  disbStatus,
+  pincode,
+  employmentType,
+  medium,
+  source,
+  feedbackStatus,
+  distinct,
+  agentId,
+} = {}) => {
+    return Api().get(`/vyapar-offer-leads`, {
+        params: {
+            currentPage,
+            perPage,
+            search,
+            type,
+            fromDate,
+            toDate,
+            minLoanAmount,
+            maxLoanAmount,
+            dobFromDate,
+            dobToDate,
+            loanPurpose,
+            minMonthlyIncome,
+            maxMonthlyIncome,
+            lender,
+            disbStatus,
+            pincode,
+            employmentType,
+            medium,
+            source,
+            feedbackStatus,
+            distinct,
+            // Call-center pool member → filter to leads assigned to this agent.
+            agentId,
+        },
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparOfferLeadsFilterValues = async () => {
+    return Api().get(`/vyapar-offer-leads/filter-values`, {
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparSelectedLenders = async ({
+  search = '',
+  perPage = 10,
+  currentPage = 1,
+  type,
+  fromDate,
+  toDate,
+  lenderName,
+  status,
+  medium,
+  source,
+  minMonthlyIncome,
+  maxMonthlyIncome,
+  minLoanAmount,
+  feedbackStatus,
+} = {}) => {
+    return Api().get(`/vyapar-selected-lenders`, {
+        params: {
+            currentPage,
+            perPage,
+            search,
+            type,
+            fromDate,
+            toDate,
+            lenderName,
+            status,
+            medium,
+            source,
+            minMonthlyIncome,
+            maxMonthlyIncome,
+            minLoanAmount,
+            feedbackStatus,
+        },
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparDistinctLenders = async () => {
+    return Api().get(`/vyapar-selected-lenders/distinct-lenders`, {
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparSelectedLendersByPhone = async (phone) => {
+    return Api().get(`/vyapar-selected-lenders/by-phone/${encodeURIComponent(phone)}`, {
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparOfferLeadByPhone = async (phone) => {
+    return Api().get(`/vyapar-offer-leads/by-phone/${encodeURIComponent(phone)}`, {
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparOfferLeadById = async (id) => {
+    return Api().get(`/vyapar-offer-leads/${encodeURIComponent(id)}`, {
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparAnalytics = async ({
+  type,
+  fromDate,
+  toDate,
+  medium,
+  source,
+} = {}) => {
+    return Api().get(`/vyapar-analytics`, {
+        params: {
+            type,
+            fromDate,
+            toDate,
+            medium,
+            source,
+        },
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparDraftLeadsNew = async ({
+  type,
+  fromDate,
+  toDate,
+  search = '',
+  perPage = 10,
+  currentPage = 1,
+  dobFromDate,
+  dobToDate,
+  minLoanAmount,
+  maxLoanAmount,
+  minSalary,
+  maxSalary,
+  profession,
+} = {}) => {
+    return Api().get(`/vyapar-draft-leads`, {
+        params: {
+            type,
+            fromDate,
+            toDate,
+            search,
+            perPage,
+            currentPage,
+            dobFromDate,
+            dobToDate,
+            minLoanAmount,
+            maxLoanAmount,
+            minSalary,
+            maxSalary,
+            profession,
+        },
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparKBLendingPageLeads = async ({
+  type,
+  fromDate,
+  toDate,
+  search = '',
+  perPage = 10,
+  currentPage = 1,
+  status = '',
+  dobFromDate,
+  dobToDate,
+  minLoanAmount,
+  maxLoanAmount,
+  minSalary,
+  maxSalary,
+  profession,
+} = {}) => {
+    return Api().get(`/vyapar-kb-lending-page`, {
+        params: {
+            type,
+            fromDate,
+            toDate,
+            search,
+            perPage,
+            currentPage,
+            status,
+            dobFromDate,
+            dobToDate,
+            minLoanAmount,
+            maxLoanAmount,
+            minSalary,
+            maxSalary,
+            profession,
+        },
+        skipAdminAppend: true,
+    });
+};
+
+// ---------- Vyapar feedback (separate vyapar_feedback table) ----------
+export const getVyaparLeadFeedback = async (phone) => {
+    return Api().get(`/vyapar-feedback/${encodeURIComponent(phone)}`, {
+        skipAdminAppend: true,
+    });
+};
+
+export const saveVyaparLeadFeedback = async ({ phone, status, remark, updatedBy, nextAction, nextActionAt } = {}) => {
+    return Api().put(`/vyapar-feedback`, { phone, status, remark, updatedBy, nextAction, nextActionAt }, {
+        skipAdminAppend: true,
+    });
+};
+
+export const getVyaparDueCallbacks = async (agent) =>
+    Api().get(`/vyapar-feedback/due-callbacks`, { params: { agent }, skipAdminAppend: true });
+
+export const dismissVyaparCallback = async (phone) =>
+    Api().put(`/vyapar-feedback/callback-done`, { phone }, { skipAdminAppend: true });
+
 // ---------- Follow-up funnel (call-center disposition pipeline) ----------
 // `agent` scopes to one agent; the band params narrow the lead universe to a
 // segmented agent's income/loan window (so Total Leads matches their segment).

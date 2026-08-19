@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import LeadFeedback from '../../components/LeadFeedback/LeadFeedback';
-import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById, getOfferQueueStatus, searchLeadGeneration } from '../../api-services/Modules/Leads';
+import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getVyaparSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById, getVyaparOfferLeadById, getOfferQueueStatus, searchLeadGeneration } from '../../api-services/Modules/Leads';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
 
@@ -703,9 +703,10 @@ const OfferLeadDetail = () => {
   // so opening the tab skips the /bre-offers call entirely.
   const breFetchStarted = useRef(false);
 
-  // This page serves both /offer-leads (high) and /short-offer-leads (short), so
-  // read the clicks from the matching table.
+  // This page serves /offer-leads (high), /short-offer-leads (short) and
+  // /vyapar-offer-leads (vyapar), so read the clicks from the matching table.
   const isShort = location.pathname.includes('short');
+  const isVyapar = location.pathname.includes('vyapar');
 
   // Everything below reads `lead`: starts as the minimal list row (instant
   // paint), upgraded to the full record once the by-id refetch resolves.
@@ -719,7 +720,7 @@ const OfferLeadDetail = () => {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-    const fetcher = isShort ? getShortOfferLeadById : getOfferLeadById;
+    const fetcher = isVyapar ? getVyaparOfferLeadById : isShort ? getShortOfferLeadById : getOfferLeadById;
     fetcher(id)
       .then((res) => {
         if (cancelled) return;
@@ -729,7 +730,7 @@ const OfferLeadDetail = () => {
       })
       .catch(() => { /* keep the state row on failure */ });
     return () => { cancelled = true; };
-  }, [id, isShort]);
+  }, [id, isShort, isVyapar]);
 
   // Redis async queue status — only meaningful for leads submitted via
   // /get-offer-kb-mv-async or /get-offer-short-ticket-async. Key expires after 1h.
@@ -769,13 +770,13 @@ const OfferLeadDetail = () => {
     if (!phone) return;
     let cancelled = false;
     setSlLoading(true);
-    const fetcher = isShort ? getShortSelectedLendersByPhone : getSelectedLendersByPhone;
+    const fetcher = isVyapar ? getVyaparSelectedLendersByPhone : isShort ? getShortSelectedLendersByPhone : getSelectedLendersByPhone;
     fetcher(phone)
       .then((res) => { if (!cancelled && res?.data?.success) setSelectedLenders(res.data.data || []); })
       .catch(() => { /* keep empty on failure */ })
       .finally(() => { if (!cancelled) setSlLoading(false); });
     return () => { cancelled = true; };
-  }, [lead?.phone, isShort]);
+  }, [lead?.phone, isShort, isVyapar]);
 
   // 1) Cheap membership check on page load — decides whether the BRE Offers tab
   // is shown at all (lead's phone present in `BRE_cibil_data`.pi_dedup).
@@ -1063,7 +1064,7 @@ const OfferLeadDetail = () => {
             {/* Call-center feedback — this page is shared by high-ticket
                 (/offer-leads) and short-ticket (/short-offer-leads), so pick the
                 feedback table from the URL. */}
-            <LeadFeedback phone={lead.phone} scope={location.pathname.includes('short') ? 'short' : 'high'} />
+            <LeadFeedback phone={lead.phone} scope={location.pathname.includes('vyapar') ? 'vyapar' : location.pathname.includes('short') ? 'short' : 'high'} />
           </div>
         )}
 

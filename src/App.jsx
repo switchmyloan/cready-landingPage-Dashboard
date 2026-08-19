@@ -62,6 +62,15 @@ import OtpLogs from './pages/OtpLogs/OtpLogs';
 import ExportAuditLogs from './pages/OtpLogs/ExportAuditLogs';
 import MvDisbursalDashboard from './pages/LeadManagement/MvDisbursalDashboard';
 import ShortDisbursalDashboard from './pages/LeadManagement/Short/ShortDisbursalDashboard';
+import VyaparOfferLeads from './pages/LeadManagement/Vyapar/VyaparOfferLeads';
+import VyaparSelectedLenders from './pages/LeadManagement/Vyapar/VyaparSelectedLenders';
+import VyaparSelectedLenderDetail from './pages/LeadManagement/Vyapar/VyaparSelectedLenderDetail';
+import VyaparDraftLeads from './pages/LeadManagement/Vyapar/VyaparDraftLeads';
+import VyaparUserTrack from './pages/LeadManagement/Vyapar/VyaparUserTrack';
+import VyaparUserTrackDetail from './pages/LeadManagement/Vyapar/VyaparUserTrackDetail';
+import VyaparKBLendingPage from './pages/LeadManagement/Vyapar/VyaparKBLendingPage';
+import VyaparKBLendingPageDetail from './pages/LeadManagement/Vyapar/VyaparKBLendingPageDetail';
+import VyaparDisbursalDashboard from './pages/LeadManagement/Vyapar/VyaparDisbursalDashboard';
 import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
@@ -155,9 +164,22 @@ function App() {
             <Route path="short-kb-lending-page" element={<ShortKBLendingPage />} />
             <Route path="short-kb-lending-page/:id" element={<ShortKBLendingPageDetail />} />
 
+            {/* Vyapar CMS — parallel module to Short Ticket */}
+            <Route path="vyapar-offer-leads" element={<VyaparOfferLeads />} />
+            <Route path="vyapar-offer-leads/:id" element={<OfferLeadDetail />} />
+            <Route path="vyapar-selected-lenders" element={<VyaparSelectedLenders />} />
+            <Route path="vyapar-selected-lenders/:id" element={<VyaparSelectedLenderDetail />} />
+            <Route path="vyapar-draft-leads" element={<VyaparDraftLeads />} />
+            <Route path="vyapar-draft-leads/:id" element={<DraftLeadsNewDetail />} />
+            <Route path="vyapar-user-track" element={<VyaparUserTrack />} />
+            <Route path="vyapar-user-track/:phone" element={<VyaparUserTrackDetail />} />
+            <Route path="vyapar-kb-lending-page" element={<VyaparKBLendingPage />} />
+            <Route path="vyapar-kb-lending-page/:id" element={<VyaparKBLendingPageDetail />} />
+
             {/* Disbursal Dashboards — scoped per role */}
             <Route path="disbursal-dashboard" element={<MvDisbursalDashboard />} />
             <Route path="short-disbursal-dashboard" element={<ShortDisbursalDashboard />} />
+            <Route path="vyapar-disbursal-dashboard" element={<VyaparDisbursalDashboard />} />
 
             {/* Call-center feedback — funnel + agent activity + records in one module */}
             <Route path="call-center-feedback" element={<CallCenterFeedback />} />

@@ -10,10 +10,10 @@ import {
     TrendingUp, Hash, X, Sparkles, ChevronDown, Check,
 } from 'lucide-react';
 import {
-    getDisbursalKpis, getDisbursalTrend, getDisbursalTrendShort,
-    getDisbursalLenderStats, getDisbursalLenderStatsShort,
+    getDisbursalKpis, getDisbursalTrend, getDisbursalTrendShort, getDisbursalTrendVyapar,
+    getDisbursalLenderStats, getDisbursalLenderStatsShort, getDisbursalLenderStatsVyapar,
     getDisbursalLenderBreakdown, getDisbursalMediumStats,
-    getDisbursalEmploymentMix, getDisbursalEmploymentMixShort,
+    getDisbursalEmploymentMix, getDisbursalEmploymentMixShort, getDisbursalEmploymentMixVyapar,
     getDisbursalTransactions, getDisbursalFilterOptions,
 } from '../../api-services/Modules/Disbursal';
 import { getLenderMeta, getLenderInitials } from '../../utils/lenderLogos';
@@ -272,7 +272,9 @@ const TrendChart = ({ range, scope, fromDate, toDate, utmSource, utmMedium, onTo
         // Route to the short-ticket trend endpoint when the dashboard scope
         // is 'short' — it joins shortOfferLeads instead of offerLeads server-
         // side, so the trend chart matches the short-ticket KPI count.
-        const trendFn = scope === 'short' ? getDisbursalTrendShort : getDisbursalTrend;
+        const trendFn = scope === 'short' ? getDisbursalTrendShort
+            : scope === 'vyapar' ? getDisbursalTrendVyapar
+            : getDisbursalTrend;
         trendFn({ range, granularity, scope, fromDate, toDate, utmSource, utmMedium, signal: controller.signal })
             .then(res => {
                 if (controller.signal.aborted) return;
@@ -424,7 +426,9 @@ const EmploymentMix = ({ range, scope, fromDate, toDate, utmSource, utmMedium, o
         setLoading(true);
         // scope='short' → short employment-mix endpoint (joins shortOfferLeads)
         // so the donut total stays consistent with the short KPI count.
-        const empFn = scope === 'short' ? getDisbursalEmploymentMixShort : getDisbursalEmploymentMix;
+        const empFn = scope === 'short' ? getDisbursalEmploymentMixShort
+            : scope === 'vyapar' ? getDisbursalEmploymentMixVyapar
+            : getDisbursalEmploymentMix;
         empFn({ range, scope, fromDate, toDate, utmSource, utmMedium, signal: controller.signal })
             .then(res => { if (!controller.signal.aborted) setData(res?.data?.data || []); })
             .catch(e => { if (!controller.signal.aborted) console.error(e); })
@@ -877,7 +881,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
     const mediumLabel = (m) => {
         const v = (m || '').trim();
         if (v) return v;
-        return scope === 'short' ? 'EasyLoan' : 'QuickLoans';
+        return (scope === 'short' || scope === 'vyapar') ? 'EasyLoan' : 'QuickLoans';
     };
 
     const [rows, setRows] = useState([]);
@@ -892,7 +896,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 const opts = res?.data?.data || { lenders: [], employmentTypes: [] };
                 // Hide RapidMoney (RPM) from the lender filter dropdown — both
                 // high-ticket AND short disbursal exclude it (RPM = Cready RPM module).
-                opts.lenders = (opts.lenders || []).filter(l => scope === 'short' ? isShortWhitelistLender(l) : isHighWhitelistLender(l));
+                opts.lenders = (opts.lenders || []).filter(l => (scope === 'short' || scope === 'vyapar') ? isShortWhitelistLender(l) : isHighWhitelistLender(l));
                 setFilterOptions(opts);
             })
             .catch(e => console.error(e));
@@ -927,7 +931,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
                 // then recompute the count + "Total in view" from the RPM-excluded set
                 // so the header numbers (and KPI cards via onStats) stay consistent
                 // with the visible rows.
-                allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : isHighWhitelistLender(r.lender));
+                allRows = allRows.filter(r => (scope === 'short' || scope === 'vyapar') ? isShortWhitelistLender(r.lender) : isHighWhitelistLender(r.lender));
                 setRows(allRows);
                 setTotal(allRows.length);
                 setFilteredAmount(allRows.reduce((s, r) => s + (Number(r.disb_amt) || 0), 0));
@@ -1045,7 +1049,7 @@ const TransactionsTable = ({ range, scope, fromDate, toDate, utmSource, utmMediu
             });
             let allRows = res?.data?.data?.data || [];
             // Exclude RapidMoney (RPM) — for both scopes — so the CSV matches the grid.
-            allRows = allRows.filter(r => scope === 'short' ? isShortWhitelistLender(r.lender) : isHighWhitelistLender(r.lender));
+            allRows = allRows.filter(r => (scope === 'short' || scope === 'vyapar') ? isShortWhitelistLender(r.lender) : isHighWhitelistLender(r.lender));
 
             const q = String(search || '').trim().toLowerCase();
             if (q) {
@@ -1526,7 +1530,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 // (utm_medium IS NULL/empty). High-ticket dashboard labels it
                 // "QuickLoans", short-ticket "EasyLoans". Pin it at the top so it's
                 // always selectable, and drop any real duplicate from the API list.
-                const syntheticMedium = scope === 'short' ? 'EasyLoans' : 'QuickLoans';
+                const syntheticMedium = (scope === 'short' || scope === 'vyapar') ? 'EasyLoans' : 'QuickLoans';
                 const mediums = mergeAndSort(KNOWN_UTM_MEDIUMS, opts.utmMediums)
                     .filter(m => !['quickloans', 'easyloan', 'easyloans'].includes(String(m).toLowerCase()));
                 setUtmMediumOptions([syntheticMedium, ...mediums]);
@@ -1571,14 +1575,16 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
         // Switch to the short-ticket endpoint when scope='short' so the
         // chart joins shortOfferLeads server-side and stays consistent with
         // the short KPI / trend numbers.
-        const lenderFn = scope === 'short' ? getDisbursalLenderStatsShort : getDisbursalLenderStats;
+        const lenderFn = scope === 'short' ? getDisbursalLenderStatsShort
+            : scope === 'vyapar' ? getDisbursalLenderStatsVyapar
+            : getDisbursalLenderStats;
         lenderFn({ range, scope, fromDate, toDate, utmSource, utmMedium, signal: controller.signal })
             .then(res => {
                 if (controller.signal.aborted) return;
                 let rows = res?.data?.data || [];
                 // Show ONLY whitelisted lenders per scope (short vs high) — mirrors the
                 // grid SP + charts so the "by lender" cards never itemise the wrong side.
-                rows = rows.filter(d => scope === 'short' ? isShortWhitelistLender(d.name) : isHighWhitelistLender(d.name));
+                rows = rows.filter(d => (scope === 'short' || scope === 'vyapar') ? isShortWhitelistLender(d.name) : isHighWhitelistLender(d.name));
                 setLenderStats(rows);
             })
             .catch(e => { if (!controller.signal.aborted) console.error(e); })
