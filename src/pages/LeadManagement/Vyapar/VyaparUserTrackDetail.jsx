@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
-  ArrowLeft, Phone, Mail, MapPin, Hash, Globe,
+  ArrowLeft, Phone, Mail, Clock, MapPin, Hash, Globe, ExternalLink,
   User, Briefcase, CalendarDays, IndianRupee,
   ShieldCheck, Users, Copy, FileText, Sparkles,
-  MousePointerClick, LayoutGrid, ExternalLink,
+  MousePointerClick, LayoutGrid,
 } from 'lucide-react';
 
 import { getVyaparUserTrackDetail, searchLeadGeneration } from '../../../api-services/Modules/Leads';
@@ -16,7 +16,7 @@ const formatDateTime = (v) => {
   const d = new Date(v);
   if (Number.isNaN(d.getTime())) return 'N/A';
   return d.toLocaleString('en-IN', {
-    day: 'numeric', month: 'vyapar', year: 'numeric',
+    day: 'numeric', month: 'short', year: 'numeric',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
   });
 };
@@ -77,12 +77,13 @@ const StatusChip = ({ done, label }) => (
   </span>
 );
 
+// One event in the chronological timeline.
 const TimelineItem = ({ event, at, details, last }) => {
   const meta = {
     landed:          { Icon: Users,             color: 'blue',   label: 'Landed on page' },
     draft_updated:   { Icon: FileText,          color: 'gray',   label: 'Draft updated' },
     otp_verified:    { Icon: ShieldCheck,       color: 'amber',  label: 'OTP verified' },
-    submitted:       { Icon: Sparkles,          color: 'purple', label: 'Submitted (vyaparOfferLeads)' },
+    submitted:       { Icon: Sparkles,          color: 'purple', label: 'Submitted (offerLeads)' },
     submitted_again: { Icon: Sparkles,          color: 'purple', label: 'Re-submitted' },
     lender_clicked:  { Icon: MousePointerClick, color: 'green',  label: `Lender clicked${details?.lenderName ? ` — ${details.lenderName}` : ''}` },
   }[event] || { Icon: FileText, color: 'gray', label: event };
@@ -161,9 +162,10 @@ const VyaparUserTrackDetail = () => {
   const profile = data?.profile || {};
   const timeline = data?.timeline || [];
   const lenders = data?.lenders || [];
+  const trackingEvents = data?.tracking_events || {};
   const attempts = summary.attempts_count || 0;
   const lendersCount = summary.lenders_count || 0;
-  const displayName =
+  const displayName = 
     [profile.firstName, profile.lastName].filter(Boolean).join(' ')
     || (listRow && (listRow.fullname || [listRow.first_name, listRow.last_name].filter(Boolean).join(' ')))
     || 'Unknown';
@@ -175,7 +177,7 @@ const VyaparUserTrackDetail = () => {
         onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-sm text-gray-600 hover:text-gray-900 mb-3"
       >
-        <ArrowLeft size={15} /> Back to Vyapar User Track
+        <ArrowLeft size={15} /> Back to User Track
       </button>
 
       {/* Header */}
@@ -204,11 +206,6 @@ const VyaparUserTrackDetail = () => {
         </div>
       </div>
 
-      {/* Call-center feedback — vyapar-ticket (vyapar_feedback table) */}
-      <div className="mb-4">
-        <LeadFeedback phone={phone} scope="vyapar" />
-      </div>
-
       {loading && (
         <div className="bg-white rounded-lg border border-gray-200 p-10 text-center text-sm text-gray-500">
           Loading user details…
@@ -223,7 +220,7 @@ const VyaparUserTrackDetail = () => {
 
       {!loading && data && attempts === 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">
-          This phone has no entries in <span className="font-mono">vyapar_apply_new_draft_leads</span>.
+          This phone has no entries in <span className="font-mono">apply_new_draft_leads</span>.
         </div>
       )}
 
@@ -327,6 +324,12 @@ const VyaparUserTrackDetail = () => {
               <Field label="Salary"       value={formatINR(profile.salary)} Icon={IndianRupee} />
               <Field label="Loan Amount"  value={formatINR(profile.loanAmount)} Icon={IndianRupee} />
               <Field label="MRN"          value={profile.mrn} copyable />
+              {/* Vyapar business-lending fields */}
+              <Field label="Firm Name"     value={profile.firm_name} Icon={Briefcase} />
+              <Field label="Entity Type"   value={profile.entity_type} Icon={Briefcase} />
+              <Field label="GST Number"    value={profile.gst_number} Icon={Hash} copyable />
+              <Field label="Has Udyam"     value={typeof profile.has_udyam === 'boolean' ? (profile.has_udyam ? 'Yes' : 'No') : null} Icon={Hash} />
+              <Field label="Has Current Account" value={typeof profile.has_current_account === 'boolean' ? (profile.has_current_account ? 'Yes' : 'No') : null} Icon={Briefcase} />
             </div>
           </Section>
 
@@ -341,6 +344,25 @@ const VyaparUserTrackDetail = () => {
               <Field label="UTM Content"  value={profile.utm_content} />
             </div>
           </Section>
+
+          {/* Frontend event tracking (latest offerLeads.tracking_events) — which
+              UI events the user did (e.g. InCred fake-offer modal shown) + when. */}
+          {Object.keys(trackingEvents).some((k) => !k.endsWith('_at')) && (
+            <Section title="Tracking Events">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+                {Object.keys(trackingEvents)
+                  .filter((k) => !k.endsWith('_at'))
+                  .map((k) => (
+                    <Field
+                      key={k}
+                      Icon={MousePointerClick}
+                      label={k.replace(/_/g, ' ').replace(/\b\w/g, (ch) => ch.toUpperCase())}
+                      value={trackingEvents[`${k}_at`] ? formatDateTime(trackingEvents[`${k}_at`]) : 'Yes'}
+                    />
+                  ))}
+              </div>
+            </Section>
+          )}
 
           {/* Timeline */}
           <Section title={`Timeline (${timeline.length} events)`}>
@@ -360,8 +382,8 @@ const VyaparUserTrackDetail = () => {
             )}
           </Section>
 
-          {/* Offers Shown — what the user actually saw on the vyapar-ticket
-              /offers page, taken from the latest vyaparOfferLeads.shown_offers JSON. */}
+          {/* Offers Shown — what the user actually saw on the /offers page,
+              taken from the latest offerLeads.shown_offers JSON. */}
           {(() => {
             const latestOffer = data.offers && data.offers.length
               ? data.offers[data.offers.length - 1]
@@ -372,7 +394,7 @@ const VyaparUserTrackDetail = () => {
             }
             if (!Array.isArray(shown) || shown.length === 0) return null;
             return (
-              <Section title={`Offers Shown to Usersdsds (${shown.length})`}>
+              <Section title={`Offers Shown to User (${shown.length})`}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                   {shown.map((o, i) => {
                     const name = typeof o === 'string' ? o : (o?.lenderName || '—');
@@ -400,7 +422,7 @@ const VyaparUserTrackDetail = () => {
                           {wasApproved === false && (
                             <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Not approved</span>
                           )}
-                          {utmLink && (
+                          {/* {utmLink && (
                             <a
                               href={utmLink}
                               target="_blank"
@@ -410,7 +432,7 @@ const VyaparUserTrackDetail = () => {
                             >
                               UTM Link
                             </a>
-                          )}
+                          )} */}
                         </div>
                       </div>
                     );
@@ -423,9 +445,9 @@ const VyaparUserTrackDetail = () => {
             );
           })()}
 
-          {/* Submissions (vyaparOfferLeads) */}
+          {/* Submissions (offerLeads) — only when this user has submitted */}
           {data.offers && data.offers.length > 0 && (
-            <Section title={`Submissions (${data.offers.length}) — vyaparOfferLeads`}>
+            <Section title={`Submissions (${data.offers.length}) — offerLeads`}>
               <div className="overflow-x-auto">
                 <table className="min-w-full text-xs">
                   <thead className="bg-gray-50 border-b border-gray-200">
@@ -512,6 +534,7 @@ const VyaparUserTrackDetail = () => {
 
       {!loading && data && attempts > 0 && activeTab === 'lenders' && (
         <>
+          {/* Summary line for lender clicks */}
           <div className="p-4 bg-white rounded-lg border border-gray-200 mb-4">
             <div className="flex items-center gap-3">
               <div className="p-2.5 rounded-lg bg-green-100 text-green-600">
@@ -546,6 +569,7 @@ const VyaparUserTrackDetail = () => {
                       <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wide">Lender</th>
                       <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wide">Status</th>
                       <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wide">MRN</th>
+                      <th className="px-3 py-2 text-left font-semibold text-gray-600 uppercase tracking-wide">Offer Lead ID</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -564,6 +588,9 @@ const VyaparUserTrackDetail = () => {
                         <td className="px-3 py-2 font-mono text-[10px] text-gray-500">
                           {l.mrn || '—'}
                         </td>
+                        <td className="px-3 py-2 font-mono text-[11px] text-gray-700">
+                          {l.offerLeadId || <span className="text-gray-400 italic">—</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -573,6 +600,13 @@ const VyaparUserTrackDetail = () => {
           )}
         </>
       )}
+
+      {/* Call-center feedback — moved to the BOTTOM of the page. Shared per
+          phone across the high-ticket modules; rendered independently of the
+          track data so it stays available even while details load. */}
+      <div className="mt-4">
+        <LeadFeedback phone={phone} scope="vyapar" />
+      </div>
     </div>
   );
 };

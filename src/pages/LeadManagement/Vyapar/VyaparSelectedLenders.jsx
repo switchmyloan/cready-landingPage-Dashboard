@@ -230,7 +230,7 @@ const VyaparSelectedLenders = () => {
     let downloadFileName;
 
     const now = new Date();
-    const date = now.toLocaleDateString("en-US", { day: "2-digit", month: "vyapar", year: "numeric" }).replace(/ /g, "-");
+    const date = now.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
     const time = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }).replace(/:/g, "-").replace(" ", "");
 
     // Date params mirror the table's own applied filter (same mapping as the list fetch).
@@ -290,22 +290,13 @@ const VyaparSelectedLenders = () => {
     { bg: 'bg-fuchsia-50', text: 'text-fuchsia-600' },
   ];
 
-  // Lender KPI cards = EVERY lender in the summary (their counts sum to Total
-  // Leads — so the cards reconcile with the total), PLUS any pinned lender missing
-  // from the period (shown as a 0 card so all expected lenders always appear).
-  // lenderWise is already sorted by count desc. Deduped case-insensitively.
-  const lenderCards = useMemo(() => {
-    const lw = summaryData.lenderWise;
-    const seen = new Set(lw.map((l) => lenderKey(l.lenderName)));
-    const cards = [...lw];
-    for (const name of PINNED_LENDERS) {
-      const key = lenderKey(name);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      cards.push({ lenderName: name, count: 0 });
-    }
-    return cards;
-  }, [summaryData.lenderWise]);
+  // Lender KPI cards = only lenders that actually CONTRIBUTED (count > 0). Zero-count
+  // lenders — including the previously-pinned "always show" ones — are hidden.
+  // lenderWise is already sorted by count desc.
+  const lenderCards = useMemo(
+    () => summaryData.lenderWise.filter((l) => (Number(l.count) || 0) > 0),
+    [summaryData.lenderWise]
+  );
 
   const SkeletonCard = () => (
     <div className="p-4 bg-white rounded-lg shadow-sm border border-gray-200 animate-pulse">

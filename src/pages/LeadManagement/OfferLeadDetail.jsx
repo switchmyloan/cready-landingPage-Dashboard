@@ -1035,6 +1035,17 @@ const OfferLeadDetail = () => {
               <Field Icon={Target} label="Loan Purpose" value={lead.loan_purpose || 'N/A'} />
             </InfoSection>
 
+            {/* Business Details — Vyapar (business-lending) leads only */}
+            {isVyapar && (
+              <InfoSection Icon={Wallet} title="Business Details" tint="bg-purple-50 text-purple-600">
+                <Field Icon={Wallet} label="Firm Name" value={lead.firm_name || 'N/A'} />
+                <Field Icon={Target} label="Entity Type" value={lead.entity_type || 'N/A'} />
+                <Field Icon={Wallet} label="GST Number" value={lead.gst_number || 'N/A'} />
+                <Field Icon={Target} label="Has Udyam" value={typeof lead.has_udyam === 'boolean' ? (lead.has_udyam ? 'Yes' : 'No') : 'N/A'} />
+                <Field Icon={Wallet} label="Has Current Account" value={typeof lead.has_current_account === 'boolean' ? (lead.has_current_account ? 'Yes' : 'No') : 'N/A'} />
+              </InfoSection>
+            )}
+
             {/* Tracking / UTM */}
             <InfoSection Icon={Globe} title="Tracking & Source" tint="bg-amber-50 text-amber-600">
               <Field Icon={Globe} label="UTM Source" value={lead.utm_source || 'N/A'} />

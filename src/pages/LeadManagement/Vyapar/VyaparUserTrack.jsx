@@ -106,6 +106,7 @@ const SOURCE_OPTIONS = [
 
 const StatCards = ({ summary, loading }) => {
   const total = summary.total || 0;
+  const landedOnly = summary.landed_only || 0;
   const otp = summary.otp_verified || 0;
   const form = summary.form_submitted || 0;
   const lender = summary.lender_clicked || 0;
@@ -119,6 +120,14 @@ const StatCards = ({ summary, loading }) => {
       Icon: Users,
       color: "blue",
       pct: 100,
+    },
+    {
+      key: "landed_only",
+      label: "Landed Only",
+      value: landedOnly,
+      Icon: UserX,
+      color: "slate",
+      pct: pct(landedOnly),
     },
     {
       key: "otp",
@@ -148,7 +157,7 @@ const StatCards = ({ summary, loading }) => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
         {cards.map((_, i) => (
           <div
             key={i}
@@ -163,7 +172,7 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
       {cards.map(({ key, label, Icon, color, value, pct }) => {
         const c = COLOR_MAP[color];
         return (
@@ -737,7 +746,7 @@ const VyaparUserTrack = () => {
     const date = now
       .toLocaleDateString("en-US", {
         day: "2-digit",
-        month: "vyapar",
+        month: "short",
         year: "numeric",
       })
       .replace(/ /g, "-");

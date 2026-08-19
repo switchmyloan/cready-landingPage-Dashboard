@@ -308,7 +308,7 @@ const VyaparOfferLeads = () => {
     let downloadFileName;
 
     const now = new Date();
-    const date = now.toLocaleDateString("en-US", { day: "2-digit", month: "vyapar", year: "numeric" }).replace(/ /g, "-");
+    const date = now.toLocaleDateString("en-US", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
     const time = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }).replace(/:/g, "-").replace(" ", "");
 
     // Date params come from the table's OWN applied filter (mirrors the list fetch):
