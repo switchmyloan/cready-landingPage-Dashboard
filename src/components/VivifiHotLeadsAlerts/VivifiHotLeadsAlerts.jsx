@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Clock, CheckCircle2, X, Info, BadgeIndianRupee, Phone } from 'lucide-react';
+import { Zap, Clock, CheckCircle2, X, Info, BadgeIndianRupee, Phone, ChevronDown } from 'lucide-react';
 import { getVivifiHotLeadAlerts } from '../../api-services/Modules/VivifiWebhook';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
@@ -65,6 +65,12 @@ const VivifiHotLeadsAlerts = () => {
   const [items, setItems] = useState([]);
   const [open, setOpen] = useState(false);
   const [flash, setFlash] = useState(null);
+  const [collapsed, setCollapsed] = useState(() => new Set()); // status groups the user collapsed
+  const toggleGroup = useCallback((s) => setCollapsed((prev) => {
+    const next = new Set(prev);
+    if (next.has(s)) next.delete(s); else next.add(s);
+    return next;
+  }), []);
   const notified = useRef(new Set());
   const seeded = useRef(false);
   const boxRef = useRef(null);
@@ -80,6 +86,21 @@ const VivifiHotLeadsAlerts = () => {
   // Per-agent scope: a pooled call-center agent only gets THEIR assigned leads'
   // hot statuses; Super Admin (no agentId) gets all.
   const agentId = useMemo(() => getCallCenterAgentId(user), [user]);
+
+  // Group the leads by status (Awaiting VKYC / Esign / EMandate / Loan Chosen …) so
+  // the dropdown is scannable — each group shows its count and collapses. Biggest
+  // group first; items inside stay newest-first (already sorted on poll).
+  const groups = useMemo(() => {
+    const map = new Map();
+    items.forEach((it) => {
+      const s = it.status || 'Other';
+      if (!map.has(s)) map.set(s, []);
+      map.get(s).push(it);
+    });
+    return [...map.entries()]
+      .map(([status, list]) => ({ status, items: list }))
+      .sort((a, b) => b.items.length - a.items.length);
+  }, [items]);
 
   const poll = useCallback(async () => {
     try {
@@ -174,57 +195,74 @@ const VivifiHotLeadsAlerts = () => {
                 <CheckCircle2 size={22} className="text-gray-300" />
                 <p className="text-[12.5px] text-gray-400">No Vivifi leads awaiting a step.</p>
               </div>
-            ) : items.map((it) => {
-              const done = !!it.hasFeedback; // call-center already dispositioned this lead
+            ) : groups.map((g) => {
+              const isCollapsed = collapsed.has(g.status);
               return (
-              <div key={`${it.leadId}-${it.status}`} className={`px-4 py-3 border-b border-gray-50 transition ${done ? 'bg-amber-50/60 hover:bg-amber-50' : 'hover:bg-cyan-50/30'}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-[13px] font-bold inline-flex items-center gap-1 text-gray-800">
-                      <Zap size={13} className="text-cyan-600" />
-                      {it.status || 'Hot lead'}
-                    </p>
-                    {it.name && (
-                      <p className="text-[12px] font-semibold text-gray-700 truncate mt-0.5">{it.name}</p>
-                    )}
-                    {it.eligibleAmount != null && (
-                      <p className="text-[12px] font-semibold text-cyan-700 inline-flex items-center gap-1 mt-0.5">
-                        <BadgeIndianRupee size={12} /> {fmtInr(it.eligibleAmount)}
-                      </p>
-                    )}
-                    {it.phone && (
-                      <a
-                        href={`tel:${it.phone}`}
-                        onClick={(e) => e.stopPropagation()}
-                        className="mt-0.5 flex items-center gap-1 text-[12.5px] font-bold font-mono text-gray-800 hover:text-cyan-700 hover:underline w-fit"
-                        title="Call this lead"
-                      >
-                        <Phone size={11} className="text-cyan-500" /> {it.phone}
-                      </a>
-                    )}
-                    <p className="text-[11px] text-gray-400 font-mono truncate mt-0.5" title={it.leadId}>
-                      {String(it.leadId || '').slice(0, 20)}
-                    </p>
+              <div key={g.status}>
+                {/* Collapsible status header with a count — scan the pipeline at a glance. */}
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(g.status)}
+                  className="sticky top-0 z-10 w-full flex items-center justify-between gap-2 px-4 py-2 bg-cyan-50/90 backdrop-blur border-b border-cyan-100 hover:bg-cyan-100/70 transition"
+                >
+                  <span className="inline-flex items-center gap-1.5 text-[12px] font-bold text-cyan-800">
+                    <Zap size={12} className="text-cyan-600" />
+                    {g.status || 'Hot lead'}
+                    <span className="ml-1 inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-cyan-600 text-white text-[10px] font-bold">{g.items.length}</span>
+                  </span>
+                  <ChevronDown size={14} className={`text-cyan-500 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
+                </button>
+
+                {!isCollapsed && g.items.map((it) => {
+                  const done = !!it.hasFeedback; // call-center already dispositioned this lead
+                  return (
+                  <div key={`${it.leadId}-${it.status}`} className={`px-4 py-3 border-b border-gray-50 transition ${done ? 'bg-amber-50/60 hover:bg-amber-50' : 'hover:bg-cyan-50/30'}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        {it.name && (
+                          <p className="text-[12.5px] font-semibold text-gray-800 truncate">{it.name}</p>
+                        )}
+                        {it.eligibleAmount != null && (
+                          <p className="text-[12px] font-semibold text-cyan-700 inline-flex items-center gap-1 mt-0.5">
+                            <BadgeIndianRupee size={12} /> {fmtInr(it.eligibleAmount)}
+                          </p>
+                        )}
+                        {it.phone && (
+                          <a
+                            href={`tel:${it.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="mt-0.5 flex items-center gap-1 text-[12.5px] font-bold font-mono text-gray-800 hover:text-cyan-700 hover:underline w-fit"
+                            title="Call this lead"
+                          >
+                            <Phone size={11} className="text-cyan-500" /> {it.phone}
+                          </a>
+                        )}
+                        <p className="text-[11px] text-gray-400 font-mono truncate mt-0.5" title={it.leadId}>
+                          {String(it.leadId || '').slice(0, 20)}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          onClick={() => { setOpen(false); navigate(`/vivifi-webhook-leads/${encodeURIComponent(it.leadId)}`); }}
+                          className="w-6 h-6 grid place-items-center rounded-full border border-cyan-200 text-cyan-600 hover:bg-cyan-100 hover:border-cyan-300 transition"
+                          title="View lead details"
+                          aria-label="View lead details"
+                        >
+                          <Info size={13} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
+                      <Clock size={11} /> {fmtWhen(it.updatedAt)}
+                      {done && (
+                        <span className="ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wide" title="Call-center feedback already logged">
+                          <CheckCircle2 size={9} /> Feedback
+                        </span>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <button
-                      onClick={() => { setOpen(false); navigate(`/vivifi-webhook-leads/${encodeURIComponent(it.leadId)}`); }}
-                      className="w-6 h-6 grid place-items-center rounded-full border border-cyan-200 text-cyan-600 hover:bg-cyan-100 hover:border-cyan-300 transition"
-                      title="View lead details"
-                      aria-label="View lead details"
-                    >
-                      <Info size={13} />
-                    </button>
-                  </div>
-                </div>
-                <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
-                  <Clock size={11} /> {fmtWhen(it.updatedAt)}
-                  {done && (
-                    <span className="ml-auto inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wide" title="Call-center feedback already logged">
-                      <CheckCircle2 size={9} /> Feedback
-                    </span>
-                  )}
-                </div>
+                  );
+                })}
               </div>
               );
             })}
