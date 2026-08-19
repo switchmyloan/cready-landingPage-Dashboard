@@ -217,7 +217,7 @@ const useCountUp = (target, duration = 2000) => {
    API: pass `value` as a number and (optionally) `format` as a formatter
    function — the card animates 0→value (or prev→value) and re-runs the
    formatter on each frame. Legacy string `value` still renders as-is. */
-const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint = 'bg-white border-gray-200', iconClass = 'bg-purple-100 text-purple-600' }) => {
+const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint = 'bg-white border-gray-200', iconClass = 'bg-purple-100 text-purple-600', onClick }) => {
     const isNumeric = typeof value === 'number' && !isNaN(value);
     const animValue = useCountUp(isNumeric ? value : 0);
     const display = !isNumeric
@@ -226,7 +226,12 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint 
             ? format(animValue)
             : Math.round(animValue).toLocaleString('en-IN');
     return (
-        <div className={`relative rounded-2xl border p-5 transition-shadow hover:shadow-md ${tint}`}>
+        <div
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            title={onClick ? 'Click for the High + Short combined breakdown' : undefined}
+            className={`relative rounded-2xl border p-5 transition-shadow hover:shadow-md ${tint} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-emerald-300' : ''}`}
+        >
             <div className="flex items-center justify-between gap-2">
                 <span className="text-[12.5px] font-semibold text-gray-700">{label}</span>
                 {/* Soft tinted icon chip (minimal — no gradient/glow) */}
@@ -1380,6 +1385,98 @@ const milestoneKey = (scope) => {
 };
 const monthLabel = () => new Date().toLocaleString('en-IN', { month: 'long', year: 'numeric' });
 
+// Revenue Evaluation — combined (High + Short) modal. Fetches BOTH ticket types'
+// disbursal trend for the CURRENT range/filters, sums each to a total disbursed, and
+// applies the same 3.25× ÷ 100 revenue formula the KPI card uses. Shows each side, the
+// combined revenue, and progress toward the ₹90 lakh milestone.
+const REVENUE_RATE = 3.25 / 100;
+const REVENUE_TARGET = 9e6; // ₹90 lakh combined-revenue milestone
+const COMBINED_MILESTONE_MAX_SHOWS = 3; // celebrate up to 3 times (per month), then stop
+
+const RevenueEvalModal = ({ open, onClose, range, fromDate, toDate, utmSource, utmMedium }) => {
+    const [loading, setLoading] = useState(true);
+    const [high, setHigh] = useState(0);   // total disbursed (rupees)
+    const [short, setShort] = useState(0);
+
+    useEffect(() => {
+        if (!open) return undefined;
+        if (range === 'Custom' && (!fromDate || !toDate)) return undefined;
+        const controller = new AbortController();
+        let cancelled = false;
+        setLoading(true);
+        // Bucket amounts arrive in Cr → ×1e7 back to rupees (same as TrendChart).
+        const sumRupees = (res) => (res?.data?.data || []).reduce((s, d) => s + (d.amount || 0), 0) * 1e7;
+        Promise.all([
+            getDisbursalTrend({ range, granularity: 'daily', fromDate, toDate, utmSource, utmMedium, signal: controller.signal }),
+            getDisbursalTrendShort({ range, granularity: 'daily', scope: 'short', fromDate, toDate, utmSource, utmMedium, signal: controller.signal }),
+        ])
+            .then(([h, s]) => { if (!cancelled) { setHigh(sumRupees(h)); setShort(sumRupees(s)); } })
+            .catch(() => { if (!cancelled) { setHigh(0); setShort(0); } })
+            .finally(() => { if (!cancelled) setLoading(false); });
+        return () => { cancelled = true; controller.abort(); };
+    }, [open, range, fromDate, toDate, utmSource, utmMedium]);
+
+    if (!open) return null;
+
+    const highRev = Math.round(high * REVENUE_RATE);
+    const shortRev = Math.round(short * REVENUE_RATE);
+    const combined = highRev + shortRev;
+    const pctOfTarget = Math.min((combined / REVENUE_TARGET) * 100, 100);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-start justify-between px-5 py-4 border-b border-gray-100 bg-gradient-to-r from-emerald-50 to-green-50 rounded-t-2xl">
+                    <div>
+                        <h3 className="text-[15px] font-bold text-gray-800">Revenue Evaluation — Combined</h3>
+                        <p className="text-[11.5px] text-gray-500 mt-0.5">High + Short ticket disbursals · {range} · 3.25× ÷ 100</p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-white/70 transition text-lg leading-none" aria-label="Close">×</button>
+                </div>
+
+                {loading ? (
+                    <div className="py-14 text-center text-[13px] text-gray-400">Loading…</div>
+                ) : (
+                    <div className="px-5 py-4 space-y-3">
+                        {[
+                            { label: 'High Ticket', disbursed: high, revenue: highRev, tone: 'text-purple-700' },
+                            { label: 'Short Ticket', disbursed: short, revenue: shortRev, tone: 'text-blue-700' },
+                        ].map((r) => (
+                            <div key={r.label} className="flex items-center justify-between rounded-xl border px-4 py-3 border-gray-100 bg-gray-50/60">
+                                <div>
+                                    <p className={`text-[12.5px] font-bold ${r.tone}`}>{r.label}</p>
+                                    <p className="text-[11px] text-gray-400 mt-0.5">Disbursed {fmtINRFull(Math.round(r.disbursed))}</p>
+                                </div>
+                                <p className="text-[16px] font-extrabold text-gray-900 tabular-nums">{fmtINRFull(r.revenue)}</p>
+                            </div>
+                        ))}
+
+                        <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[12.5px] font-bold text-emerald-800">Combined Revenue</span>
+                                <span className="text-[22px] font-extrabold text-emerald-700 tabular-nums leading-none">{fmtINRFull(combined)}</span>
+                            </div>
+                            {/* Progress toward the ₹90 L milestone */}
+                            <div className="mt-2.5">
+                                <div className="h-2.5 rounded-full bg-white overflow-hidden border border-emerald-100">
+                                    <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500" style={{ width: `${pctOfTarget}%` }} />
+                                </div>
+                                <p className="text-[11px] text-emerald-700 mt-1 font-medium">
+                                    {pctOfTarget.toFixed(1)}% of ₹90 L · {fmtINRFull(Math.max(REVENUE_TARGET - combined, 0))} to go
+                                </p>
+                            </div>
+                        </div>
+
+                        <p className="text-[10.5px] text-gray-400 leading-relaxed">
+                            Revenue = total disbursed × 3.25 ÷ 100, summed across BOTH ticket types for the selected range / filters. Only phones present in offerLeads (high) / shortOfferLeads (short) are counted.
+                        </p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
+
 export default function DisbursalDashboard({ scope, title, subtitle }) {
     // Default landing state: 'All' range with no date bounds. Initial dates
     // are derived from dateForRange('All') so the URL/API see empty fromDate
@@ -1404,6 +1501,8 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     const [kpiLoading, setKpiLoading] = useState(true);
     const [lenderLoading, setLenderLoading] = useState(true);
     const [selectedLender, setSelectedLender] = useState(null);
+    const [revOpen, setRevOpen] = useState(false); // Revenue Evaluation → combined (High+Short) breakdown modal (manual click)
+    const [profitCeleb, setProfitCeleb] = useState({ open: false, combined: 0, high: 0, short: 0 }); // ₹90L profit celebration (auto)
     // "Updated X ago" pill — lastRefreshedAt is stamped when the KPI payload
     // lands; nowTick re-renders the relative label every 30s so it counts up on
     // its own (tells users how fresh the data is, so they don't keep refreshing).
@@ -1491,6 +1590,41 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
         setMilestoneAmount(Number(trendTotals.amount) || 0);
         setMilestoneOpen(true);
     }, [range, utmSource, utmMedium, trendTotals, scope]);
+
+    // Combined-revenue (High + Short) milestone — when the two tickets' revenue TOGETHER
+    // crosses ₹90 L for the current view, auto-open the combined breakdown modal, once
+    // per month (localStorage) so it celebrates rather than nagging on every visit. The
+    // once-guards stop the extra fetches after it fires (or if already shown this month).
+    const combinedMilestoneFired = useRef(false);
+    useEffect(() => {
+        if (combinedMilestoneFired.current) return undefined;  // already shown THIS session
+        if (range === 'Custom' && (!fromDate || !toDate)) return undefined;
+        const d = new Date();
+        const key = `cready:combined-revenue-shows:${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}:${REVENUE_TARGET}`;
+        let shows = 0;
+        try { shows = Number(localStorage.getItem(key)) || 0; } catch { /* storage blocked */ }
+        if (shows >= COMBINED_MILESTONE_MAX_SHOWS) { combinedMilestoneFired.current = true; return undefined; } // shown enough
+        const controller = new AbortController();
+        let cancelled = false;
+        const sumRupees = (res) => (res?.data?.data || []).reduce((s, x) => s + (x.amount || 0), 0) * 1e7;
+        Promise.all([
+            getDisbursalTrend({ range, granularity: 'daily', fromDate, toDate, utmSource, utmMedium, signal: controller.signal }),
+            getDisbursalTrendShort({ range, granularity: 'daily', scope: 'short', fromDate, toDate, utmSource, utmMedium, signal: controller.signal }),
+        ])
+            .then(([h, s]) => {
+                if (cancelled) return;
+                const highRev = Math.round(sumRupees(h) * REVENUE_RATE);
+                const shortRev = Math.round(sumRupees(s) * REVENUE_RATE);
+                const combinedRev = highRev + shortRev;
+                if (combinedRev < REVENUE_TARGET) return;        // not there yet — re-check on the next filter change
+                // Count this showing so it celebrates up to MAX_SHOWS times (per month).
+                try { localStorage.setItem(key, String(shows + 1)); } catch { /* still fire, just don't remember */ }
+                combinedMilestoneFired.current = true;
+                setProfitCeleb({ open: true, combined: combinedRev, high: highRev, short: shortRev });
+            })
+            .catch(() => { /* transient — will retry on the next change */ });
+        return () => { cancelled = true; controller.abort(); };
+    }, [range, fromDate, toDate, utmSource, utmMedium]);
 
     // Load utm_source dropdown values once on mount (cached on the server
     // side for 10 minutes). Scoped to the dashboard so the right table
@@ -1962,7 +2096,8 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                     loading={!trendTotals || (trendTotals.loading && !trendTotals.amount)}
                     value={Math.round((trendTotals?.amount || 0) * 3.25 / 100)}
                     format={(n) => fmtINRFull(Math.round(n))}
-                    sub="Estimated revenue · 3.25× ÷ 100" />
+                    onClick={() => setRevOpen(true)}
+                    sub="3.25× ÷ 100 · tap for High + Short combined" />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
@@ -1994,6 +2129,17 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 />
             )}
 
+            {/* Revenue Evaluation → combined (High + Short) revenue + ₹1 Cr progress. */}
+            <RevenueEvalModal
+                open={revOpen}
+                onClose={() => setRevOpen(false)}
+                range={range}
+                fromDate={fromDate}
+                toDate={toDate}
+                utmSource={utmSource}
+                utmMedium={utmMedium}
+            />
+
             {/* ₹10 Cr current-month milestone — one-time congratulations. */}
             <MilestoneCelebration
                 open={milestoneOpen}
@@ -2002,6 +2148,24 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 count={empTotals?.count || 0}
                 milestoneLabel={MILESTONE_LABEL}
                 periodLabel={monthLabel()}
+            />
+
+            {/* ₹90 L combined-revenue (High + Short) PROFIT milestone — auto-fires once
+                a month with confetti when the two tickets' revenue together crosses it. */}
+            <MilestoneCelebration
+                open={profitCeleb.open}
+                onClose={() => setProfitCeleb((p) => ({ ...p, open: false }))}
+                amount={profitCeleb.combined}
+                milestoneLabel="₹90 L"
+                unit="L"
+                primaryLabel="Combined revenue · High + Short"
+                subtitle={<>High + Short ticket <span className="font-bold text-amber-300">combined revenue</span> just crossed <span className="font-bold text-amber-300">₹90 L</span>! 🎉🔥</>}
+                stats={[
+                    { icon: <Wallet size={13} />, label: 'High Ticket', value: fmtINRFull(profitCeleb.high), tone: 'border-purple-100 bg-purple-50/70 text-purple-600' },
+                    { icon: <TrendingUp size={13} />, label: 'Short Ticket', value: fmtINRFull(profitCeleb.short), tone: 'border-blue-100 bg-blue-50/70 text-blue-600' },
+                ]}
+                ctaText="Let's keep going 🚀"
+                footNote="Shown up to 3 times a month."
             />
 
             <ModuleInfoCard
