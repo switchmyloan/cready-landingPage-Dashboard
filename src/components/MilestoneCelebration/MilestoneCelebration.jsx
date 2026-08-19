@@ -6,9 +6,13 @@ import { Trophy, PartyPopper, X, TrendingUp, Wallet, Sparkles } from 'lucide-rea
 // free: confetti, the count-up and every flourish are plain divs + injected
 // keyframes, so nothing extra ships in the bundle.
 
-const CONFETTI_COLORS = ['#a855f7', '#22c55e', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899', '#14b8a6'];
-const FALL_COUNT = 70;
-const BURST_COUNT = 28;
+const CONFETTI_COLORS = ['#a855f7', '#22c55e', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899', '#14b8a6', '#facc15'];
+const FALL_COUNT = 130;
+const BURST_COUNT = 48;
+const EMOJIS = ['🎉', '💰', '🚀', '✨', '🏆', '⭐', '🥳', '💸', '🔥', '🤑'];
+const EMOJI_COUNT = 22;
+const ROCKET_COUNT = 6;
+const ROCKET_HUES = ['#facc15', '#22d3ee', '#f472b6', '#a855f7', '#34d399', '#fb923c'];
 
 const fmtINR = (n) => `₹${Number(n || 0).toLocaleString('en-IN')}`;
 const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN');
@@ -50,6 +54,35 @@ const useBurstConfetti = (open) => useMemo(() => {
     });
 }, [open]);
 
+// Emoji rain — big celebratory emojis raining down alongside the paper confetti,
+// each in its own column with a random delay / speed / spin for extra hype.
+const useEmojiRain = (open) => useMemo(() => {
+    if (!open) return [];
+    return Array.from({ length: EMOJI_COUNT }, (_, i) => ({
+        id: i,
+        left: Math.random() * 100,                       // vw
+        delay: Math.random() * 3,                        // s
+        duration: 3.4 + Math.random() * 3,               // s
+        spin: `${(Math.random() * 2 - 1) * 540}deg`,
+        size: 18 + Math.random() * 16,                   // px
+        emoji: EMOJIS[i % EMOJIS.length],
+    }));
+}, [open]);
+
+// Rockets — 🚀 streaking diagonally across the backdrop (bottom-left → top-right)
+// on a loop, each with its own lane, speed, size and coloured exhaust trail.
+const useRockets = (open) => useMemo(() => {
+    if (!open) return [];
+    return Array.from({ length: ROCKET_COUNT }, (_, i) => ({
+        id: i,
+        left: 2 + Math.random() * 62,                    // vw start (lower-left band)
+        delay: Math.random() * 6,                        // s (stagger over time)
+        duration: 3.6 + Math.random() * 3,               // s
+        size: 24 + Math.random() * 20,                   // px
+        hue: ROCKET_HUES[i % ROCKET_HUES.length],
+    }));
+}, [open]);
+
 // Ease-out count-up so the headline number "lands" instead of just appearing.
 const useCountUp = (target, open, duration = 1500) => {
     const [value, setValue] = useState(0);
@@ -68,13 +101,15 @@ const useCountUp = (target, open, duration = 1500) => {
     return value;
 };
 
-const StatBox = ({ icon, label, value, tone }) => (
-    <div className={`rounded-xl border px-3 py-2.5 ${tone}`}>
-        <div className="flex items-center gap-1.5 mb-1 opacity-80">
+// Dark-glass stat tile. `tone` is kept in the signature for call-site
+// compatibility but the dark celebration card renders a uniform frosted look.
+const StatBox = ({ icon, label, value }) => (
+    <div className="rounded-xl border border-white/10 bg-white/[0.06] px-3 py-2.5 backdrop-blur-sm">
+        <div className="flex items-center gap-1.5 mb-1 text-white/60">
             {icon}
             <span className="text-[10px] font-bold uppercase tracking-[0.1em]">{label}</span>
         </div>
-        <p className="text-[19px] leading-none font-extrabold text-gray-900">{value}</p>
+        <p className="text-[19px] leading-none font-extrabold text-white">{value}</p>
     </div>
 );
 
@@ -85,9 +120,18 @@ const MilestoneCelebration = ({
     count = 0,
     milestoneLabel = '₹10 Cr',
     periodLabel = '',
+    // Optional overrides — defaults reproduce the ₹10 Cr disbursal celebration.
+    subtitle = null,                 // replaces the "We've hit X in disbursals" sentence
+    primaryLabel = 'Total disbursed',
+    unit = 'Cr',                     // big-number unit: 'Cr' | 'L' | 'raw'
+    stats = null,                    // [{ icon, label, value, tone }] — replaces the 2 default boxes
+    ctaText = "Let's keep going 🚀",
+    footNote = 'Shown once a month — next pop-up is the next milestone.',
 }) => {
     const fall = useFallConfetti(open);
     const burst = useBurstConfetti(open);
+    const emojis = useEmojiRain(open);
+    const rockets = useRockets(open);
     const animatedAmount = useCountUp(Number(amount) || 0, open);
 
     // Esc to dismiss.
@@ -101,6 +145,18 @@ const MilestoneCelebration = ({
     if (!open) return null;
 
     const crore = animatedAmount / 1e7;
+    // Big headline number in the requested unit (Cr for the ₹10 Cr disbursal milestone,
+    // L for the ₹90 L profit milestone, raw ₹ otherwise).
+    const big = unit === 'L'
+        ? { n: (animatedAmount / 1e5).toFixed(2), u: 'L' }
+        : unit === 'raw'
+            ? { n: Math.round(animatedAmount).toLocaleString('en-IN'), u: '' }
+            : { n: crore.toFixed(2), u: 'Cr' };
+    const defaultStats = [
+        { icon: <Wallet size={13} />, label: 'Disbursals', value: fmtNum(count), tone: 'border-purple-100 bg-purple-50/70 text-purple-600' },
+        { icon: <TrendingUp size={13} />, label: 'Avg. ticket', value: count ? fmtINR(Math.round(amount / count)) : '—', tone: 'border-emerald-100 bg-emerald-50/70 text-emerald-600' },
+    ];
+    const statBoxes = Array.isArray(stats) && stats.length ? stats : defaultStats;
 
     return (
         <div
@@ -143,7 +199,111 @@ const MilestoneCelebration = ({
                     0%, 100% { transform: translateY(0); }
                     50%      { transform: translateY(-5px); }
                 }
+                @keyframes ms-emojifall {
+                    0%   { transform: translate3d(0, -14vh, 0) rotate(0deg); opacity: 0; }
+                    10%  { opacity: 1; }
+                    100% { transform: translate3d(0, 112vh, 0) rotate(var(--spin)); opacity: 0.9; }
+                }
+                /* Animated sweeping gradient for the big headline number. */
+                @keyframes ms-gradient { to { background-position: 200% center; } }
+                /* One-shot "tada" wobble for the Congratulations! headline. */
+                @keyframes ms-tada {
+                    0%          { transform: scale(1) rotate(0); }
+                    10%, 20%    { transform: scale(0.9) rotate(-3deg); }
+                    30%,50%,70% { transform: scale(1.12) rotate(3deg); }
+                    40%,60%,80% { transform: scale(1.12) rotate(-3deg); }
+                    90%         { transform: scale(1.06) rotate(2deg); }
+                    100%        { transform: scale(1) rotate(0); }
+                }
+                /* Breathing glow behind the trophy / number. */
+                @keyframes ms-glowpulse {
+                    0%,100% { opacity: 0.45; transform: scale(1); }
+                    50%     { opacity: 0.9;  transform: scale(1.12); }
+                }
+                @keyframes ms-flash {
+                    0%   { opacity: 0.55; }
+                    100% { opacity: 0; }
+                }
+                /* Rotating conic gradient — the glowing card border. */
+                @keyframes ms-spin { to { transform: rotate(360deg); } }
+                /* Disco spotlight — swings like a searchlight. */
+                @keyframes ms-swing {
+                    from { transform: rotate(-40deg); }
+                    to   { transform: rotate(40deg); }
+                }
+                /* Colour-cycling disco floor wash. */
+                @keyframes ms-discohue {
+                    to { filter: hue-rotate(360deg); }
+                }
+                /* Expanding firework ring. */
+                @keyframes ms-firework {
+                    0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0.95; }
+                    100% { transform: translate(-50%, -50%) scale(2.9); opacity: 0; }
+                }
+                /* Rocket streaking bottom-left → top-right across the backdrop. */
+                @keyframes ms-rocket {
+                    0%   { transform: translate(0, 0) scale(0.6); opacity: 0; }
+                    8%   { opacity: 1; }
+                    88%  { opacity: 1; }
+                    100% { transform: translate(96vw, -112vh) scale(1.15); opacity: 0; }
+                }
             `}</style>
+
+            {/* Rockets — 🚀 streaking diagonally across the backdrop with a glowing trail. */}
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                {rockets.map((r) => (
+                    <div
+                        key={`r${r.id}`}
+                        style={{
+                            position: 'absolute',
+                            left: `${r.left}vw`,
+                            bottom: '-10vh',
+                            animation: `ms-rocket ${r.duration}s cubic-bezier(0.4, 0, 0.7, 1) ${r.delay}s infinite`,
+                        }}
+                    >
+                        {/* Exhaust trail — streaks down-left from the rocket's tail. */}
+                        <span
+                            style={{
+                                position: 'absolute',
+                                right: '35%',
+                                top: '55%',
+                                width: `${r.size * 3.4}px`,
+                                height: '3px',
+                                borderRadius: '9999px',
+                                transformOrigin: 'right center',
+                                transform: 'rotate(-45deg)',
+                                background: `linear-gradient(to left, ${r.hue}, transparent)`,
+                                filter: 'blur(2px)',
+                                opacity: 0.85,
+                            }}
+                        />
+                        <span style={{ fontSize: `${r.size}px`, lineHeight: 1, filter: `drop-shadow(0 0 9px ${r.hue})` }}>🚀</span>
+                    </div>
+                ))}
+            </div>
+
+            {/* Opening white flash — a quick "pop" the instant the modal appears. */}
+            <div className="pointer-events-none fixed inset-0 bg-white z-[210]" style={{ animation: 'ms-flash 0.5s ease-out both' }} />
+
+            {/* Emoji rain — big celebratory emojis falling behind the card. */}
+            <div className="pointer-events-none fixed inset-0 overflow-hidden">
+                {emojis.map((e) => (
+                    <span
+                        key={`e${e.id}`}
+                        style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: `${e.left}vw`,
+                            fontSize: `${e.size}px`,
+                            lineHeight: 1,
+                            '--spin': e.spin,
+                            animation: `ms-emojifall ${e.duration}s linear ${e.delay}s infinite`,
+                        }}
+                    >
+                        {e.emoji}
+                    </span>
+                ))}
+            </div>
 
             {/* Falling confetti — pointer-events-none so it never blocks the card. */}
             <div className="pointer-events-none fixed inset-0 overflow-hidden">
@@ -166,125 +326,176 @@ const MilestoneCelebration = ({
                 ))}
             </div>
 
-            {/* Card */}
+            {/* Card — dark premium with a static gradient border. */}
             <div
-                className="relative w-full max-w-[420px] rounded-[22px] bg-white overflow-hidden ring-1 ring-white/60 shadow-[0_28px_80px_-12px_rgba(88,28,135,0.55)]"
+                className="relative w-full max-w-[430px] rounded-[26px] p-[2px] bg-gradient-to-br from-purple-500 via-fuchsia-500 to-amber-400 shadow-[0_30px_90px_-15px_rgba(0,0,0,0.8)]"
                 style={{ animation: 'ms-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1) both' }}
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* One-shot burst, anchored to the card centre. */}
-                <div className="pointer-events-none absolute inset-0 grid place-items-center z-20">
-                    {burst.map((b) => (
-                        <span
-                            key={b.id}
+                <div className="relative rounded-[24px] overflow-hidden bg-gradient-to-b from-slate-900 via-[#1a1030] to-slate-950">
+                    {/* Disco spotlight beams — sweep from the top like a stage. */}
+                    {[
+                        { color: '168,85,247', dur: '3.2s', delay: '0s' },
+                        { color: '34,211,238', dur: '4s', delay: '0.5s' },
+                        { color: '251,191,36', dur: '3.6s', delay: '0.9s' },
+                        { color: '236,72,153', dur: '4.4s', delay: '0.3s' },
+                    ].map((b, i) => (
+                        <div
+                            key={i}
+                            className="pointer-events-none absolute top-0 left-1/2 z-0"
                             style={{
-                                position: 'absolute',
-                                width: `${b.size}px`,
-                                height: `${b.size * (b.round ? 1 : 1.7)}px`,
-                                background: b.color,
-                                borderRadius: b.round ? '50%' : '2px',
-                                '--tx': b.tx,
-                                '--ty': b.ty,
-                                '--spin': b.spin,
-                                animation: `ms-burst 0.95s cubic-bezier(0.16, 0.9, 0.3, 1) ${b.delay}s both`,
+                                width: '72px',
+                                height: '500px',
+                                marginLeft: '-36px',
+                                background: `linear-gradient(to bottom, rgba(${b.color},0.55), rgba(${b.color},0.06) 55%, transparent)`,
+                                filter: 'blur(9px)',
+                                transformOrigin: 'top center',
+                                mixBlendMode: 'screen',
+                                animation: `ms-swing ${b.dur} ease-in-out ${b.delay} infinite alternate`,
                             }}
                         />
                     ))}
-                </div>
-
-                <button
-                    onClick={onClose}
-                    className="absolute top-3 right-3 z-30 p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/20 transition"
-                    aria-label="Dismiss"
-                >
-                    <X size={18} />
-                </button>
-
-                {/* ── Header ─────────────────────────────────────────────── */}
-                <div className="relative px-6 pt-9 pb-8 text-center overflow-hidden bg-gradient-to-br from-indigo-600 via-purple-600 to-fuchsia-600">
-                    {/* Aurora blobs */}
-                    <div className="pointer-events-none absolute -top-16 -left-10 w-52 h-52 rounded-full bg-fuchsia-400/40 blur-3xl"
-                        style={{ animation: 'ms-aurora 7s ease-in-out infinite' }} />
-                    <div className="pointer-events-none absolute -bottom-20 -right-8 w-56 h-56 rounded-full bg-indigo-300/35 blur-3xl"
-                        style={{ animation: 'ms-aurora 9s ease-in-out infinite reverse' }} />
-                    {/* Slow conic rays behind the trophy */}
+                    {/* Colour-cycling disco floor wash. */}
                     <div
-                        className="pointer-events-none absolute left-1/2 top-[52px] w-[320px] h-[320px] -translate-x-1/2 -translate-y-1/2 opacity-[0.16]"
+                        className="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 w-[120%] h-40 z-0 rounded-full blur-3xl"
                         style={{
-                            background: 'repeating-conic-gradient(#fff 0deg 9deg, transparent 9deg 26deg)',
-                            maskImage: 'radial-gradient(circle, #000 12%, transparent 62%)',
-                            WebkitMaskImage: 'radial-gradient(circle, #000 12%, transparent 62%)',
+                            background: 'linear-gradient(90deg, #a855f7, #22d3ee, #facc15, #ec4899)',
+                            opacity: 0.35,
+                            mixBlendMode: 'screen',
+                            animation: 'ms-discohue 6s linear infinite',
+                        }}
+                    />
+
+                    {/* Ambient glow blobs */}
+                    <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 w-72 h-72 rounded-full bg-purple-600/25 blur-3xl"
+                        style={{ animation: 'ms-glowpulse 3.2s ease-in-out infinite' }} />
+                    <div className="pointer-events-none absolute -bottom-24 -right-12 w-56 h-56 rounded-full bg-cyan-500/15 blur-3xl"
+                        style={{ animation: 'ms-aurora 9s ease-in-out infinite' }} />
+                    <div className="pointer-events-none absolute -bottom-20 -left-12 w-56 h-56 rounded-full bg-fuchsia-500/15 blur-3xl"
+                        style={{ animation: 'ms-aurora 11s ease-in-out infinite reverse' }} />
+
+                    {/* Repeating firework rings. */}
+                    {[
+                        { top: '16%', left: '22%', color: '#facc15', delay: '0s' },
+                        { top: '24%', left: '80%', color: '#22d3ee', delay: '0.6s' },
+                        { top: '58%', left: '16%', color: '#ec4899', delay: '1.2s' },
+                        { top: '66%', left: '84%', color: '#a855f7', delay: '1.8s' },
+                        { top: '40%', left: '92%', color: '#34d399', delay: '2.4s' },
+                    ].map((f, i) => (
+                        <span
+                            key={i}
+                            className="pointer-events-none absolute w-9 h-9 rounded-full z-10"
+                            style={{
+                                top: f.top,
+                                left: f.left,
+                                border: `2px solid ${f.color}`,
+                                boxShadow: `0 0 14px ${f.color}, inset 0 0 8px ${f.color}`,
+                                animation: `ms-firework 2s ease-out ${f.delay} infinite`,
+                            }}
+                        />
+                    ))}
+
+                    {/* Slow conic rays behind the trophy. */}
+                    <div
+                        className="pointer-events-none absolute left-1/2 top-[92px] w-[340px] h-[340px] -translate-x-1/2 -translate-y-1/2 opacity-[0.14] z-10"
+                        style={{
+                            background: 'repeating-conic-gradient(#fff 0deg 8deg, transparent 8deg 24deg)',
+                            maskImage: 'radial-gradient(circle, #000 10%, transparent 60%)',
+                            WebkitMaskImage: 'radial-gradient(circle, #000 10%, transparent 60%)',
                             animation: 'ms-rays 26s linear infinite',
                         }}
                     />
-                    {/* Shine sweep */}
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                        <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/25 to-transparent"
-                            style={{ animation: 'ms-shine 3.6s ease-in-out 0.5s infinite' }} />
-                    </div>
 
-                    {/* Trophy + halo rings */}
-                    <div className="relative mx-auto w-[74px] h-[74px] mb-4" style={{ animation: 'ms-float 3.2s ease-in-out infinite' }}>
-                        <span className="absolute inset-0 rounded-full bg-amber-200/70" style={{ animation: 'ms-halo 2.4s ease-out infinite' }} />
-                        <span className="absolute inset-0 rounded-full bg-amber-200/50" style={{ animation: 'ms-halo 2.4s ease-out 1.2s infinite' }} />
-                        <div className="relative w-full h-full rounded-full grid place-items-center bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 shadow-[0_10px_28px_-6px_rgba(251,191,36,0.85)] ring-4 ring-white/25">
-                            <Trophy size={33} className="text-amber-900 drop-shadow" />
-                        </div>
-                    </div>
-
-                    <span className="relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/12 border border-white/25 backdrop-blur-sm text-white/90 text-[10.5px] font-bold uppercase tracking-[0.2em]">
-                        <Sparkles size={11} className="text-amber-300" />
-                        Milestone unlocked
-                    </span>
-
-                    <h2 className="relative text-white text-[27px] leading-tight font-black mt-3 inline-flex items-center justify-center gap-2 drop-shadow-sm">
-                        <PartyPopper size={23} className="text-amber-300" />
-                        Congratulations!
-                    </h2>
-
-                    <p className="relative text-white/90 text-[13.5px] mt-2 max-w-[300px] mx-auto">
-                        We&apos;ve hit <span className="font-bold text-amber-300">{milestoneLabel}</span> in disbursals
-                        {periodLabel ? <> this <span className="font-bold">{periodLabel}</span></> : ' this month'}.
-                    </p>
-                </div>
-
-                {/* ── Numbers ────────────────────────────────────────────── */}
-                <div className="relative px-6 py-6 bg-gradient-to-b from-purple-50/50 to-white">
-                    <div className="text-center mb-5">
-                        <p className="text-[10.5px] font-bold uppercase tracking-[0.16em] text-gray-400">Total disbursed</p>
-                        <p className="mt-1.5 text-[40px] leading-none font-black bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 bg-clip-text text-transparent tabular-nums">
-                            ₹{crore.toFixed(2)}
-                            <span className="text-[20px] font-extrabold text-gray-400 ml-1.5">Cr</span>
-                        </p>
-                        <p className="text-[12px] text-gray-500 mt-2 tabular-nums">{fmtINR(Math.round(animatedAmount))}</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <StatBox
-                            icon={<Wallet size={13} />}
-                            label="Disbursals"
-                            value={fmtNum(count)}
-                            tone="border-purple-100 bg-purple-50/70 text-purple-600"
-                        />
-                        <StatBox
-                            icon={<TrendingUp size={13} />}
-                            label="Avg. ticket"
-                            value={count ? fmtINR(Math.round(amount / count)) : '—'}
-                            tone="border-emerald-100 bg-emerald-50/70 text-emerald-600"
-                        />
+                    {/* One-shot burst, anchored to the card centre. */}
+                    <div className="pointer-events-none absolute inset-0 grid place-items-center z-20">
+                        {burst.map((b) => (
+                            <span
+                                key={b.id}
+                                style={{
+                                    position: 'absolute',
+                                    width: `${b.size}px`,
+                                    height: `${b.size * (b.round ? 1 : 1.7)}px`,
+                                    background: b.color,
+                                    borderRadius: b.round ? '50%' : '2px',
+                                    '--tx': b.tx,
+                                    '--ty': b.ty,
+                                    '--spin': b.spin,
+                                    animation: `ms-burst 0.95s cubic-bezier(0.16, 0.9, 0.3, 1) ${b.delay}s both`,
+                                }}
+                            />
+                        ))}
                     </div>
 
                     <button
                         onClick={onClose}
-                        className="group relative mt-5 w-full py-3 rounded-xl overflow-hidden bg-gradient-to-r from-purple-600 via-fuchsia-600 to-indigo-600 text-white text-[14px] font-bold shadow-lg shadow-purple-500/30 hover:shadow-xl hover:shadow-purple-500/40 hover:-translate-y-0.5 active:translate-y-0 transition-all"
+                        className="absolute top-3 right-3 z-30 p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition"
+                        aria-label="Dismiss"
                     >
-                        <span className="relative z-10">Let&apos;s keep going 🚀</span>
-                        <span className="absolute inset-y-0 -left-full w-1/2 bg-white/25 skew-x-[-18deg] group-hover:left-[130%] transition-all duration-700" />
+                        <X size={18} />
                     </button>
 
-                    <p className="text-center text-[10.5px] text-gray-400 mt-3">
-                        Shown once a month — next pop-up is the next milestone.
-                    </p>
+                    {/* ── Content ────────────────────────────────────────────── */}
+                    <div className="relative z-20 px-7 pt-9 pb-7 text-center">
+                        {/* Trophy + glowing halo rings */}
+                        <div className="relative mx-auto w-[82px] h-[82px] mb-4" style={{ animation: 'ms-float 3.2s ease-in-out infinite' }}>
+                            <span className="absolute inset-0 rounded-full bg-amber-300/40" style={{ animation: 'ms-halo 2.4s ease-out infinite' }} />
+                            <span className="absolute inset-0 rounded-full bg-amber-300/30" style={{ animation: 'ms-halo 2.4s ease-out 1.2s infinite' }} />
+                            <div className="relative w-full h-full rounded-full grid place-items-center bg-gradient-to-br from-amber-200 via-yellow-400 to-amber-500 shadow-[0_0_36px_-2px_rgba(251,191,36,0.9)] ring-[5px] ring-amber-400/20">
+                                <Trophy size={36} className="text-amber-900 drop-shadow" />
+                            </div>
+                        </div>
+
+                        <span className="relative inline-flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white/8 border border-white/15 backdrop-blur-sm text-amber-200/90 text-[10.5px] font-bold uppercase tracking-[0.22em]">
+                            <Sparkles size={11} className="text-amber-300" />
+                            Milestone unlocked
+                        </span>
+
+                        <h2
+                            className="relative text-[30px] leading-tight font-black mt-3 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-200 via-yellow-300 to-amber-400 bg-clip-text text-transparent"
+                            style={{ animation: 'ms-tada 1.6s ease-in-out 0.45s 2 both', filter: 'drop-shadow(0 2px 12px rgba(251,191,36,0.35))' }}
+                        >
+                            <PartyPopper size={26} className="text-amber-300" style={{ WebkitTextFillColor: 'initial' }} />
+                            Congratulations!
+                        </h2>
+
+                        <p className="relative text-white/70 text-[13.5px] mt-2.5 max-w-[320px] mx-auto">
+                            {subtitle || (<>
+                                We&apos;ve hit <span className="font-bold text-amber-300">{milestoneLabel}</span> in disbursals
+                                {periodLabel ? <> this <span className="font-bold text-white">{periodLabel}</span></> : ' this month'}.
+                            </>)}
+                        </p>
+
+                        {/* Big glowing number */}
+                        <div className="mt-6 mb-5">
+                            <p className="text-[10.5px] font-bold uppercase tracking-[0.18em] text-white/40">{primaryLabel}</p>
+                            <p
+                                className="mt-1.5 text-[52px] leading-none font-black bg-gradient-to-r from-amber-300 via-yellow-200 to-amber-400 bg-clip-text text-transparent tabular-nums"
+                                style={{ backgroundSize: '200% auto', animation: 'ms-gradient 2.5s linear infinite', filter: 'drop-shadow(0 3px 20px rgba(251,191,36,0.4))' }}
+                            >
+                                ₹{big.n}
+                                {big.u && <span className="text-[26px] font-extrabold text-white/50 ml-1.5">{big.u}</span>}
+                            </p>
+                            <p className="text-[12px] text-white/45 mt-2 tabular-nums">{fmtINR(Math.round(animatedAmount))}</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            {statBoxes.map((s, i) => (
+                                <StatBox key={i} icon={s.icon} label={s.label} value={s.value} tone={s.tone} />
+                            ))}
+                        </div>
+
+                        <button
+                            onClick={onClose}
+                            className="group relative mt-5 w-full py-3 rounded-xl overflow-hidden bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-amber-950 text-[14px] font-black shadow-[0_10px_30px_-6px_rgba(251,191,36,0.6)] hover:shadow-[0_14px_38px_-6px_rgba(251,191,36,0.75)] hover:-translate-y-0.5 active:translate-y-0 transition-all"
+                        >
+                            <span className="relative z-10">{ctaText}</span>
+                            <span className="absolute inset-y-0 -left-full w-1/2 bg-white/40 skew-x-[-18deg] group-hover:left-[130%] transition-all duration-700" />
+                        </button>
+
+                        <p className="text-center text-[10.5px] text-white/35 mt-3">
+                            {footNote}
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
