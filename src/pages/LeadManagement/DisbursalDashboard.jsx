@@ -1388,9 +1388,9 @@ const monthLabel = () => new Date().toLocaleString('en-IN', { month: 'long', yea
 // Revenue Evaluation — combined (High + Short) modal. Fetches BOTH ticket types'
 // disbursal trend for the CURRENT range/filters, sums each to a total disbursed, and
 // applies the same 3.25× ÷ 100 revenue formula the KPI card uses. Shows each side, the
-// combined revenue, and progress toward the ₹90 lakh milestone.
+// combined revenue, and progress toward the ₹1 Cr milestone.
 const REVENUE_RATE = 3.25 / 100;
-const REVENUE_TARGET = 9e6; // ₹90 lakh combined-revenue milestone
+const REVENUE_TARGET = 1e7; // ₹1 Cr combined-revenue milestone
 const COMBINED_MILESTONE_MAX_SHOWS = 3; // celebrate up to 3 times (per month), then stop
 
 const RevenueEvalModal = ({ open, onClose, range, fromDate, toDate, utmSource, utmMedium }) => {
@@ -1456,13 +1456,13 @@ const RevenueEvalModal = ({ open, onClose, range, fromDate, toDate, utmSource, u
                                 <span className="text-[12.5px] font-bold text-emerald-800">Combined Revenue</span>
                                 <span className="text-[22px] font-extrabold text-emerald-700 tabular-nums leading-none">{fmtINRFull(combined)}</span>
                             </div>
-                            {/* Progress toward the ₹90 L milestone */}
+                            {/* Progress toward the ₹1 Cr milestone */}
                             <div className="mt-2.5">
                                 <div className="h-2.5 rounded-full bg-white overflow-hidden border border-emerald-100">
                                     <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500" style={{ width: `${pctOfTarget}%` }} />
                                 </div>
                                 <p className="text-[11px] text-emerald-700 mt-1 font-medium">
-                                    {pctOfTarget.toFixed(1)}% of ₹90 L · {fmtINRFull(Math.max(REVENUE_TARGET - combined, 0))} to go
+                                    {pctOfTarget.toFixed(1)}% of ₹1 Cr · {fmtINRFull(Math.max(REVENUE_TARGET - combined, 0))} to go
                                 </p>
                             </div>
                         </div>
@@ -1502,7 +1502,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     const [lenderLoading, setLenderLoading] = useState(true);
     const [selectedLender, setSelectedLender] = useState(null);
     const [revOpen, setRevOpen] = useState(false); // Revenue Evaluation → combined (High+Short) breakdown modal (manual click)
-    const [profitCeleb, setProfitCeleb] = useState({ open: false, combined: 0, high: 0, short: 0 }); // ₹90L profit celebration (auto)
+    const [profitCeleb, setProfitCeleb] = useState({ open: false, combined: 0, high: 0, short: 0 }); // ₹1 Cr combined-revenue celebration (auto)
     // "Updated X ago" pill — lastRefreshedAt is stamped when the KPI payload
     // lands; nowTick re-renders the relative label every 30s so it counts up on
     // its own (tells users how fresh the data is, so they don't keep refreshing).
@@ -1592,7 +1592,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     }, [range, utmSource, utmMedium, trendTotals, scope]);
 
     // Combined-revenue (High + Short) milestone — when the two tickets' revenue TOGETHER
-    // crosses ₹90 L for the current view, auto-open the combined breakdown modal, once
+    // crosses ₹1 Cr for the current view, auto-open the combined breakdown modal, once
     // per month (localStorage) so it celebrates rather than nagging on every visit. The
     // once-guards stop the extra fetches after it fires (or if already shown this month).
     const combinedMilestoneFired = useRef(false);
@@ -2150,16 +2150,16 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 periodLabel={monthLabel()}
             />
 
-            {/* ₹90 L combined-revenue (High + Short) PROFIT milestone — auto-fires once
+            {/* ₹1 Cr combined-revenue (High + Short) milestone — auto-fires once
                 a month with confetti when the two tickets' revenue together crosses it. */}
             <MilestoneCelebration
                 open={profitCeleb.open}
                 onClose={() => setProfitCeleb((p) => ({ ...p, open: false }))}
                 amount={profitCeleb.combined}
-                milestoneLabel="₹90 L"
-                unit="L"
+                milestoneLabel="₹1 Cr"
+                unit="Cr"
                 primaryLabel="Combined revenue · High + Short"
-                subtitle={<>High + Short ticket <span className="font-bold text-amber-300">combined revenue</span> just crossed <span className="font-bold text-amber-300">₹90 L</span>! 🎉🔥</>}
+                subtitle={<>High + Short ticket <span className="font-bold text-amber-300">combined revenue</span> just crossed <span className="font-bold text-amber-300">₹1 Cr</span>! 🎉🔥</>}
                 stats={[
                     { icon: <Wallet size={13} />, label: 'High Ticket', value: fmtINRFull(profitCeleb.high), tone: 'border-purple-100 bg-purple-50/70 text-purple-600' },
                     { icon: <TrendingUp size={13} />, label: 'Short Ticket', value: fmtINRFull(profitCeleb.short), tone: 'border-blue-100 bg-blue-50/70 text-blue-600' },
