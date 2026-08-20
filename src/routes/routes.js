@@ -215,7 +215,7 @@ export const routes = [
     showInSidebar: true,
     group: "Lenders",
     groupOrder: 3,
-    order: 22.7,
+    order: 22.55,
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
@@ -478,7 +478,7 @@ export const routes = [
     path: "/intelligence",
     label: "Intelligence",
     icon: "Brain",
-    showInSidebar: true,
+    showInSidebar: false,
     order: 3.5,
     roles: ["super-admin"],
   },

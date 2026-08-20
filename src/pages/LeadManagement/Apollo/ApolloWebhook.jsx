@@ -183,6 +183,7 @@ const ApolloWebhook = () => {
         { header: 'UTM Source', value: (r) => r.utmSource },
         { header: 'UTM Campaign', value: (r) => r.utmCampaign },
         { header: 'Stage', value: (r) => r.stageLabel },
+        { header: 'Rejection Reason', value: (r) => r.reason || 'No reason found' },
         { header: 'Disbursed Amount', value: (r) => r.disbursementAmount },
         { header: 'Disbursed Date', value: (r) => r.disbursementDate },
         { header: 'Created At', value: (r) => r.createdAt },
@@ -232,7 +233,7 @@ const ApolloWebhook = () => {
       </div>
 
       <MainTable
-        columns={apolloEventsColumn({ handleEdit })}
+        columns={apolloEventsColumn({ handleEdit, status: query.status })}
         data={rows}
         totalDataCount={total}
         loading={loading}

@@ -2802,7 +2802,7 @@ export const upSwingEventsColumn = ({ handleEdit }) => [
 
 // Apollo leads list — one row per loan_id (apollo_events_latest). No PII; keyed on
 // loan_id / user_id with UTM attribution + current journey stage.
-export const apolloEventsColumn = ({ handleEdit }) => [
+export const apolloEventsColumn = ({ handleEdit, status }) => [
   { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
   { header: 'Loan ID', accessorKey: 'loanId', cell: upSwingTruncCell },
   { header: 'User ID', accessorKey: 'userId', cell: ({ getValue }) => <span className="font-mono text-sm text-gray-700">{getValue() || '—'}</span> },
@@ -2822,6 +2822,17 @@ export const apolloEventsColumn = ({ handleEdit }) => [
     },
   },
   { header: 'Stage', accessorKey: 'stageLabel', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
+  // Rejection Reason — shown ONLY on the "Application Rejected" stage tab.
+  ...(status === 'application_rejected' ? [{
+    header: 'Rejection Reason',
+    accessorKey: 'reason',
+    cell: ({ getValue }) => {
+      const v = getValue();
+      return v
+        ? <span className="text-sm text-gray-700">{v}</span>
+        : <span className="text-gray-400 italic">No reason found</span>;
+    },
+  }] : []),
   {
     header: 'Disbursed',
     accessorKey: 'disbursementAmount',

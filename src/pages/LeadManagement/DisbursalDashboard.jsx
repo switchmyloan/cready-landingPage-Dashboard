@@ -1478,11 +1478,11 @@ const RevenueEvalModal = ({ open, onClose, range, fromDate, toDate, utmSource, u
 };
 
 export default function DisbursalDashboard({ scope, title, subtitle }) {
-    // Default landing state: 'All' range with no date bounds. Initial dates
-    // are derived from dateForRange('All') so the URL/API see empty fromDate
-    // and toDate on first paint — matching backend's "no filter" semantics.
-    const _initialDates = dateForRange('All') || { fromDate: '', toDate: '' };
-    const [range, setRange] = useState('All');
+    // Default landing state: 'Current Month'. Initial dates are derived from
+    // dateForRange('Current Month') so the URL/API see the month's fromDate/toDate
+    // on first paint, consistent with the selected range button.
+    const _initialDates = dateForRange('Current Month') || { fromDate: '', toDate: '' };
+    const [range, setRange] = useState('Current Month');
     const [fromDate, setFromDate] = useState(_initialDates.fromDate);
     const [toDate, setToDate] = useState(_initialDates.toDate);
     const [utmSource, setUtmSource] = useState('');
