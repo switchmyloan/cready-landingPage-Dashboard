@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Flame, Phone, Clock, CheckCircle2, X, Info } from 'lucide-react';
 import { getIncredSuccessAlerts } from '../../api-services/Modules/Leads';
@@ -230,8 +231,9 @@ const IncredSuccessAlerts = () => {
         </div>
       )}
 
-      {/* In-app flash toast (fixed, escapes the navbar) — fires on a new arrival. */}
-      {flash && (
+      {/* In-app flash toast — portaled to <body> so the navbar's backdrop-filter
+          can't trap the `fixed` toast at the top; anchored bottom-right of viewport. */}
+      {flash && createPortal((
         <div className="fixed bottom-5 right-5 z-[100] flex items-start gap-3 px-4 py-3 rounded-xl bg-white shadow-2xl shadow-orange-500/20 border border-orange-200 max-w-[320px]">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-orange-500 to-red-500 grid place-items-center text-white shrink-0">
             <Flame size={16} />
@@ -250,7 +252,7 @@ const IncredSuccessAlerts = () => {
             <X size={14} />
           </button>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 };

@@ -125,7 +125,7 @@ const OfferLeadsAnalytics = () => {
       }
     } catch (err) {
       console.error(err);
-      ToastNotification.error('Failed to fetch analytics data');
+      // ToastNotification.error('Failed to fetch analytics data');
     } finally {
       setLoading(false);
       setFirstLoad(false);  // first fetch done — switch to in-place skeletons

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Zap, Clock, CheckCircle2, X, Info, BadgeIndianRupee, Phone, ChevronDown } from 'lucide-react';
 import { getVivifiHotLeadAlerts } from '../../api-services/Modules/VivifiWebhook';
@@ -270,8 +271,10 @@ const VivifiHotLeadsAlerts = () => {
         </div>
       )}
 
-      {/* In-app flash toast (fixed, escapes the navbar) — fires on a new arrival. */}
-      {flash && (
+      {/* In-app flash toast — portaled to <body> so the navbar's backdrop-filter
+          (which turns `fixed` into a navbar-relative containing block) can't trap it
+          at the top; anchored to the viewport bottom-right. Fires on a new arrival. */}
+      {flash && createPortal((
         <div className="fixed bottom-5 right-5 z-[100] flex items-start gap-3 px-4 py-3 rounded-xl bg-white shadow-2xl shadow-cyan-500/20 border border-cyan-200 max-w-[320px]">
           <div className="w-8 h-8 rounded-lg grid place-items-center text-white shrink-0 bg-gradient-to-br from-cyan-500 to-sky-500">
             <Zap size={16} />
@@ -295,7 +298,7 @@ const VivifiHotLeadsAlerts = () => {
             <X size={14} />
           </button>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 };

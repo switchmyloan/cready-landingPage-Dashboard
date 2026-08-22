@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { Landmark, Clock, CheckCircle2, X, Info, BadgeIndianRupee, Phone } from 'lucide-react';
 import { getUpSwingBankOfferAlerts } from '../../api-services/Modules/UpSwingWebhook';
@@ -253,8 +254,9 @@ const UpSwingBankOfferAlerts = () => {
         </div>
       )}
 
-      {/* In-app flash toast (fixed, escapes the navbar) — fires on a new arrival. */}
-      {flash && (
+      {/* In-app flash toast — portaled to <body> so the navbar's backdrop-filter
+          can't trap the `fixed` toast at the top; anchored bottom-right of viewport. */}
+      {flash && createPortal((
         <div className="fixed bottom-5 right-5 z-[100] flex items-start gap-3 px-4 py-3 rounded-xl bg-white shadow-2xl shadow-indigo-500/20 border border-indigo-200 max-w-[320px]">
           <div className={`w-8 h-8 rounded-lg grid place-items-center text-white shrink-0 ${isDisbursed(flash.stage) ? 'bg-gradient-to-br from-emerald-500 to-green-500' : 'bg-gradient-to-br from-indigo-500 to-violet-500'}`}>
             {isDisbursed(flash.stage) ? <CheckCircle2 size={16} /> : <Landmark size={16} />}
@@ -278,7 +280,7 @@ const UpSwingBankOfferAlerts = () => {
             <X size={14} />
           </button>
         </div>
-      )}
+      ), document.body)}
     </div>
   );
 };

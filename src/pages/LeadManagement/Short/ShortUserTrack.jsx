@@ -97,6 +97,15 @@ const COLOR_MAP = {
   },
 };
 
+// Gradient tokens for the premium stat cards (icon chip, top accent, progress bar).
+const STAT_GRAD = {
+  blue: "from-blue-500 to-indigo-500",
+  amber: "from-amber-500 to-orange-500",
+  purple: "from-purple-500 to-fuchsia-500",
+  green: "from-emerald-500 to-green-500",
+  slate: "from-slate-400 to-slate-500",
+};
+
 // Hardcoded source baseline — same approach as the regular User Track /
 // Disbursal Dashboard. Mediums come from the DB (getShortDistinctMediums).
 const SOURCE_OPTIONS = [
@@ -148,14 +157,15 @@ const StatCards = ({ summary, loading }) => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
         {cards.map((_, i) => (
           <div
             key={i}
-            className="p-4 bg-white rounded-lg border border-gray-200 animate-pulse"
+            className="p-4 bg-white rounded-xl border border-gray-200/80 animate-pulse"
           >
-            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2" />
-            <div className="h-7 bg-gray-300 rounded w-2/3" />
+            <div className="h-3 bg-gray-200 rounded w-1/2 mb-3" />
+            <div className="h-7 bg-gray-300 rounded w-2/3 mb-3" />
+            <div className="h-1.5 bg-gray-200 rounded-full w-full" />
           </div>
         ))}
       </div>
@@ -165,35 +175,53 @@ const StatCards = ({ summary, loading }) => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
       {cards.map(({ key, label, Icon, color, value, pct }) => {
-        const c = COLOR_MAP[color];
+        const grad = STAT_GRAD[color] || STAT_GRAD.slate;
         return (
           <div
             key={key}
-            className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition"
+            className="relative bg-white rounded-xl border border-gray-200/80 p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden"
           >
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-500 truncate">
-                {label}
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {value.toLocaleString()}
-              </p>
-              {key !== "total" && (
-                <p className="text-[11px] text-gray-500 mt-0.5">
+            {/* Top accent stripe */}
+            <span className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${grad}`} />
+
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 truncate">
+                  {label}
+                </p>
+                <p className="mt-1 text-[26px] font-extrabold text-gray-900 leading-none tabular-nums">
+                  {value.toLocaleString("en-IN")}
+                </p>
+              </div>
+              <div
+                className={`w-10 h-10 rounded-xl bg-gradient-to-br ${grad} grid place-items-center text-white shrink-0 shadow-sm`}
+              >
+                <Icon size={19} />
+              </div>
+            </div>
+
+            {key !== "total" ? (
+              <div className="mt-3.5">
+                <div className="flex items-center justify-between text-[11px] mb-1">
+                  <span className="text-gray-400">of landed</span>
                   <span
-                    className={`font-semibold ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
+                    className={`font-bold tabular-nums ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
                   >
                     {pct}%
-                  </span>{" "}
-                  of landed
-                </p>
-              )}
-            </div>
-            <div
-              className={`p-2.5 rounded-lg ${c.iconBg} ${c.iconText} shrink-0 ml-2`}
-            >
-              <Icon size={20} />
-            </div>
+                  </span>
+                </div>
+                <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full bg-gradient-to-r ${grad} transition-[width] duration-700 ease-out`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3.5 text-[11px] text-gray-400">
+                Total users who landed on the page
+              </p>
+            )}
           </div>
         );
       })}

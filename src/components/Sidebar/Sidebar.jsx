@@ -467,7 +467,7 @@ function Sidebar({ onClose, collapsed, onToggleCollapse }) {
                     <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-emerald-500" />
                   </span>
                   <p className="text-[9.5px] font-semibold tracking-[0.14em] uppercase text-emerald-700 leading-none">
-                    Online · Lending CMS
+                    Landing Page  CMS
                   </p>
                 </div>
               </div>
