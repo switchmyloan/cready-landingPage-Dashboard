@@ -56,7 +56,7 @@ const ShortOfferLeadsAnalytics = () => {
       }
     } catch (err) {
       console.error(err);
-      ToastNotification.error('Failed to fetch short analytics data');
+      // ToastNotification.error('Failed to fetch short analytics data');
     } finally {
       setLoading(false);
       setFirstLoad(false);

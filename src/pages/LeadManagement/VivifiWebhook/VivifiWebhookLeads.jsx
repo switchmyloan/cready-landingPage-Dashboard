@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { IndianRupee, CheckCircle2, Clock, TrendingUp, Users, XCircle, Filter, BarChart3, X } from 'lucide-react';
+import { CheckCircle2, Clock, TrendingUp, Users, XCircle, Filter, BarChart3, X } from 'lucide-react';
 
 import ToastNotification from '@components/Notification/ToastNotification';
 import MainTable from '../../../components/Table/MainTable';
@@ -134,10 +134,10 @@ const StageChip = ({ label, count, active, onClick, tone = 'gray' }) => {
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition ${tones[tone] || tones.gray} ${active ? activeCls : ''}`}
+      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full border text-[11px] font-semibold transition ${tones[tone] || tones.gray} ${active ? activeCls : ''}`}
     >
       <span>{label}</span>
-      <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1 rounded-full bg-white/70 text-[11px] font-bold">{count}</span>
+      <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-white/70 text-[10px] font-bold">{count}</span>
     </button>
   );
 };
@@ -365,6 +365,30 @@ const KpiCard = ({ icon: Icon, label, value, sub, tone = 'purple' }) => {
   );
 };
 
+// Compact per-stage tile — no bulky gradient icon, just a slim colour accent bar
+// so many stages fit in a tidy grid without the cluttered "one big card per stage"
+// look. Used for the Applications eligible-amount-by-stage breakdown.
+const StageMiniCard = ({ label, value, count, tone = 'gray' }) => {
+  const bar = {
+    purple: 'from-purple-500 to-indigo-500',
+    green: 'from-emerald-500 to-green-500',
+    amber: 'from-amber-500 to-orange-500',
+    blue: 'from-sky-500 to-blue-500',
+    red: 'from-rose-500 to-red-500',
+    gray: 'from-gray-400 to-gray-500',
+  }[tone] || 'from-gray-400 to-gray-500';
+  return (
+    <div className="relative bg-white border border-gray-200/80 rounded-lg pl-2.5 pr-2 py-1.5 shadow-sm overflow-hidden">
+      <span className={`absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b ${bar}`} />
+      <p className="text-[9px] font-semibold uppercase tracking-wide text-gray-400 truncate" title={label}>{label}</p>
+      <div className="flex items-baseline justify-between gap-1">
+        <p className="text-[13px] font-bold text-gray-800 leading-tight tabular-nums truncate">{value}</p>
+        <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">{count}</span>
+      </div>
+    </div>
+  );
+};
+
 // ---------------------------------------------------------------------------
 // Applications panel — current-state snapshot (one row per lead).
 // ---------------------------------------------------------------------------
@@ -458,32 +482,37 @@ const ApplicationsPanel = () => {
 
   return (
     <>
-      {/* Eligible-amount KPIs — total first, then one card per stage (journey order). */}
-      <div className="flex flex-wrap gap-3 mb-3">
-        <KpiCard
-          icon={TrendingUp}
-          tone="purple"
-          label="Total Eligible Amount"
-          value={inr(summary.eligibleAmount)}
-          sub={`across ${(summary.total || 0).toLocaleString('en-IN')} applications`}
-        />
-        {[...(summary.byStatus || [])]
-          .sort((a, b) => stageRank(a.status) - stageRank(b.status))
-          .map((s) => (
-            <KpiCard
-              key={s.status}
-              icon={IndianRupee}
-              tone={toneForStatus(s.status)}
-              label={s.status || 'Unknown'}
-              value={inr(s.eligibleAmount)}
-              sub={`${(s.count || 0).toLocaleString('en-IN')} leads`}
-            />
-          ))}
+      {/* Eligible-amount KPIs — one prominent total, then a compact per-stage grid
+          (journey order) so the many stages read cleanly instead of as big cards. */}
+      <div className="mb-3">
+        {/* Prominent total — single compact row */}
+        <div className="flex items-center gap-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/60 rounded-lg px-3 py-2 mb-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-500 to-indigo-500 grid place-items-center text-white shrink-0">
+            <TrendingUp size={16} />
+          </div>
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-purple-600/80 shrink-0">Total Eligible</p>
+          <p className="text-lg font-bold text-gray-800 leading-none tabular-nums">{inr(summary.eligibleAmount)}</p>
+          <p className="text-[11px] text-gray-400 ml-auto shrink-0">{(summary.total || 0).toLocaleString('en-IN')} applications</p>
+        </div>
+        {/* Compact per-stage grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
+          {[...(summary.byStatus || [])]
+            .sort((a, b) => stageRank(a.status) - stageRank(b.status))
+            .map((s) => (
+              <StageMiniCard
+                key={s.status}
+                tone={toneForStatus(s.status)}
+                label={s.status || 'Unknown'}
+                value={inr(s.eligibleAmount)}
+                count={(s.count || 0).toLocaleString('en-IN')}
+              />
+            ))}
+        </div>
       </div>
 
       {/* Stage chips (dynamic statuses) — click to filter */}
-      <div className="flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3 mb-3 shadow-sm">
-        <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1">Stages:</span>
+      <div className="flex flex-wrap items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-3 py-2 mb-3 shadow-sm">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mr-0.5">Stages:</span>
         <StageChip label="All" count={summary.total || 0} active={!query.status} onClick={() => toggleStatus('')} tone="purple" />
         {(summary.byStatus || []).map((s) => (
           <StageChip

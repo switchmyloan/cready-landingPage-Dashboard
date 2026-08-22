@@ -305,7 +305,7 @@ export const routes = [
     showInSidebar: true,
     group: "Short Ticket",
     groupOrder: 2,
-    order: 19,
+    order: 20,
     roles: ["super-admin", "short-page-admin", "management"],
   },
   {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Sparkles, ClipboardList } from 'lucide-react';
+import { ClipboardList } from 'lucide-react';
 
 // Premium first-load page-level loader. Same visual language as the
 // /disbursal-dashboard and /offer-leads loaders, but parameterized so each
@@ -136,76 +136,47 @@ const PremiumPageLoader = ({
         <div className="max-w-[1440px] mx-auto px-2 pb-10">
             <div className="relative min-h-[78vh] flex items-center justify-center overflow-hidden rounded-2xl">
 
-                {/* Layered mesh background */}
+                {/* Soft mesh background */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${t.bg}`} />
 
-                {/* Floating ₹ symbols */}
-                <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    {[
-                        { top: '8%',  left: '10%', size: 'text-5xl', op: 0.06, delay: '0s'   },
-                        { top: '20%', left: '82%', size: 'text-6xl', op: 0.07, delay: '1s'   },
-                        { top: '55%', left: '5%',  size: 'text-7xl', op: 0.05, delay: '0.5s' },
-                        { top: '72%', left: '85%', size: 'text-5xl', op: 0.06, delay: '1.5s' },
-                        { top: '88%', left: '38%', size: 'text-4xl', op: 0.05, delay: '0.8s' },
-                        { top: '32%', left: '50%', size: 'text-3xl', op: 0.04, delay: '2s'   },
-                    ].map((s, i) => (
-                        <span
-                            key={i}
-                            className={`absolute font-black ${t.floatTxt} ${s.size} animate-pulse`}
-                            style={{ top: s.top, left: s.left, opacity: s.op, animationDelay: s.delay, animationDuration: '4s' }}
-                        >₹</span>
-                    ))}
-                </div>
-
-                {/* Floating gradient blobs */}
+                {/* Floating gradient blobs — calm, ambient */}
                 <div className={`pointer-events-none absolute -top-32 -left-24 w-96 h-96 rounded-full ${t.blob1} blur-3xl animate-pulse`} />
                 <div className={`pointer-events-none absolute -bottom-32 -right-24 w-96 h-96 rounded-full ${t.blob2} blur-3xl animate-pulse`} style={{ animationDelay: '0.8s' }} />
-                <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[30rem] h-[30rem] rounded-full bg-amber-200/15 blur-3xl" />
 
-                {/* Card wrapper with rotating conic-gradient glow border */}
-                <div className="relative max-w-md w-full mx-4">
-                    <div
-                        className="absolute -inset-[1.5px] rounded-3xl opacity-70 blur-[2px]"
-                        style={{ background: t.conic, animation: 'spin 4s linear infinite' }}
-                    />
-
+                {/* Card with a static gradient border (no rotating glow) */}
+                <div
+                    className="relative w-full max-w-sm mx-4 rounded-[26px] p-[1.5px] shadow-2xl"
+                    style={{ background: `linear-gradient(135deg, ${t.gradFrom}, ${t.gradMid})` }}
+                >
                     {/* Glassmorphism card */}
-                    <div className={`relative z-10 flex flex-col items-center gap-6 px-10 py-12 rounded-3xl bg-white/70 backdrop-blur-xl border border-white/60 shadow-2xl ${t.cardShadow}`}>
+                    <div className={`relative flex flex-col items-center gap-7 px-9 py-11 rounded-[24px] bg-white/85 backdrop-blur-xl ${t.cardShadow}`}>
 
-                        {/* Icon zone */}
-                        <div className="relative w-36 h-36 flex items-center justify-center">
+                        {/* Orbit icon zone — dots quietly orbiting the app icon */}
+                        <div className="relative w-28 h-28 grid place-items-center">
+                            {/* Soft halo */}
+                            <div className={`absolute inset-4 rounded-full bg-gradient-to-br ${t.halo} blur-xl animate-pulse`} />
 
-                            {/* Sparkles */}
-                            <Sparkles size={12} className="absolute top-1  left-3  text-amber-400 animate-pulse" style={{ animationDelay: '0s',   animationDuration: '1.8s' }} />
-                            <Sparkles size={10} className="absolute top-4  right-2 text-amber-300 animate-pulse" style={{ animationDelay: '0.6s', animationDuration: '2.2s' }} />
-                            <Sparkles size={11} className="absolute bottom-2 left-5 text-amber-400 animate-pulse" style={{ animationDelay: '1.2s', animationDuration: '2s'   }} />
-                            <Sparkles size={9}  className="absolute bottom-5 right-4 text-amber-300 animate-pulse" style={{ animationDelay: '0.3s', animationDuration: '2.4s' }} />
+                            {/* Dashed orbit track, slowly turning */}
+                            <div
+                                className="absolute inset-0 rounded-full border border-dashed border-gray-300/50"
+                                style={{ animation: 'spin 18s linear infinite' }}
+                            />
 
-                            {/* Outer rotating gradient arc */}
-                            <svg
-                                className="absolute inset-2 w-[calc(100%-1rem)] h-[calc(100%-1rem)]"
-                                viewBox="0 0 100 100"
-                                style={{ animation: 'spin 3.5s linear infinite' }}
-                            >
-                                <defs>
-                                    <linearGradient id={`arcGrad-${theme}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%"   stopColor={t.gradFrom} />
-                                        <stop offset="50%"  stopColor={t.gradMid} />
-                                        <stop offset="100%" stopColor={t.gradFrom} stopOpacity="0" />
-                                    </linearGradient>
-                                </defs>
-                                <circle cx="50" cy="50" r="46" fill="none" stroke={t.arcTrack} strokeWidth="2" />
-                                <circle cx="50" cy="50" r="46" fill="none" stroke={`url(#arcGrad-${theme})`} strokeWidth="3" strokeLinecap="round" strokeDasharray="80 220" />
-                            </svg>
+                            {/* Three dots orbiting at different speeds / phases */}
+                            {[
+                                { c: t.dot1, dur: '3s',   delay: '0s'  },
+                                { c: t.dot2, dur: '4.5s', delay: '-1s' },
+                                { c: t.dot3, dur: '6s',   delay: '-2s' },
+                            ].map((d, i) => (
+                                <div key={i} className="absolute inset-0" style={{ animation: `spin ${d.dur} linear ${d.delay} infinite` }}>
+                                    <span className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full ${d.c} shadow-lg`} />
+                                </div>
+                            ))}
 
-                            <div className={`absolute inset-5 rounded-full border-[1.5px] ${t.innerRing}`} style={{ animation: 'spin 2.2s linear infinite reverse' }} />
-                            <div className={`absolute inset-8 rounded-2xl border-2 ${t.ripple} animate-ping`} style={{ animationDuration: '2.5s' }} />
-                            <div className={`absolute inset-8 rounded-full bg-gradient-to-br ${t.halo} blur-xl animate-pulse`} />
-
-                            {/* Icon card with gold ₹ sparkle badge */}
-                            <div className={`relative w-16 h-16 rounded-2xl bg-gradient-to-br ${t.iconBg} flex items-center justify-center shadow-xl ring-1 ring-white/30`}>
+                            {/* Center icon card with gold ₹ badge */}
+                            <div className={`relative w-16 h-16 rounded-2xl bg-gradient-to-br ${t.iconBg} grid place-items-center shadow-xl ring-1 ring-white/30`}>
                                 <Icon size={28} className="text-white drop-shadow-md" />
-                                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow-md shadow-amber-400/50 ring-2 ring-white">
+                                <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 grid place-items-center shadow-md shadow-amber-400/50 ring-2 ring-white">
                                     <span className="text-[9px] font-black text-amber-900 leading-none">₹</span>
                                 </div>
                             </div>
