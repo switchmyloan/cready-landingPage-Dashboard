@@ -403,11 +403,12 @@ const LendingUserJourney = () => {
         setTotalCount(res.data.data?.pagination?.total || 0);
         setSummary(prev => res.data.data?.summary || prev);
       } else {
-        ToastNotification.error('Failed to load users');
+        // ToastNotification.error('Failed to load users');
+        console.error(`Failed to load users: ${res?.data?.message || 'Unknown error'}`);
       }
     } catch (err) {
       console.error(err);
-      ToastNotification.error('Failed to load users');
+      // ToastNotification.error('Failed to load users');
     } finally {
       setLoading(false);
     }

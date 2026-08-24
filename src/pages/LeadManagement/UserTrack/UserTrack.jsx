@@ -771,11 +771,12 @@ const UserTrack = () => {
           setSummary(res.data.summary);
         }
       } else {
-        ToastNotification.error("Failed to load users");
+        // ToastNotification.error("Failed to load users");
+        console.log(`Failed to load users`);
       }
     } catch (err) {
       console.error(err);
-      ToastNotification.error("Failed to load users");
+      // ToastNotification.error("Failed to load users");
     } finally {
       setLoading(false);
     }
