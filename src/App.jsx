@@ -72,6 +72,7 @@ import VyaparKBLendingPage from './pages/LeadManagement/Vyapar/VyaparKBLendingPa
 import VyaparKBLendingPageDetail from './pages/LeadManagement/Vyapar/VyaparKBLendingPageDetail';
 import VyaparDisbursalDashboard from './pages/LeadManagement/Vyapar/VyaparDisbursalDashboard';
 import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
+import CustomerFeedback from './pages/LeadManagement/CustomerFeedback/CustomerFeedback';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
@@ -183,6 +184,9 @@ function App() {
 
             {/* Call-center feedback — funnel + agent activity + records in one module */}
             <Route path="call-center-feedback" element={<CallCenterFeedback />} />
+
+            {/* Customer feedback (testimonials / CSAT) — read-only list + detail */}
+            <Route path="customer-feedback" element={<CustomerFeedback />} />
 
             {/* Super-admin only */}
             <Route path="otp-logs" element={<OtpLogs />} />

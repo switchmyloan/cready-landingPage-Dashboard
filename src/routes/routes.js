@@ -66,6 +66,16 @@ export const routes = [
     // Call-center agents see it too, but the page self-scopes to their OWN data.
     roles: ["super-admin", "mv-page-admin", "management"],
   },
+  // Standalone module — CUSTOMER feedback (testimonials / CSAT). Separate table
+  // from call-center feedback; read-only list + detail.
+  {
+    path: "/customer-feedback",
+    label: "Customer Feedback",
+    icon: "Star",
+    showInSidebar: true,
+    order: 0.6,
+    roles: ["admin", "super-admin", "management"],
+  },
   {
     path: "/logs",
     label: "Logs",
@@ -481,6 +491,14 @@ export const routes = [
     showInSidebar: false,
     order: 3.5,
     roles: ["super-admin"],
+  },
+  {
+    path: "/customer-feedback",
+    label: "Customer Feedback",
+    icon: "Star",
+    showInSidebar: true,
+    order: 4,
+    roles: ["admin", "super-admin", "management"],
   },
   // Security was groupOrder 3 — the same value as Lenders — so the two only
   // separated by insertion order. Making it 4 is a no-op for what renders today
