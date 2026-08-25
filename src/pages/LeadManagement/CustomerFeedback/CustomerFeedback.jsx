@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Star, Search, RefreshCw, X, Phone, MapPin, IndianRupee, Clock,
-  MessageSquare, ChevronLeft, ChevronRight, Eye, BadgeCheck, Smile,
+  MessageSquare, ChevronLeft, ChevronRight, Eye, BadgeCheck, Smile, Quote,
 } from "lucide-react";
 import { getCustomerFeedback, getCustomerFeedbackById } from "../../../api-services/Modules/CustomerFeedback";
 
@@ -222,12 +222,126 @@ const DetailModal = ({ id, onClose }) => {
   );
 };
 
+// ── Shareable flip card ──────────────────────────────────────────────────────
+// A replica of the form's testimonial card: FRONT shows the customer's quote +
+// name/city; tapping flips to a personalised "note from Cready" on the BACK.
+const AVATAR_EMOJI = ["🙂", "😊", "😄", "🧑", "👩", "👨", "🧔", "👵", "🧑‍🦱", "👳"];
+
+const humanList = (arr) => {
+  const a = (arr || []).filter(Boolean).map(String);
+  if (!a.length) return "";
+  if (a.length === 1) return a[0];
+  return `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`;
+};
+
+const CreadyMark = () => (
+  <span className="inline-flex items-center gap-1.5 text-white font-semibold text-[13px]">
+    <span className="w-4 h-4 rounded-full border-2 border-white/80 border-t-transparent inline-block" />
+    cready
+  </span>
+);
+
+const FlipCardModal = ({ id, onClose }) => {
+  const [row, setRow] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [flipped, setFlipped] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true); setFlipped(false);
+    getCustomerFeedbackById(id)
+      .then((res) => { if (alive) setRow(res?.data?.data || null); })
+      .catch(() => { if (alive) setRow(null); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [id]);
+
+  const firstName = String(row?.customer_name || "there").trim().split(/\s+/)[0];
+  const story = row?.impact_story || row?.nps_reason || "Thank you for trusting us";
+  const purposes = asArray(row?.purposes);
+  const purposeLine = purposes.length
+    ? `You used this loan for ${humanList(purposes)}, and it helped you find some financial breathing room.`
+    : `This loan helped you find some financial breathing room.`;
+  const avatar = AVATAR_EMOJI[(Number(row?.avatar_style) || 0) % AVATAR_EMOJI.length];
+
+  return (
+    <div className="fixed inset-0 z-[130] bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center p-4" onClick={onClose}>
+      <button onClick={onClose} className="absolute top-5 right-5 p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10"><X size={20} /></button>
+
+      {loading ? (
+        <p className="text-white/80 text-sm">Loading…</p>
+      ) : !row ? (
+        <p className="text-rose-300 text-sm">Feedback not found.</p>
+      ) : (
+        <>
+          <div className="w-full max-w-[560px]" style={{ perspective: "1600px" }} onClick={(e) => e.stopPropagation()}>
+            <div
+              className="relative w-full aspect-[16/10] cursor-pointer transition-transform duration-700"
+              style={{ transformStyle: "preserve-3d", transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}
+              onClick={() => setFlipped((f) => !f)}
+              title="Tap to flip"
+            >
+              {/* ── FRONT ── */}
+              <div
+                className="absolute inset-0 rounded-[28px] p-6 flex flex-col bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 shadow-2xl overflow-hidden"
+                style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
+              >
+                <div className="pointer-events-none absolute -top-16 -right-10 w-52 h-52 rounded-full bg-white/10 blur-2xl" />
+                <div className="relative w-16 h-16 rounded-full bg-white/90 grid place-items-center text-3xl shadow-lg ring-4 ring-white/20">{avatar}</div>
+                <div className="relative mt-auto">
+                  <p className="text-white text-xl font-bold leading-snug">“{story}”</p>
+                  <p className="mt-3 font-mono text-[12px] tracking-wider text-green-300 uppercase">
+                    {row.customer_name || "Anonymous"}{row.customer_city ? `, ${row.customer_city}` : ""}
+                  </p>
+                </div>
+                <div className="relative mt-5 flex items-center justify-between">
+                  <span className="text-white/50 text-[11px]">Shared with permission</span>
+                  <CreadyMark />
+                </div>
+              </div>
+
+              {/* ── BACK ── */}
+              <div
+                className="absolute inset-0 rounded-[28px] p-6 flex flex-col bg-gradient-to-br from-purple-700 via-violet-700 to-indigo-800 shadow-2xl overflow-hidden"
+                style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+              >
+                <p className="text-white/50 text-[10px] font-semibold uppercase tracking-[0.22em]">A note from Cready</p>
+                <div className="mt-3 space-y-2.5 text-white/90 text-[13px] leading-relaxed overflow-y-auto pr-1">
+                  <p>Dear {firstName},</p>
+                  <p><span className="italic">{story}</span> — your words, and the whole reason we do this.</p>
+                  <p>{purposeLine}</p>
+                  <p>Your words go to the team this week, and they&apos;ll shape what we build next.</p>
+                  <p className="pt-1">With gratitude,<br /><span className="font-bold">Team Cready</span> <span className="text-pink-300">♥</span></p>
+                </div>
+                <div className="mt-auto pt-3 border-t border-white/15 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((s) => (
+                      <Star key={s} size={16} className={s <= (row.overall_rating || 0) ? "text-green-400 fill-green-400" : "text-white/25"} />
+                    ))}
+                  </span>
+                  <CreadyMark />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="mt-5 text-white/70 text-[12.5px] inline-flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            Tap the card — there&apos;s a note for you on the back
+          </p>
+        </>
+      )}
+    </div>
+  );
+};
+
 // ── Main page ────────────────────────────────────────────────────────────────
 const CustomerFeedback = () => {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [detailId, setDetailId] = useState(null);
+  const [cardId, setCardId] = useState(null);
 
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -340,7 +454,7 @@ const CustomerFeedback = () => {
                 <th className="px-3 py-2.5 font-medium">Rating</th>
                 <th className="px-3 py-2.5 font-medium">NPS</th>
                 <th className="px-3 py-2.5 font-medium">Submitted</th>
-                <th className="px-3 py-2.5 font-medium text-right">View</th>
+                <th className="px-3 py-2.5 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -367,10 +481,23 @@ const CustomerFeedback = () => {
                     <td className="px-3 py-3"><Stars value={r.overall_rating} /></td>
                     <td className="px-3 py-3"><span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold border ${nm.cls}`}>{nm.label}</span></td>
                     <td className="px-3 py-3 text-gray-500 text-[12px]">{fmtDate(r.submitted_at || r.createdAt)}</td>
-                    <td className="px-3 py-3 text-right">
-                      <button onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }} className="w-7 h-7 grid place-items-center rounded-full border border-purple-200 text-purple-600 hover:bg-purple-100 transition ml-auto">
-                        <Eye size={14} />
-                      </button>
+                    <td className="px-3 py-3">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setCardId(r.id); }}
+                          title="View testimonial card"
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 shadow-sm transition"
+                        >
+                          <Quote size={13} /> Card
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setDetailId(r.id); }}
+                          title="View full details"
+                          className="w-7 h-7 grid place-items-center rounded-full border border-purple-200 text-purple-600 hover:bg-purple-100 transition"
+                        >
+                          <Eye size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -393,6 +520,7 @@ const CustomerFeedback = () => {
       </div>
 
       {detailId != null && <DetailModal id={detailId} onClose={() => setDetailId(null)} />}
+      {cardId != null && <FlipCardModal id={cardId} onClose={() => setCardId(null)} />}
     </div>
   );
 };
