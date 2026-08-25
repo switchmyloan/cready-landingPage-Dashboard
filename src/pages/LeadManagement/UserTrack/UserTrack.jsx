@@ -986,21 +986,36 @@ const UserTrack = () => {
     if (query.viewAllClicked) urlParams.append("viewAllClicked", query.viewAllClicked);
 
     try {
-      ToastNotification.success("Starting CSV download...");
+      // Fetch the CSV as a blob (instead of firing an <a download> and forgetting)
+      // so exportLoading stays TRUE for the whole server-side build — the modal's
+      // "Export in progress" view holds until the file is actually ready — and a
+      // server error surfaces as a clean toast instead of dumping raw JSON in a tab.
       const url = `${import.meta.env.VITE_API_URL}/user-track/export?${urlParams.toString()}`;
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        let msg = `Export failed (${res.status})`;
+        try {
+          const j = await res.json();
+          if (j?.message) msg = j.message;
+        } catch (_) { /* non-JSON error body */ }
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      const objUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
-      link.href = url;
+      link.href = objUrl;
       link.download = downloadFileName;
       document.body.appendChild(link);
       link.click();
       link.remove();
-      ToastNotification.success("Download started!");
+      window.URL.revokeObjectURL(objUrl);
+      ToastNotification.success("Export ready — downloaded!");
+      setExportModalOpen(false);
     } catch (err) {
       console.error(err);
-      ToastNotification.error("Export failed!");
+      ToastNotification.error(err.message || "Export failed!");
     } finally {
       setExportLoading(false);
-      setExportModalOpen(false);
     }
   };
 
