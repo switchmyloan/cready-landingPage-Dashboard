@@ -163,10 +163,12 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
 const RamFinCorpFunnel = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState("");
+  // Defaults: High Ticket + Today — the view the team checks first (and the
+  // fastest: a small windowed cohort avoids the heavy all-time scans).
+  const [range, setRange] = useState("today");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [scope, setScope] = useState(""); // '' = all, 'high', 'short'
+  const [scope, setScope] = useState("high"); // '' = all, 'high', 'short'
   // Which KPI card is active — its leads render in the panel below.
   const [active, setActive] = useState({ stage: "dedup_success", label: "Dedup Success" });
 
