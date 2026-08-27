@@ -73,6 +73,7 @@ import VyaparKBLendingPageDetail from './pages/LeadManagement/Vyapar/VyaparKBLen
 import VyaparDisbursalDashboard from './pages/LeadManagement/Vyapar/VyaparDisbursalDashboard';
 import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
 import CustomerFeedback from './pages/LeadManagement/CustomerFeedback/CustomerFeedback';
+import RamFinCorpFunnel from './pages/LeadManagement/RamFinCorp/RamFinCorpFunnel';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
@@ -187,6 +188,9 @@ function App() {
 
             {/* Customer feedback (testimonials / CSAT) — read-only list + detail */}
             <Route path="customer-feedback" element={<CustomerFeedback />} />
+
+            {/* RamFinCorp funnel — MIS-based journey funnel + stage drill */}
+            <Route path="ramfincorp-funnel" element={<RamFinCorpFunnel />} />
 
             {/* Super-admin only */}
             <Route path="otp-logs" element={<OtpLogs />} />
