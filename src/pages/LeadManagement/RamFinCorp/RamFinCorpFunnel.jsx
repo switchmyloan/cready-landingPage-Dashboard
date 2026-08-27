@@ -4,6 +4,7 @@ import {
   RefreshCw, ChevronLeft, ChevronRight, Phone, BadgeCheck, MousePointerClick,
 } from "lucide-react";
 import { getRamFinCorpFunnel, getRamFinCorpStageLeads } from "../../../api-services/Modules/RamFinCorpFunnel";
+import PremiumPageLoader from "../../../components/PremiumPageLoader";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
 const fmtInr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -14,19 +15,29 @@ const fmtDT = (v) => {
   return d.toLocaleString("en-IN", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 };
 
+// No "All" preset — the RamFinCorp integration went live on 20 Aug 2026, and the
+// backend floors every query there anyway (LIVE_FROM below caps the pickers).
+const LIVE_FROM = "2026-08-20";
 const RANGE_CHIPS = [
-  { key: "", label: "All" },
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
 ];
 
-// RamFinCorp runs in BOTH flows — scope resolves each MIS lead by which of our
-// tables pushed it (offerLeads → High, shortOfferLeads → Short).
+// RamFinCorp runs in BOTH flows — the toggle picks the side's tables
+// (offerLeads/selectedLenders → High, shortOfferLeads/shortSelectedLenders →
+// Short). No "All": the user reads the two funnels separately.
 const SCOPE_CHIPS = [
-  { key: "", label: "All" },
   { key: "high", label: "High Ticket" },
   { key: "short", label: "Short Ticket" },
 ];
+
+// Purple shimmer skeleton block (keyframes injected by the page's <style>).
+const SHIMMER_STYLE = {
+  background: "linear-gradient(90deg, #f5f3ff 25%, #e9d5ff 45%, #f5f3ff 65%)",
+  backgroundSize: "200% 100%",
+  animation: "rfc-shimmer 1.3s linear infinite",
+};
+const Sk = ({ className = "" }) => <span className={`block rounded ${className}`} style={SHIMMER_STYLE} />;
 
 const STATUS_CHIP = (s) => {
   const t = String(s || "").toLowerCase();
@@ -87,6 +98,9 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
   }, [stage, page, search, dateParams]);
 
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
+  // Approved ₹ (offeredAmount) only exists on BRE-approved rows — hide the
+  // column entirely for the other stages instead of showing a dash-filled one.
+  const showApproved = stage === "bre_approved";
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -101,7 +115,7 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
           <input
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Name / mobile / lead id…"
+            placeholder="Name / mobile…"
             className="pl-8 pr-2 py-1.5 w-56 text-[12.5px] rounded-lg bg-white border border-gray-200 outline-none focus:border-purple-400 focus:ring-2 focus:ring-purple-100"
           />
         </div>
@@ -111,24 +125,29 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
         <table className="w-full text-[12.5px] min-w-[780px]">
           <thead>
             <tr className="text-left text-[10.5px] uppercase tracking-wider text-gray-400 border-b border-gray-100">
-              <th className="px-5 py-2.5 font-medium">Lead ID</th>
-              <th className="px-3 py-2.5 font-medium">Name</th>
+              <th className="px-5 py-2.5 font-medium">Name</th>
               <th className="px-3 py-2.5 font-medium">Mobile</th>
               <th className="px-3 py-2.5 font-medium">Status</th>
-              <th className="px-3 py-2.5 font-medium text-right">Approved ₹</th>
-              <th className="px-3 py-2.5 font-medium text-right">Disbursed ₹</th>
+              {showApproved && <th className="px-3 py-2.5 font-medium text-right">Approved ₹</th>}
               <th className="px-3 py-2.5 font-medium">Lead Date</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
+              Array.from({ length: 6 }).map((_, i) => (
+                <tr key={`sk${i}`} className="border-b border-gray-50">
+                  <td className="px-5 py-3"><Sk className="h-3.5 w-32" /></td>
+                  <td className="px-3 py-3"><Sk className="h-3.5 w-24" /></td>
+                  <td className="px-3 py-3"><Sk className="h-5 w-24 rounded-full" /></td>
+                  {showApproved && <td className="px-3 py-3"><Sk className="h-3.5 w-16 ml-auto" /></td>}
+                  <td className="px-3 py-3"><Sk className="h-3.5 w-28" /></td>
+                </tr>
+              ))
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">No leads found.</td></tr>
+              <tr><td colSpan={showApproved ? 5 : 4} className="px-5 py-10 text-center text-gray-400">No leads found.</td></tr>
             ) : rows.map((r, i) => (
-              <tr key={`${r.leadId}-${r.mobile}-${i}`} className="border-b border-gray-50 hover:bg-purple-50/30">
-                <td className="px-5 py-2.5 font-mono text-gray-500">{r.leadId}</td>
-                <td className="px-3 py-2.5 font-semibold text-gray-800">{r.name || "—"}</td>
+              <tr key={`${r.mobile}-${i}`} className="border-b border-gray-50 hover:bg-purple-50/30">
+                <td className="px-5 py-2.5 font-semibold text-gray-800">{r.name || "—"}</td>
                 <td className="px-3 py-2.5">
                   {r.mobile ? (
                     <a href={`tel:${r.mobile}`} className="font-mono text-purple-700 hover:underline inline-flex items-center gap-1">
@@ -139,8 +158,9 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
                 <td className="px-3 py-2.5">
                   <span className={`inline-flex px-2 py-0.5 rounded-full text-[10.5px] font-semibold border ${STATUS_CHIP(r.status)}`}>{r.status || "—"}</span>
                 </td>
-                <td className="px-3 py-2.5 text-right tabular-nums text-gray-600">{r.approveAmount ? fmtInr(r.approveAmount) : "—"}</td>
-                <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-emerald-700">{r.disbursalAmount ? fmtInr(r.disbursalAmount) : "—"}</td>
+                {showApproved && (
+                  <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-emerald-700">{r.approveAmount ? fmtInr(r.approveAmount) : "—"}</td>
+                )}
                 <td className="px-3 py-2.5 text-gray-500">{fmtDT(r.leadAt)}</td>
               </tr>
             ))}
@@ -163,6 +183,7 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
 const RamFinCorpFunnel = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [firstLoad, setFirstLoad] = useState(true);
   // Defaults: High Ticket + Today — the view the team checks first (and the
   // fastest: a small windowed cohort avoids the heavy all-time scans).
   const [range, setRange] = useState("today");
@@ -188,6 +209,7 @@ const RamFinCorpFunnel = () => {
       setData(null);
     } finally {
       setLoading(false);
+      setFirstLoad(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey]);
@@ -203,8 +225,33 @@ const RamFinCorpFunnel = () => {
     { stage: "bre_approved", label: "BRE Approved", icon: <CheckCircle2 size={13} />, value: fmtNum(totals.breApproved), sub: `${pctSel(totals.breApproved)} · approved at RamFinCorp`, tone: "border-indigo-200" },
   ];
 
+  // First load — the premium page loader (same visual language as the other
+  // module first-loads); after that, filter changes use inline skeletons.
+  if (firstLoad) {
+    return (
+      <div className="min-w-0 w-full max-w-full overflow-x-hidden">
+        <PremiumPageLoader
+          theme="purple"
+          title="Loading RamFinCorp Funnel"
+          brandLabel="RamFinCorp · Live Funnel"
+          icon={TrendingDown}
+          phrases={[
+            "Counting dedupe passes…",
+            "Matching selected lenders…",
+            "Fetching BRE decisions…",
+            "Polishing the view…",
+          ]}
+          tiles={[{ label: "Dedup Success" }, { label: "Lender Selected" }, { label: "BRE Approved" }]}
+          progressLabel="Preparing your funnel"
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0 w-full max-w-full overflow-x-hidden px-1 pb-10">
+      <style>{`@keyframes rfc-indet { 0% { transform: translateX(-120%); } 100% { transform: translateX(420%); } }
+@keyframes rfc-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
       {/* Header */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-50 via-violet-50 to-white border border-purple-100 p-5 mb-4">
         <div className="flex items-center gap-3">
@@ -252,22 +299,40 @@ const RamFinCorpFunnel = () => {
           ))}
         </div>
         <div className="inline-flex items-center gap-1.5">
-          <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setRange(""); }}
+          <input type="date" min={LIVE_FROM} value={fromDate} onChange={(e) => { setFromDate(e.target.value); setRange(""); }}
             className="px-2 py-2 text-[12.5px] rounded-lg border border-gray-200 text-gray-600" />
           <span className="text-gray-400 text-xs">→</span>
-          <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setRange(""); }}
+          <input type="date" min={LIVE_FROM} value={toDate} onChange={(e) => { setToDate(e.target.value); setRange(""); }}
             className="px-2 py-2 text-[12.5px] rounded-lg border border-gray-200 text-gray-600" />
         </div>
         <button onClick={fetchData} title="Refresh" className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">
           <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
         </button>
-        <span className="text-[11px] text-gray-400 ml-auto">Date filter = lender-selection (click) date — other cards show where that cohort stands now</span>
+        <span className="text-[11px] text-gray-400 ml-auto">Date filter = lender-selection (click) date · data since 20 Aug 2026 (go-live)</span>
       </div>
 
-      {/* Journey KPI cards — click one to load its leads below */}
+      {/* Slim indeterminate progress bar — visible whenever the funnel is
+          refetching, so a filter change always gives instant visual feedback. */}
+      <div className={`h-1 rounded-full overflow-hidden mb-3 transition-opacity duration-300 ${loading ? "opacity-100 bg-purple-100" : "opacity-0"}`}>
+        {loading && (
+          <div
+            className="h-full w-1/3 rounded-full bg-gradient-to-r from-purple-500 via-fuchsia-500 to-indigo-500 shadow-[0_0_8px_rgba(168,85,247,0.6)]"
+            style={{ animation: "rfc-indet 1.1s ease-in-out infinite" }}
+          />
+        )}
+      </div>
+
+      {/* Journey KPI cards — click one to load its leads below. While a filter
+          change is in flight, values swap to shimmer blocks instead of stale 0s. */}
       <div className="flex flex-wrap gap-3 mb-4">
         {CARDS.map((c) => (
-          <Kpi key={c.stage} {...c} active={active.stage === c.stage} onClick={() => setActive({ stage: c.stage, label: c.label })} />
+          <Kpi
+            key={c.stage}
+            {...c}
+            value={loading ? <Sk className="h-6 w-20 rounded-md !inline-block" /> : c.value}
+            active={active.stage === c.stage}
+            onClick={() => setActive({ stage: c.stage, label: c.label })}
+          />
         ))}
       </div>
 
