@@ -463,7 +463,7 @@ const ApplicationsPanel = () => {
         { header: 'SN', value: (r, i) => i + 1 },
         { header: 'Lead ID', value: (r) => r.leadId },
         { header: 'Name', value: (r) => r.name },
-        { header: 'Phone', value: (r) => r.phone },
+        { header: 'Phone', value: (r) => r.phone || r.phoneNumber || '' },
         { header: 'Status', value: (r) => r.status },
         { header: 'Eligible Amount', value: (r) => r.eligibleAmount },
         { header: 'Rejection Reason', value: (r) => r.rejectionReason },
@@ -641,7 +641,8 @@ const LoansPanel = () => {
       downloadCsv(`vivifi_loans_${Date.now()}.csv`, [
         { header: 'SN', value: (r, i) => i + 1 },
         { header: 'Lead ID', value: (r) => r.leadId },
-        { header: 'Phone', value: (r) => r.phone },
+        // Loans API returns `phoneNumber` (unlike applications, which aliases to `phone`).
+        { header: 'Phone', value: (r) => r.phoneNumber || r.phone || '' },
         { header: 'Status', value: (r) => r.status },
         { header: 'Eligible Amount', value: (r) => r.eligibleAmount },
         { header: 'Loan Amount', value: (r) => r.amount },

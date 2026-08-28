@@ -9,41 +9,40 @@
 //   {
 //     path: "/logs",
 //     label: "Logs",
-//     icon: "ClipboardList", 
+//     icon: "ClipboardList",
 //     showInSidebar: true,
 //     group: "Lead Management",
-//     groupOrder: 1, 
+//     groupOrder: 1,
 //     order: 2,
 //   },
 //   {
 //     path: "/business-loans",
 //     label: "Business Loans",
-//     icon: "ClipboardList", 
+//     icon: "ClipboardList",
 //     showInSidebar: true,
 //     group: "Lead Management",
-//     groupOrder: 1, 
+//     groupOrder: 1,
 //     order: 2,
 //   },
 //   {
 //     path: "/mv-ivr-logs",
 //     label: "MV IVR Logs",
-//     icon: "ClipboardList", 
+//     icon: "ClipboardList",
 //     showInSidebar: true,
 //     group: "Lead Management",
-//     groupOrder: 1, 
+//     groupOrder: 1,
 //     order: 3,
 //   },
 //   {
 //     path: "/cr-zype-success-leads",
 //     label: "CR Zype success Leads",
-//     icon: "ClipboardList", 
+//     icon: "ClipboardList",
 //     showInSidebar: true,
 //     group: "Lead Management",
-//     groupOrder: 1, 
+//     groupOrder: 1,
 //     order: 4,
 //   }
 // ];
-
 
 // src/routes/routes.js
 export const routes = [
@@ -53,7 +52,15 @@ export const routes = [
     icon: "Home",
     showInSidebar: false,
     order: 0,
-    roles: ["admin", "super-admin", "kb-admin", "kb-mumbai", "kb-banglore", "mv-admin", "management"],
+    roles: [
+      "admin",
+      "super-admin",
+      "kb-admin",
+      "kb-mumbai",
+      "kb-banglore",
+      "mv-admin",
+      "management",
+    ],
   },
   // Standalone module (no group) — call-center feedback: funnel + agent activity +
   // records, all under one entry (two tabs inside) so the sidebar stays uncluttered.
@@ -75,6 +82,33 @@ export const routes = [
     showInSidebar: true,
     order: 0.6,
     roles: ["admin", "super-admin", "management"],
+  },
+  // Leaderboard of which call-centre agent brings in the most feedback.
+  // Deliberately visible to EVERYONE including the call-centre agents — the
+  // whole point is that they can see where they stand.
+  {
+    path: "/feedback-champions",
+    label: "Feedback Champions",
+    icon: "Trophy",
+    showInSidebar: true,
+    order: 0.7,
+    roles: [
+      "admin",
+      "super-admin",
+      "management",
+      "marketing",
+      "dev",
+      "mv-admin",
+      "mv-page",
+      "mv-page-admin",
+      "short-page-admin",
+      "kb-admin",
+      "kb-mumbai",
+      "kb-banglore",
+      "call-center",
+      "call-center-40-65",
+      "call-center-65plus",
+    ],
   },
   {
     path: "/logs",
@@ -146,7 +180,7 @@ export const routes = [
   //   order: 8,
   //   roles: ["super-admin", "kb-banglore"],
   // },
- {
+  {
     // Cross-lender rollup — sits above the per-lender pages since it's the
     // entry point you scan before drilling into a single lender.
     path: "/all-lenders",
@@ -156,7 +190,14 @@ export const routes = [
     group: "Lenders",
     groupOrder: 3,
     order: 19,
-    roles: ["super-admin", "kb-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
+    roles: [
+      "super-admin",
+      "kb-admin",
+      "mv-admin",
+      "mv-page",
+      "mv-page-admin",
+      "management",
+    ],
   },
   {
     path: "/kb-lending-page",
@@ -166,7 +207,13 @@ export const routes = [
     group: "Lenders",
     groupOrder: 3,
     order: 20,
-    roles: ["super-admin", "kb-admin", "mv-page", "mv-page-admin", "management"],
+    roles: [
+      "super-admin",
+      "kb-admin",
+      "mv-page",
+      "mv-page-admin",
+      "management",
+    ],
   },
   {
     path: "/mv-success-leads",
@@ -176,7 +223,13 @@ export const routes = [
     group: "Lenders",
     groupOrder: 3,
     order: 20,
-    roles: ["super-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
+    roles: [
+      "super-admin",
+      "mv-admin",
+      "mv-page",
+      "mv-page-admin",
+      "management",
+    ],
   },
   {
     path: "/sc-response-leads",
@@ -186,7 +239,13 @@ export const routes = [
     group: "Lenders",
     groupOrder: 3,
     order: 20,
-    roles: ["super-admin", "mv-admin", "mv-page", "mv-page-admin", "management"],
+    roles: [
+      "super-admin",
+      "mv-admin",
+      "mv-page",
+      "mv-page-admin",
+      "management",
+    ],
   },
   {
     path: "/vivifi-webhook-leads",
@@ -260,6 +319,17 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    icon: "Layers",
+    path: "/ramfincorp-funnel",
+    label: "RamFinCorp Funnel",
+    icon: "TrendingDown",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.9,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
     icon: "Home",
@@ -287,7 +357,16 @@ export const routes = [
     group: "High Ticket",
     groupOrder: 1.5,
     order: 9,
-    roles: ["super-admin", "mv-page", "mv-page-admin", "management", "marketing", "call-center", "call-center-40-65", "call-center-65plus"],
+    roles: [
+      "super-admin",
+      "mv-page",
+      "mv-page-admin",
+      "management",
+      "marketing",
+      "call-center",
+      "call-center-40-65",
+      "call-center-65plus",
+    ],
   },
   {
     path: "/selected-lenders",
@@ -297,7 +376,13 @@ export const routes = [
     group: "High Ticket",
     groupOrder: 1.5,
     order: 10,
-    roles: ["super-admin", "mv-page", "mv-page-admin", "management", "marketing"],
+    roles: [
+      "super-admin",
+      "mv-page",
+      "mv-page-admin",
+      "management",
+      "marketing",
+    ],
   },
   {
     path: "/high-mis-funnel",
@@ -317,7 +402,13 @@ export const routes = [
     group: "High Ticket",
     groupOrder: 1.5,
     order: 12,
-    roles: ["super-admin", "mv-page", "mv-page-admin", "management", "marketing"],
+    roles: [
+      "super-admin",
+      "mv-page",
+      "mv-page-admin",
+      "management",
+      "marketing",
+    ],
   },
   {
     path: "/short-offer-leads-analytics",
@@ -347,7 +438,15 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 20,
-    roles: ["super-admin", "short-page-admin", "management", "call-center", "call-center-40-65", "call-center-65plus","marketing"],
+    roles: [
+      "super-admin",
+      "short-page-admin",
+      "management",
+      "call-center",
+      "call-center-40-65",
+      "call-center-65plus",
+      "marketing",
+    ],
   },
   {
     path: "/short-selected-lenders",
@@ -387,21 +486,27 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 24,
-    roles: ["super-admin", "short-page-admin", "management", "marketing", "campaign-team"],
+    roles: [
+      "super-admin",
+      "short-page-admin",
+      "management",
+      "marketing",
+      "campaign-team",
+    ],
   },
   // Vyapar — parallel module to Short Ticket (copied pages, /vyapar-* routes).
   // groupOrder 2.2 places it just after Short Ticket (2) and before Campaign (2.5).
   // Every Vyapar nav item is restricted to super-admin only.
-  {
-    path: "/vyapar-disbursal-dashboard",
-    label: "Disbursal Dashboard",
-    icon: "TrendingUp",
-    showInSidebar: true,
-    group: "Vyapar",
-    groupOrder: 2.2,
-    order: 19.5,
-    roles: ["super-admin"],
-  },
+  // {
+  //   path: "/vyapar-disbursal-dashboard",
+  //   label: "Disbursal Dashboard",
+  //   icon: "TrendingUp",
+  //   showInSidebar: true,
+  //   group: "Vyapar",
+  //   groupOrder: 2.2,
+  //   order: 19.5,
+  //   roles: ["super-admin"],
+  // },
   {
     path: "/vyapar-offer-leads",
     label: "Vyapar Offer Leads",
@@ -481,7 +586,14 @@ export const routes = [
     group: "High Ticket",
     groupOrder: 1.5,
     order: 14,
-    roles: ["super-admin", "mv-page", "mv-page-admin", "mv-admin", "management", "marketing"],
+    roles: [
+      "super-admin",
+      "mv-page",
+      "mv-page-admin",
+      "mv-admin",
+      "management",
+      "marketing",
+    ],
   },
   // Intelligence — one standalone tab holding four modules (High Ticket, Short
   // Ticket, Campaigns, Lenders), switched in-page rather than duplicated into four
