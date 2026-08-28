@@ -337,7 +337,8 @@ import {
   Brain,
   FileDown,
   IndianRupee,
-  Star
+  Star,
+  Trophy
 } from "lucide-react";
 
 // NOTE: an `icon` string in routes.js MUST also appear here, or resolution falls
@@ -346,7 +347,7 @@ import {
 const ICONS = {
   Home, FileText, Users, HelpCircle, Newspaper, MessageSquare,
   UserPlus, UserMinus, UserCheck, Building2, BookOpen, ClipboardList,
-  ShieldCheck, Settings, TrendingUp, TrendingDown, Megaphone, Brain, FileDown, IndianRupee, Star
+  ShieldCheck, Settings, TrendingUp, TrendingDown, Megaphone, Brain, FileDown, IndianRupee, Star, Trophy
 };
 
 function Sidebar({ onClose, collapsed, onToggleCollapse }) {

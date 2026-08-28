@@ -76,6 +76,22 @@ export const routes = [
     order: 0.6,
     roles: ["admin", "super-admin", "management"],
   },
+  // Leaderboard of which call-centre agent brings in the most feedback.
+  // Deliberately visible to EVERYONE including the call-centre agents — the
+  // whole point is that they can see where they stand.
+  {
+    path: "/feedback-champions",
+    label: "Feedback Champions",
+    icon: "Trophy",
+    showInSidebar: true,
+    order: 0.7,
+    roles: [
+      "admin", "super-admin", "management", "marketing", "dev",
+      "mv-admin", "mv-page", "mv-page-admin", "short-page-admin",
+      "kb-admin", "kb-mumbai", "kb-banglore",
+      "call-center", "call-center-40-65", "call-center-65plus",
+    ],
+  },
   {
     path: "/logs",
     label: "Logs",
