@@ -5,11 +5,11 @@ import {
   CheckCircle2, Copy, XCircle, ExternalLink, Layers, ArrowLeft,
   User, Phone, Mail, Calendar, CreditCard, MapPin, Briefcase,
   Wallet, IndianRupee, Target, Globe, Share2, Megaphone, Clock, UserRound,
-  MousePointerClick, Sparkles, Gauge, Award, ShieldX, TrendingUp, ArrowUpCircle, Loader2,
+  MousePointerClick, Sparkles, Gauge, Award, ShieldX, TrendingUp, ArrowUpCircle, Loader2, Send,
 } from 'lucide-react';
 import toast, { Toaster } from 'react-hot-toast';
 import LeadFeedback from '../../components/LeadFeedback/LeadFeedback';
-import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getVyaparSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById, getVyaparOfferLeadById, getOfferQueueStatus, searchLeadGeneration } from '../../api-services/Modules/Leads';
+import { getSelectedLendersByPhone, getShortSelectedLendersByPhone, getVyaparSelectedLendersByPhone, getBreEligibility, getBreOffers, getOfferLeadById, getShortOfferLeadById, getVyaparOfferLeadById, getOfferQueueStatus, searchLeadGeneration, sendFeedbackLink } from '../../api-services/Modules/Leads';
 import { useAuth } from '../../custom-hooks/useAuth';
 import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
 
@@ -698,6 +698,7 @@ const OfferLeadDetail = () => {
   // Bureau pincode from the leads-generation PI lookup (ClickHouse), matched by
   // phone. Shown as a separate field next to the lead's own pincode on the Basic tab.
   const [bureauPincode, setBureauPincode] = useState(null);
+  const [sendingFeedback, setSendingFeedback] = useState(false);
   // Fetch guard is a ref (not state) so starting the offers fetch doesn't
   // retrigger the lazy effect. Also set when eligibility returns cached data,
   // so opening the tab skips the /bre-offers call entirely.
@@ -711,6 +712,24 @@ const OfferLeadDetail = () => {
   // Everything below reads `lead`: starts as the minimal list row (instant
   // paint), upgraded to the full record once the by-id refetch resolves.
   const lead = fullLead;
+
+  // Send the customer-feedback SMS (https://feedback.cready.in/) to this lead.
+  const handleSendFeedbackLink = async () => {
+    const phone = String(lead?.phone || '').replace(/\D/g, '').slice(-10);
+    if (phone.length !== 10) {
+      toast.error('No valid phone number for this lead.');
+      return;
+    }
+    setSendingFeedback(true);
+    try {
+      await sendFeedbackLink(phone, { email: user?.email, name: user?.name, role: user?.role });
+      toast.success('Feedback link sent to the customer.');
+    } catch (err) {
+      toast.error(err?.response?.data?.message || 'Failed to send feedback link.');
+    } finally {
+      setSendingFeedback(false);
+    }
+  };
 
   // Refetch the complete offer-lead row by id (URL param). The dashboard list
   // sends only the grid columns, so detail-only fields (lender_response,
@@ -987,6 +1006,17 @@ const OfferLeadDetail = () => {
                     })()}
                   </div>
                 </div>
+
+                {/* Send the customer-feedback link (https://feedback.cready.in/) via SMS */}
+                <button
+                  type="button"
+                  onClick={handleSendFeedbackLink}
+                  disabled={sendingFeedback}
+                  className="sm:ml-auto shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/15 hover:bg-white/25 ring-1 ring-white/30 text-sm font-semibold backdrop-blur-sm transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {sendingFeedback ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  {sendingFeedback ? 'Sending…' : 'Send Feedback Link'}
+                </button>
               </div>
             </div>
 

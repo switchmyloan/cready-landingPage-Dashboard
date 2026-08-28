@@ -249,6 +249,17 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    // 3N1 (3-in-1) — land → select → continue funnel from public.lender_events.
+    path: "/3n1-page",
+    label: "3N1 page",
+    icon: "Layers",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.8,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
     icon: "Home",

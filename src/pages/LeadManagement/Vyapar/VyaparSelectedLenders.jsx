@@ -66,7 +66,7 @@ const VyaparSelectedLenders = () => {
     page_no: 1,
     limit: 10,
     search: '',
-    filter_date: '',
+    filter_date: 'today',
     startDate: null,
     endDate: null,
     lenderName: '',

@@ -83,6 +83,7 @@ import UpSwingDisbursals from './pages/LeadManagement/UpSwing/UpSwingDisbursals'
 import ApolloWebhook from './pages/LeadManagement/Apollo/ApolloWebhook';
 import ApolloWebhookDetail from './pages/LeadManagement/Apollo/ApolloWebhookDetail';
 import ApolloFunnel from './pages/LeadManagement/Apollo/ApolloFunnel';
+import ThreeNOneAnalysis from './pages/LeadManagement/ThreeNOne/ThreeNOneAnalysis';
 import RouteChangeAborter from './components/RouteChangeAborter';
 
 function App() {
@@ -126,6 +127,7 @@ function App() {
             <Route path="apollo-webhook" element={<ApolloWebhook />} />
             <Route path="apollo-webhook/:id" element={<ApolloWebhookDetail />} />
             <Route path="apollo-funnel" element={<ApolloFunnel />} />
+            <Route path="3n1-page" element={<ThreeNOneAnalysis />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />

@@ -383,6 +383,20 @@ export const getSelectedLendersByPhone = async (phone) => {
     });
 };
 
+// Trigger the customer-feedback SMS (https://feedback.cready.in/) to a lead's phone.
+// sentBy carries the acting agent's identity (auth is client-side, so the backend
+// can't derive the specific call-center account from the token) — logged on success.
+export const sendFeedbackLink = async (phone, sentBy = {}) => {
+    return Api().post(`/offer-leads/send-feedback-link`, {
+        phone,
+        sentByEmail: sentBy.email || undefined,
+        sentByName: sentBy.name || undefined,
+        sentByRole: sentBy.role || undefined,
+    }, {
+        skipAdminAppend: true,
+    });
+};
+
 // All Lenders — one aggregate row per lender (selected / successful / rejected /
 // other). Returns the whole set in one shot; there's no pagination because the
 // lender list is small (tens of rows, not thousands).

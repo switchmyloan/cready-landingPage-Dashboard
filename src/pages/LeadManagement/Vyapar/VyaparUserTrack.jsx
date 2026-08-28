@@ -479,7 +479,9 @@ const FilterBar = ({
 // Persist filters + pagination across navigation (View → detail → back) so the
 // user returns to the same filtered list instead of a reset-to-default one.
 // sessionStorage scopes this to the current browser tab so it clears on close.
-const FILTERS_STORAGE_KEY = "vyaparUserTrack:filters:v1";
+// v2: bumped so previously-persisted sessions (saved under the old "All" date
+// default) are discarded and the new "today" default applies on next load.
+const FILTERS_STORAGE_KEY = "vyaparUserTrack:filters:v2";
 
 const loadPersistedState = () => {
   try {
@@ -514,7 +516,7 @@ const VyaparUserTrack = () => {
     page_no: 1,
     limit: 10,
     search: "",
-    filter_date: "",
+    filter_date: "today",
     startDate: null,
     endDate: null,
     stage: "",
