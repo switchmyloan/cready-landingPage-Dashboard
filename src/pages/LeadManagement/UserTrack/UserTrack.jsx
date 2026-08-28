@@ -16,6 +16,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Download,
+  IndianRupee,
+  Percent,
 } from "lucide-react";
 import {
   useReactTable,
@@ -69,6 +71,15 @@ const STAGES = [
     Icon: MousePointerClick,
     color: "green",
   },
+  // End of the journey — landed users who have a disbursal on record. Not
+  // date-scoped on the disbursal itself (it lags landing by days), so this reads
+  // "of the users in this window, how many are disbursed so far".
+  {
+    key: "disbursed",
+    label: "Disbursed",
+    Icon: IndianRupee,
+    color: "emerald",
+  },
 ];
 
 const COLOR_MAP = {
@@ -96,6 +107,18 @@ const COLOR_MAP = {
     pillActive: "bg-green-600 text-white",
     pillIdle: "border-green-200 text-green-700 hover:bg-green-50",
   },
+  emerald: {
+    iconBg: "bg-emerald-100",
+    iconText: "text-emerald-600",
+    pillActive: "bg-emerald-600 text-white",
+    pillIdle: "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
+  },
+  teal: {
+    iconBg: "bg-teal-100",
+    iconText: "text-teal-600",
+    pillActive: "bg-teal-600 text-white",
+    pillIdle: "border-teal-200 text-teal-700 hover:bg-teal-50",
+  },
   slate: {
     iconBg: "bg-slate-100",
     iconText: "text-slate-600",
@@ -109,7 +132,16 @@ const StatCards = ({ summary, loading }) => {
   const otp = summary.otp_verified || 0;
   const form = summary.form_submitted || 0;
   const lender = summary.lender_clicked || 0;
+  const disbursed = summary.disbursed || 0;
+  const disbursedAmt = summary.disbursed_amount || 0;
   const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+  // Compact ₹ for the disbursed card's sub-line (₹3.96 Cr / ₹34.4 L).
+  const fmtCompactInr = (n) => {
+    const v = Number(n) || 0;
+    if (v >= 1e7) return `₹${(v / 1e7).toFixed(2)} Cr`;
+    if (v >= 1e5) return `₹${(v / 1e5).toFixed(2)} L`;
+    return `₹${Math.round(v).toLocaleString("en-IN")}`;
+  };
 
   const cards = [
     {
@@ -144,6 +176,33 @@ const StatCards = ({ summary, loading }) => {
       color: "green",
       pct: pct(lender),
     },
+    {
+      key: "disbursed",
+      label: "Disbursed",
+      value: disbursed,
+      Icon: IndianRupee,
+      color: "emerald",
+      pct: pct(disbursed),
+      note: fmtCompactInr(disbursedAmt),
+      // Spelled out because this reads differently from the Disbursal Dashboard,
+      // which counts by DISBURSAL date — here the window is the LANDING date.
+      hint: "Of the users who landed in this window, how many have been disbursed so far (disbursal can happen days later). The Disbursal Dashboard counts by disbursal date instead, so the two won't match.",
+    },
+    {
+      // The funnel's real close-rate: of the users who actually clicked through
+      // to a lender, how many ended up disbursed. A rate, not a count — so it
+      // renders its own value/sub-line instead of the shared "% of landed" one.
+      key: "click_to_disbursal",
+      label: "Click → Disbursal",
+      value: disbursed,
+      display: lender ? `${Math.round((disbursed / lender) * 1000) / 10}%` : "—",
+      subText: lender
+        ? `${disbursed.toLocaleString()} of ${lender.toLocaleString()} lender clicks`
+        : "no lender clicks yet",
+      Icon: Percent,
+      color: "teal",
+      hint: "Conversion rate — of the users who clicked through to a lender, how many ended up disbursed.",
+    },
   ];
 
   if (loading) {
@@ -162,22 +221,26 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-      {cards.map(({ key, label, Icon, color, value, pct }) => {
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+      {cards.map(({ key, label, Icon, color, value, pct, note, hint, display, subText }) => {
         const c = COLOR_MAP[color];
         return (
           <div
             key={key}
+            title={hint || undefined}
             className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition"
           >
             <div className="min-w-0">
               <p className="text-xs font-medium text-gray-500 truncate">
                 {label}
+                {hint && <span className="ml-1 text-gray-300 cursor-help">ⓘ</span>}
               </p>
               <p className="mt-1 text-2xl font-bold text-gray-900">
-                {value.toLocaleString()}
+                {display ?? value.toLocaleString()}
               </p>
-              {key !== "total" && (
+              {subText ? (
+                <p className="text-[11px] text-gray-500 mt-0.5 truncate">{subText}</p>
+              ) : key !== "total" ? (
                 <p className="text-[11px] text-gray-500 mt-0.5">
                   <span
                     className={`font-semibold ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
@@ -185,8 +248,9 @@ const StatCards = ({ summary, loading }) => {
                     {pct}%
                   </span>{" "}
                   of landed
+                  {note && <span className="text-emerald-700 font-semibold"> · {note}</span>}
                 </p>
-              )}
+              ) : null}
             </div>
             <div
               className={`p-2.5 rounded-lg ${c.iconBg} ${c.iconText} shrink-0 ml-2`}
@@ -226,6 +290,8 @@ const FilterBar = ({
   onFeedbackChange,
   trackingEvent,
   onTrackingChange,
+  disbursedOn,
+  onDisbursedOnChange,
   onRefresh,
   onClearAll,
   hasFilters,
@@ -490,6 +556,25 @@ const FilterBar = ({
           </select>
         </div>
 
+        {/* Disbursal-date filter — independent of the landing-date filter above:
+            this one windows the DISBURSAL itself, so "Disbursed Today" lists the
+            people whose money went out today, whenever they first landed. */}
+        <div className="basis-[150px] shrink-0">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+            Disbursed On
+          </label>
+          <select
+            value={disbursedOn || ""}
+            onChange={(e) => onDisbursedOnChange(e.target.value)}
+            className="w-full px-1.5 py-1.5 rounded-md border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            title="Filters by the DISBURSAL date (not the landing date)"
+          >
+            <option value="">Any time</option>
+            <option value="today">Disbursed Today</option>
+            {/* <option value="yesterday">Disbursed Yesterday</option> */}
+          </select>
+        </div>
+
         {/* Inline actions — no label */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
@@ -710,6 +795,7 @@ const UserTrack = () => {
     viewAllClicked: "",
     feedbackStatus: "",
     trackingEvent: "",
+    disbursedOn: "",
   };
 
   const [query, setQuery] = useState(() =>
@@ -743,6 +829,8 @@ const UserTrack = () => {
     otp_verified: 0,
     form_submitted: 0,
     lender_clicked: 0,
+    disbursed: 0,
+    disbursed_amount: 0,
   });
 
   const fetchUsers = useCallback(async () => {
@@ -762,6 +850,7 @@ const UserTrack = () => {
         viewAllClicked: query.viewAllClicked || undefined,
         feedbackStatus: query.feedbackStatus || undefined,
         trackingEvent: query.trackingEvent || undefined,
+        disbursedOn: query.disbursedOn || undefined,
       });
 
       if (res?.data?.success) {
@@ -794,6 +883,7 @@ const UserTrack = () => {
     query.viewAllClicked,
     query.feedbackStatus,
     query.trackingEvent,
+    query.disbursedOn,
   ]);
 
   useEffect(() => {
@@ -894,6 +984,10 @@ const UserTrack = () => {
     (trackingEvent) => setQuery((prev) => ({ ...prev, trackingEvent, page_no: 1 })),
     [],
   );
+  const onDisbursedOnChange = useCallback(
+    (disbursedOn) => setQuery((prev) => ({ ...prev, disbursedOn, page_no: 1 })),
+    [],
+  );
   const onPageChange = useCallback(
     (p) =>
       setQuery((prev) => ({
@@ -919,6 +1013,7 @@ const UserTrack = () => {
         viewAllClicked: "",
         feedbackStatus: "",
         trackingEvent: "",
+        disbursedOn: "",
       })),
     [],
   );
@@ -934,7 +1029,8 @@ const UserTrack = () => {
     query.source ||
     query.viewAllClicked ||
     query.feedbackStatus ||
-    query.trackingEvent
+    query.trackingEvent ||
+    query.disbursedOn
   );
 
   const handleView = (row) => {
@@ -984,6 +1080,7 @@ const UserTrack = () => {
     if (query.medium) urlParams.append("medium", query.medium);
     if (query.source) urlParams.append("source", query.source);
     if (query.viewAllClicked) urlParams.append("viewAllClicked", query.viewAllClicked);
+    if (query.disbursedOn) urlParams.append("disbursedOn", query.disbursedOn);
 
     try {
       // Fetch the CSV as a blob (instead of firing an <a download> and forgetting)
@@ -1070,6 +1167,8 @@ const UserTrack = () => {
         onFeedbackChange={onFeedbackChange}
         trackingEvent={query.trackingEvent}
         onTrackingChange={onTrackingChange}
+        disbursedOn={query.disbursedOn}
+        onDisbursedOnChange={onDisbursedOnChange}
         onRefresh={fetchUsers}
         onClearAll={onClearAll}
         hasFilters={hasFilters}

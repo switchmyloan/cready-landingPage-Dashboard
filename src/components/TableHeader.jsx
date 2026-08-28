@@ -2591,6 +2591,39 @@ export const userTrackColumn = ({ handleEdit }) => [
     },
   },
 
+  // Disbursal (disbursment_may26_v2, matched on 10-digit phone). Populated on the
+  // inline query path — i.e. whenever the Disbursed stage or the "Disbursed On"
+  // filter is active, which is when this column actually matters. Shows the
+  // amount, with lender + exact disbursal time on hover.
+  {
+    header: 'Disbursed',
+    accessorKey: 'disbursed_amount',
+    cell: ({ row }) => {
+      const r = row.original;
+      if (!r.has_disbursed) {
+        return <span className="text-gray-300 text-xs">—</span>;
+      }
+      const amt = Number(r.disbursed_amount) || 0;
+      const at = r.last_disbursed_at || r.first_disbursed_at;
+      const when = at
+        ? new Date(at).toLocaleString('en-IN', {
+            day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true,
+          })
+        : '';
+      const tip = [r.disbursed_lender, when].filter(Boolean).join(' · ') || 'Disbursed';
+      return (
+        <div className="tooltip tooltip-top cursor-help" data-tip={tip}>
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 whitespace-nowrap">
+            ₹{amt.toLocaleString('en-IN')}
+            {r.disbursal_count > 1 && (
+              <span className="text-[10px] font-medium text-emerald-600/80">×{r.disbursal_count}</span>
+            )}
+          </span>
+        </div>
+      );
+    },
+  },
+
   // Tracking events count badge (latest offerLeads.tracking_events for the phone).
   trackingEventsColumn,
   {

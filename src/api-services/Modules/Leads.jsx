@@ -605,6 +605,9 @@ export const getUserTrack = async ({
   viewAllClicked,
   feedbackStatus,
   trackingEvent,
+  // Window on the DISBURSAL date (independent of the landing-date filter) —
+  // answers "who was disbursed today".
+  disbursedOn,
 } = {}) => {
     return Api().get(`/user-track`, {
         params: {
@@ -621,6 +624,7 @@ export const getUserTrack = async ({
             viewAllClicked,
             feedbackStatus,
             trackingEvent,
+            disbursedOn,
         },
         skipAdminAppend: true,
     });

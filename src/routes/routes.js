@@ -391,16 +391,16 @@ export const routes = [
   // Vyapar — parallel module to Short Ticket (copied pages, /vyapar-* routes).
   // groupOrder 2.2 places it just after Short Ticket (2) and before Campaign (2.5).
   // Every Vyapar nav item is restricted to super-admin only.
-  {
-    path: "/vyapar-disbursal-dashboard",
-    label: "Disbursal Dashboard",
-    icon: "TrendingUp",
-    showInSidebar: true,
-    group: "Vyapar",
-    groupOrder: 2.2,
-    order: 19.5,
-    roles: ["super-admin"],
-  },
+  // {
+  //   path: "/vyapar-disbursal-dashboard",
+  //   label: "Disbursal Dashboard",
+  //   icon: "TrendingUp",
+  //   showInSidebar: true,
+  //   group: "Vyapar",
+  //   groupOrder: 2.2,
+  //   order: 19.5,
+  //   roles: ["super-admin"],
+  // },
   {
     path: "/vyapar-offer-leads",
     label: "Vyapar Offer Leads",
