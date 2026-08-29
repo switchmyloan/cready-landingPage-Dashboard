@@ -671,6 +671,9 @@ export const getShortUserTrack = async ({
   source,
   feedbackStatus,
   lender,
+  // Window on the DISBURSAL date (independent of the landing-date filter) —
+  // answers "who was disbursed today".
+  disbursedOn,
 } = {}) => {
     return Api().get(`/short-user-track`, {
         params: {
@@ -685,6 +688,7 @@ export const getShortUserTrack = async ({
             source,
             feedbackStatus,
             lender,
+            disbursedOn,
         },
         skipAdminAppend: true,
     });
