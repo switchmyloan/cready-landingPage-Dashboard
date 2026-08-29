@@ -14,6 +14,8 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  IndianRupee,
+  Percent,
 } from "lucide-react";
 import {
   useReactTable,
@@ -62,6 +64,15 @@ const STAGES = [
     Icon: MousePointerClick,
     color: "green",
   },
+  // End of the journey — landed users who have a disbursal on record. Not
+  // date-scoped on the disbursal itself (it lags landing by days), so this reads
+  // "of the users in this window, how many are disbursed so far".
+  {
+    key: "disbursed",
+    label: "Disbursed",
+    Icon: IndianRupee,
+    color: "emerald",
+  },
 ];
 
 const COLOR_MAP = {
@@ -89,6 +100,18 @@ const COLOR_MAP = {
     pillActive: "bg-green-600 text-white",
     pillIdle: "border-green-200 text-green-700 hover:bg-green-50",
   },
+  emerald: {
+    iconBg: "bg-emerald-100",
+    iconText: "text-emerald-600",
+    pillActive: "bg-emerald-600 text-white",
+    pillIdle: "border-emerald-200 text-emerald-700 hover:bg-emerald-50",
+  },
+  teal: {
+    iconBg: "bg-teal-100",
+    iconText: "text-teal-600",
+    pillActive: "bg-teal-600 text-white",
+    pillIdle: "border-teal-200 text-teal-700 hover:bg-teal-50",
+  },
   slate: {
     iconBg: "bg-slate-100",
     iconText: "text-slate-600",
@@ -103,6 +126,8 @@ const STAT_GRAD = {
   amber: "from-amber-500 to-orange-500",
   purple: "from-purple-500 to-fuchsia-500",
   green: "from-emerald-500 to-green-500",
+  emerald: "from-emerald-500 to-teal-500",
+  teal: "from-teal-500 to-cyan-500",
   slate: "from-slate-400 to-slate-500",
 };
 
@@ -118,7 +143,16 @@ const StatCards = ({ summary, loading }) => {
   const otp = summary.otp_verified || 0;
   const form = summary.form_submitted || 0;
   const lender = summary.lender_clicked || 0;
+  const disbursed = summary.disbursed || 0;
+  const disbursedAmt = summary.disbursed_amount || 0;
   const pct = (n) => (total ? Math.round((n / total) * 100) : 0);
+  // Compact ₹ for the disbursed card's sub-line (₹5.61 L / ₹1.2 Cr).
+  const fmtCompactInr = (n) => {
+    const v = Number(n) || 0;
+    if (v >= 1e7) return `₹${(v / 1e7).toFixed(2)} Cr`;
+    if (v >= 1e5) return `₹${(v / 1e5).toFixed(2)} L`;
+    return `₹${Math.round(v).toLocaleString("en-IN")}`;
+  };
 
   const cards = [
     {
@@ -153,11 +187,38 @@ const StatCards = ({ summary, loading }) => {
       color: "green",
       pct: pct(lender),
     },
+    {
+      key: "disbursed",
+      label: "Disbursed",
+      value: disbursed,
+      Icon: IndianRupee,
+      color: "emerald",
+      pct: pct(disbursed),
+      note: fmtCompactInr(disbursedAmt),
+      // Spelled out because this reads differently from the Disbursal Dashboard,
+      // which counts by DISBURSAL date — here the window is the LANDING date.
+      hint: "Of the users who landed in this window, how many have been disbursed so far (disbursal can happen days later). The Disbursal Dashboard counts by disbursal date instead, so the two won't match.",
+    },
+    {
+      // The funnel's real close-rate: of the users who actually clicked through
+      // to a lender, how many ended up disbursed. A rate, not a count — so it
+      // renders its own value/sub-line instead of the shared "% of landed" one.
+      key: "click_to_disbursal",
+      label: "Click → Disbursal",
+      value: disbursed,
+      display: lender ? `${Math.round((disbursed / lender) * 1000) / 10}%` : "—",
+      subText: lender
+        ? `${disbursed.toLocaleString("en-IN")} of ${lender.toLocaleString("en-IN")} lender clicks`
+        : "no lender clicks yet",
+      Icon: Percent,
+      color: "teal",
+      hint: "Conversion rate — of the users who clicked through to a lender, how many ended up disbursed.",
+    },
   ];
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
         {cards.map((_, i) => (
           <div
             key={i}
@@ -173,12 +234,13 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-      {cards.map(({ key, label, Icon, color, value, pct }) => {
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+      {cards.map(({ key, label, Icon, color, value, pct, note, hint, display, subText }) => {
         const grad = STAT_GRAD[color] || STAT_GRAD.slate;
         return (
           <div
             key={key}
+            title={hint || undefined}
             className="relative bg-white rounded-xl border border-gray-200/80 p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden"
           >
             {/* Top accent stripe */}
@@ -188,9 +250,10 @@ const StatCards = ({ summary, loading }) => {
               <div className="min-w-0">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 truncate">
                   {label}
+                  {hint && <span className="ml-1 text-gray-300 cursor-help">ⓘ</span>}
                 </p>
                 <p className="mt-1 text-[26px] font-extrabold text-gray-900 leading-none tabular-nums">
-                  {value.toLocaleString("en-IN")}
+                  {display ?? value.toLocaleString("en-IN")}
                 </p>
               </div>
               <div
@@ -200,10 +263,15 @@ const StatCards = ({ summary, loading }) => {
               </div>
             </div>
 
-            {key !== "total" ? (
+            {subText ? (
+              <p className="mt-3.5 text-[11px] text-gray-500 truncate">{subText}</p>
+            ) : key !== "total" ? (
               <div className="mt-3.5">
                 <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span className="text-gray-400">of landed</span>
+                  <span className="text-gray-400">
+                    of landed
+                    {note && <span className="text-emerald-700 font-semibold"> · {note}</span>}
+                  </span>
                   <span
                     className={`font-bold tabular-nums ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
                   >
@@ -251,6 +319,8 @@ const FilterBar = ({
   sourceOptions,
   feedbackStatus,
   onFeedbackChange,
+  disbursedOn,
+  onDisbursedOnChange,
   onRefresh,
   onClearAll,
   hasFilters,
@@ -267,10 +337,6 @@ const FilterBar = ({
   useEffect(() => {
     setSearchValue(search || "");
   }, [search]);
-
-  const applyRange = () => {
-    if (rng.start && rng.end) onDateRangeChange(rng.start, rng.end);
-  };
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
@@ -339,64 +405,69 @@ const FilterBar = ({
           </div>
         </div>
 
-        {/* Quick Date */}
+        {/* Date — presets and the custom range live in ONE control: two labelled
+            blocks used to take the width of three filters and still wrapped. The
+            range applies as soon as both ends are picked, so the old "Go" button
+            (and its dead-until-valid state) is gone. */}
         <div className="shrink-0">
           <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
             Date
           </label>
-          <div className="flex items-center gap-1 bg-gray-50 rounded-md p-1">
+          <div className="inline-flex items-center rounded-md border border-gray-300 bg-white overflow-hidden divide-x divide-gray-200">
             {[
               { v: "", l: "All" },
               { v: "today", l: "Today" },
               { v: "yesterday", l: "Yest." },
-            ].map(({ v, l }) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => onDateTypeChange(v)}
-                className={`px-2 py-1 rounded text-xs font-medium transition ${
-                  dateType === v
-                    ? "bg-white shadow text-gray-900"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
+            ].map(({ v, l }) => {
+              const active = !rng.start && !rng.end && dateType === v;
+              return (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => { setRng({ start: "", end: "" }); onDateTypeChange(v); }}
+                  className={`px-2.5 py-1.5 text-xs font-medium transition ${
+                    active ? "bg-purple-600 text-white" : "text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {l}
+                </button>
+              );
+            })}
 
-        {/* Custom Range */}
-        <div className="shrink-0">
-          <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
-            Custom Range
-          </label>
-          <div className="flex items-center gap-1">
-            <input
-              type="date"
-              value={rng.start}
-              onChange={(e) =>
-                setRng((prev) => ({ ...prev, start: e.target.value }))
-              }
-              className="px-2 py-1.5 text-xs rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-400"
-            />
-            <span className="text-gray-400 text-xs">→</span>
-            <input
-              type="date"
-              value={rng.end}
-              onChange={(e) =>
-                setRng((prev) => ({ ...prev, end: e.target.value }))
-              }
-              className="px-2 py-1.5 text-xs rounded border border-gray-300 focus:outline-none focus:ring-1 focus:ring-purple-400"
-            />
-            <button
-              type="button"
-              onClick={applyRange}
-              disabled={!rng.start || !rng.end}
-              className="px-2.5 py-1.5 text-xs rounded bg-purple-600 text-white disabled:opacity-40 hover:bg-purple-700 transition"
-            >
-              Go
-            </button>
+            {/* custom range, inline with the presets */}
+            <div className={`flex items-center gap-1 px-2 py-1 ${rng.start && rng.end ? "bg-purple-50" : ""}`}>
+              <input
+                type="date"
+                value={rng.start}
+                onChange={(e) => {
+                  const start = e.target.value;
+                  setRng((prev) => ({ ...prev, start }));
+                  if (start && rng.end) onDateRangeChange(start, rng.end);
+                }}
+                className="w-[112px] px-1 py-0.5 text-[11px] text-gray-700 bg-transparent border-0 focus:outline-none"
+              />
+              <span className="text-gray-300 text-[11px]">→</span>
+              <input
+                type="date"
+                value={rng.end}
+                onChange={(e) => {
+                  const end = e.target.value;
+                  setRng((prev) => ({ ...prev, end }));
+                  if (rng.start && end) onDateRangeChange(rng.start, end);
+                }}
+                className="w-[112px] px-1 py-0.5 text-[11px] text-gray-700 bg-transparent border-0 focus:outline-none"
+              />
+              {(rng.start || rng.end) && (
+                <button
+                  type="button"
+                  onClick={() => { setRng({ start: "", end: "" }); onDateTypeChange(""); }}
+                  title="Clear range"
+                  className="text-gray-400 hover:text-rose-500 transition"
+                >
+                  <X size={12} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -466,6 +537,25 @@ const FilterBar = ({
             {FEEDBACK_STATUSES.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
+          </select>
+        </div>
+
+        {/* Disbursal-date filter — independent of the landing-date filter above:
+            this one windows the DISBURSAL itself, so "Disbursed Today" lists the
+            people whose money went out today, whenever they first landed. */}
+        <div className="basis-[150px] shrink-0">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+            Disbursed On
+          </label>
+          <select
+            value={disbursedOn || ""}
+            onChange={(e) => onDisbursedOnChange(e.target.value)}
+            className="w-full px-1.5 py-1.5 rounded-md border border-gray-300 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-400"
+            title="Filters by the DISBURSAL date (not the landing date)"
+          >
+            <option value="">Any time</option>
+            <option value="today">Disbursed Today</option>
+            {/* <option value="yesterday">Disbursed Yesterday</option> */}
           </select>
         </div>
 
@@ -543,6 +633,7 @@ const ShortUserTrack = () => {
     medium: "",
     source: "",
     feedbackStatus: "",
+    disbursedOn: "",
   };
 
   const [query, setQuery] = useState(() =>
@@ -570,6 +661,8 @@ const ShortUserTrack = () => {
     otp_verified: 0,
     form_submitted: 0,
     lender_clicked: 0,
+    disbursed: 0,
+    disbursed_amount: 0,
   });
 
   const fetchUsers = useCallback(async () => {
@@ -587,6 +680,7 @@ const ShortUserTrack = () => {
         medium: query.medium || undefined,
         source: query.source || undefined,
         feedbackStatus: query.feedbackStatus || undefined,
+        disbursedOn: query.disbursedOn || undefined,
       });
 
       if (res?.data?.success) {
@@ -618,6 +712,7 @@ const ShortUserTrack = () => {
     query.medium,
     query.source,
     query.feedbackStatus,
+    query.disbursedOn,
   ]);
 
   useEffect(() => {
@@ -713,6 +808,10 @@ const ShortUserTrack = () => {
     (feedbackStatus) => setQuery((prev) => ({ ...prev, feedbackStatus, page_no: 1 })),
     [],
   );
+  const onDisbursedOnChange = useCallback(
+    (disbursedOn) => setQuery((prev) => ({ ...prev, disbursedOn, page_no: 1 })),
+    [],
+  );
   const onPageChange = useCallback(
     (p) =>
       setQuery((prev) => ({
@@ -736,6 +835,7 @@ const ShortUserTrack = () => {
         medium: "",
         source: "",
         feedbackStatus: "",
+        disbursedOn: "",
       })),
     [],
   );
@@ -749,7 +849,8 @@ const ShortUserTrack = () => {
     query.lender ||
     query.medium ||
     query.source ||
-    query.feedbackStatus
+    query.feedbackStatus ||
+    query.disbursedOn
   );
 
   const handleView = (row) => {
@@ -891,6 +992,8 @@ const ShortUserTrack = () => {
         sourceOptions={SOURCE_OPTIONS}
         feedbackStatus={query.feedbackStatus}
         onFeedbackChange={onFeedbackChange}
+        disbursedOn={query.disbursedOn}
+        onDisbursedOnChange={onDisbursedOnChange}
         onRefresh={fetchUsers}
         onClearAll={onClearAll}
         hasFilters={hasFilters}

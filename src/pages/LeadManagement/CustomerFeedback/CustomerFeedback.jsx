@@ -283,20 +283,107 @@ const FlipCardModal = ({ id, onClose }) => {
             >
               {/* ── FRONT ── */}
               <div
-                className="absolute inset-0 rounded-[28px] p-6 flex flex-col bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700 shadow-2xl overflow-hidden"
+                className="absolute inset-0 rounded-[28px] flex flex-col overflow-hidden shadow-2xl"
                 style={{ backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden" }}
               >
-                <div className="pointer-events-none absolute -top-16 -right-10 w-52 h-52 rounded-full bg-white/10 blur-2xl" />
-                <div className="relative w-16 h-16 rounded-full bg-white/90 grid place-items-center text-3xl shadow-lg ring-4 ring-white/20">{avatar}</div>
-                <div className="relative mt-auto">
-                  <p className="text-white text-xl font-bold leading-snug">“{story}”</p>
-                  <p className="mt-3 font-mono text-[12px] tracking-wider text-green-300 uppercase">
-                    {row.customer_name || "Anonymous"}{row.customer_city ? `, ${row.customer_city}` : ""}
-                  </p>
-                </div>
-                <div className="relative mt-5 flex items-center justify-between">
-                  <span className="text-white/50 text-[11px]">Shared with permission</span>
-                  <CreadyMark />
+                {/* layered background: base gradient, aurora blobs, a spotlight
+                    behind the quote and a fine dot grid — so the middle of the
+                    card reads as designed space rather than emptiness */}
+                <div className="absolute inset-0 bg-gradient-to-br from-violet-600 via-purple-600 to-indigo-700" />
+                <div className="pointer-events-none absolute -top-20 -right-16 w-64 h-64 rounded-full bg-fuchsia-400/30 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-24 -left-16 w-64 h-64 rounded-full bg-indigo-300/25 blur-3xl" />
+                <div
+                  className="pointer-events-none absolute inset-0 opacity-[0.13]"
+                  style={{
+                    backgroundImage: "radial-gradient(circle, #fff 1px, transparent 1px)",
+                    backgroundSize: "16px 16px",
+                    maskImage: "radial-gradient(ellipse at center, #000 20%, transparent 72%)",
+                    WebkitMaskImage: "radial-gradient(ellipse at center, #000 20%, transparent 72%)",
+                  }}
+                />
+                <div
+                  className="pointer-events-none absolute inset-x-6 top-1/3 h-40"
+                  style={{ background: "radial-gradient(ellipse at center, rgba(255,255,255,0.20), transparent 70%)" }}
+                />
+                {/* glass sheen along the top edge */}
+                <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/15 to-transparent" />
+
+                <div className="relative flex flex-col h-full p-5">
+                  {/* identity + score */}
+                  <div className="flex items-start gap-3">
+                    <div className="relative shrink-0">
+                      <span className="absolute -inset-1 rounded-full bg-gradient-to-br from-amber-300/60 to-fuchsia-300/60 blur-[6px]" />
+                      <div className="relative w-14 h-14 rounded-full bg-white grid place-items-center text-[28px] shadow-lg ring-2 ring-white/70">
+                        {avatar}
+                      </div>
+                    </div>
+                    <div className="min-w-0 flex-1 pt-0.5">
+                      <p className="text-white font-bold text-[16px] leading-tight truncate">
+                        {row.customer_name || "Anonymous"}
+                      </p>
+                      {row.customer_city && (
+                        <p className="text-white/60 text-[11.5px] truncate flex items-center gap-1">
+                          <MapPin size={10} /> {row.customer_city}
+                        </p>
+                      )}
+                      <span className="inline-flex items-center gap-1 mt-1.5">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <Star
+                            key={i}
+                            size={13}
+                            className={i <= (row.overall_rating || 0)
+                              ? "text-amber-300 fill-amber-300 drop-shadow-[0_1px_3px_rgba(252,211,77,0.6)]"
+                              : "text-white/20"}
+                          />
+                        ))}
+                        {row.overall_rating != null && (
+                          <span className="text-white/70 text-[11px] font-bold ml-0.5">{row.overall_rating}.0</span>
+                        )}
+                      </span>
+                    </div>
+                    {row.nps != null && (
+                      <div className="shrink-0 w-[52px] h-[52px] rounded-2xl bg-white/12 border border-white/25 backdrop-blur-md grid place-items-center shadow-inner">
+                        <span className="text-white text-[19px] font-black leading-none">{row.nps}</span>
+                        <span className="text-white/55 text-[8px] font-bold uppercase tracking-[0.14em] mt-0.5">NPS</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* the quote — hero of the card, framed by matching marks */}
+                  <div className="relative flex-1 grid place-items-center px-1">
+                    <span className="pointer-events-none absolute left-0 top-1 text-[64px] leading-none font-serif text-white/20 select-none">“</span>
+                    <span className="pointer-events-none absolute right-0 bottom-0 text-[64px] leading-none font-serif text-white/20 select-none">”</span>
+                    <p className="relative text-white text-[19px] font-semibold italic leading-relaxed text-center px-5"
+                       style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}>
+                      {story}
+                    </p>
+                  </div>
+
+                  {/* context chips */}
+                  {(purposes.length > 0 || row.loan_amount || row.nps >= 9) && (
+                    <div className="flex flex-wrap gap-1.5 justify-center mb-3">
+                      {row.nps >= 9 && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-400/25 border border-emerald-300/40 text-emerald-100 text-[10.5px] font-bold backdrop-blur-sm">
+                          <BadgeCheck size={11} /> Promoter
+                        </span>
+                      )}
+                      {row.loan_amount ? (
+                        <span className="px-2.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-white text-[10.5px] font-bold backdrop-blur-sm">
+                          {fmtINR(row.loan_amount)}
+                        </span>
+                      ) : null}
+                      {purposes.slice(0, 3).map((p, i) => (
+                        <span key={i} className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 text-white/85 text-[10.5px] font-medium capitalize backdrop-blur-sm">
+                          {p}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="pt-3 border-t border-white/15 flex items-center justify-between">
+                    <span className="text-white/45 text-[10.5px]">Shared with permission</span>
+                    <CreadyMark />
+                  </div>
                 </div>
               </div>
 

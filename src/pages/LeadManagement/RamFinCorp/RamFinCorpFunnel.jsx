@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import {
-  CheckCircle2, TrendingDown, Search,
+  CheckCircle2, TrendingDown, Search, Users, Filter, Download,
   RefreshCw, ChevronLeft, ChevronRight, Phone, BadgeCheck, MousePointerClick,
 } from "lucide-react";
-import { getRamFinCorpFunnel, getRamFinCorpStageLeads } from "../../../api-services/Modules/RamFinCorpFunnel";
+import { getRamFinCorpFunnel, getRamFinCorpStageLeads, getRamFinCorpHistory } from "../../../api-services/Modules/RamFinCorpFunnel";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -43,6 +43,7 @@ const STATUS_CHIP = (s) => {
   const t = String(s || "").toLowerCase();
   if (/disbursed|closed|part payment|success/.test(t)) return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (/approved|document|sheet|proceed/.test(t)) return "bg-indigo-50 text-indigo-700 border-indigo-200";
+  if (/dedup success/.test(t)) return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (/reject|not eligible|fail|dedup/.test(t)) return "bg-rose-50 text-rose-700 border-rose-200";
   if (/fresh|incomplete/.test(t)) return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-gray-100 text-gray-600 border-gray-200";
@@ -179,6 +180,141 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
   );
 };
 
+
+// ── Journey History — day-wise stage matrix (mirrors the UpSwing funnel) ─────
+const HistoryTable = ({ dateParams }) => {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    getRamFinCorpHistory(dateParams)
+      .then((res) => { if (alive) setData(res?.data?.data || null); })
+      .catch(() => { if (alive) setData(null); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [dateParams]);
+
+  const stages = data?.stages || [];
+  const matrix = data?.matrix || [];
+  // Column 0 is "Pushed" — already rendered as the Total column.
+  const cols = stages.slice(1);
+
+  const toneCls = (tone) =>
+    tone === "green" ? "text-emerald-700" : tone === "red" ? "text-rose-600" : "text-gray-800";
+
+  // CSV of exactly what's on screen — date, total, then one column per stage.
+  const exportCsv = () => {
+    const rows = [
+      ["Date", "Total", ...cols.map((c) => c.label)],
+      ...matrix.map((m) => [m.date, m.total, ...cols.map((c) => m.byStage[c.key] ?? 0)]),
+      [],
+      ["Grand total", data?.totalLeads ?? 0, ...cols.map((c) => c.total)],
+    ];
+    const csv = rows
+      .map((row) => row.map((v) => '"' + String(v ?? "").replace(/"/g, '""') + '"').join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ramfincorp_journey_history.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mt-4">
+      <div className="flex flex-wrap items-center gap-2 px-5 py-3.5 border-b border-gray-100 bg-gradient-to-br from-purple-50/60 to-white">
+        <Filter size={14} className="text-purple-600" />
+        <h2 className="text-[15px] font-bold text-gray-800">
+          Journey History — leads reaching each stage, by push day
+        </h2>
+        <button
+          onClick={exportCsv}
+          disabled={!matrix.length}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 shadow-sm"
+        >
+          <Download size={13} /> Export CSV
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-[12.5px]">
+          <thead>
+            <tr className="text-left text-[10.5px] uppercase tracking-wider text-gray-400 border-b border-gray-100 bg-gray-50/60">
+              <th className="px-5 py-2.5 font-medium sticky left-0 bg-gray-50/60">Date</th>
+              <th className="px-3 py-2.5 font-medium text-right">Total</th>
+              {cols.map((st) => (
+                <th
+                  key={st.key}
+                  className={`px-3 py-2.5 font-medium text-right whitespace-nowrap ${st.tone === "red" ? "text-rose-400" : st.tone === "green" ? "text-emerald-500" : ""}`}
+                >
+                  {st.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`hsk${i}`} className="border-b border-gray-50">
+                  <td className="px-5 py-3"><Sk className="h-3.5 w-24" /></td>
+                  {Array.from({ length: 7 }).map((__, j) => (
+                    <td key={j} className="px-3 py-3"><Sk className="h-3.5 w-12 ml-auto" /></td>
+                  ))}
+                </tr>
+              ))
+            ) : matrix.length === 0 ? (
+              <tr><td colSpan={cols.length + 2} className="px-5 py-10 text-center text-gray-400">No leads in this period.</td></tr>
+            ) : matrix.map((m) => (
+              <tr key={m.date} className="border-b border-gray-50 hover:bg-purple-50/30">
+                <td className="px-5 py-3 font-semibold text-gray-700 whitespace-nowrap sticky left-0 bg-white">
+                  {m.date}
+                </td>
+                <td className="px-3 py-3 text-right tabular-nums font-bold text-gray-900">{fmtNum(m.total)}</td>
+                {cols.map((st) => {
+                  const v = m.byStage[st.key] ?? 0;
+                  // % of that day's total — the drop-off is the point of the table.
+                  const p = m.total ? Math.round((v / m.total) * 1000) / 10 : 0;
+                  return (
+                    <td key={st.key} className="px-3 py-3 text-right tabular-nums">
+                      {v ? (
+                        <>
+                          <span className={`font-semibold ${toneCls(st.tone)}`}>{fmtNum(v)}</span>
+                          <span className="block text-[10px] text-gray-400">{p}%</span>
+                        </>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+          {!loading && matrix.length > 0 && (
+            <tfoot>
+              <tr className="border-t-2 border-gray-200 bg-gray-50/70 font-bold">
+                <td className="px-5 py-3 text-gray-700 sticky left-0 bg-gray-50/70">Grand total</td>
+                <td className="px-3 py-3 text-right tabular-nums text-gray-900">{fmtNum(data?.totalLeads)}</td>
+                {cols.map((st) => (
+                  <td key={st.key} className="px-3 py-3 text-right tabular-nums">
+                    <span className={toneCls(st.tone)}>{fmtNum(st.total)}</span>
+                    <span className="block text-[10px] font-medium text-gray-400">{st.pctOfTotal}%</span>
+                  </td>
+                ))}
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+};
+
 // ── Main page ───────────────────────────────────────────────────────────────
 const RamFinCorpFunnel = () => {
   const [data, setData] = useState(null);
@@ -191,7 +327,7 @@ const RamFinCorpFunnel = () => {
   const [toDate, setToDate] = useState("");
   const [scope, setScope] = useState("high"); // '' = all, 'high', 'short'
   // Which KPI card is active — its leads render in the panel below.
-  const [active, setActive] = useState({ stage: "dedup_success", label: "Dedup Success" });
+  const [active, setActive] = useState({ stage: "total_users", label: "Total Users" });
 
   const dateParams = {
     ...((!range && fromDate && toDate) ? { fromDate, toDate } : range ? { type: range } : {}),
@@ -219,8 +355,11 @@ const RamFinCorpFunnel = () => {
   const totals = data?.totals || {};
   const pctSel = (v) => (totals.selected ? `${((v / totals.selected) * 100).toFixed(1)}% of selected` : "");
 
+  const pctTotal = (v) => (totals.totalUsers ? `${((v / totals.totalUsers) * 100).toFixed(1)}% of total` : "");
+
   const CARDS = [
-    { stage: "dedup_success", label: "Dedup Success", icon: <BadgeCheck size={13} />, value: fmtNum(totals.dedupSuccess), sub: "distinct phones · RamFinCorp dedupe passed (submit date)", tone: "border-emerald-200" },
+    { stage: "total_users", label: "Total Users", icon: <Users size={13} />, value: fmtNum(totals.totalUsers), sub: "pushed to RamFinCorp · dedup success + fail", tone: "border-blue-200" },
+    { stage: "dedup_success", label: "Dedup Success", icon: <BadgeCheck size={13} />, value: fmtNum(totals.dedupSuccess), sub: `${pctTotal(totals.dedupSuccess)} · dedupe passed`, tone: "border-emerald-200" },
     { stage: "selected", label: "Lender Selected", icon: <MousePointerClick size={13} />, value: fmtNum(totals.selected), sub: "clicked RamFinCorp on our site", tone: "border-fuchsia-200" },
     { stage: "bre_approved", label: "BRE Approved", icon: <CheckCircle2 size={13} />, value: fmtNum(totals.breApproved), sub: `${pctSel(totals.breApproved)} · approved at RamFinCorp`, tone: "border-indigo-200" },
   ];
@@ -338,6 +477,9 @@ const RamFinCorpFunnel = () => {
 
       {/* Inline leads panel for the active card */}
       <LeadsPanel key={`${active.stage}-${dateKey}`} stage={active.stage} label={active.label} dateParams={dateParams} />
+
+      {/* Day-wise journey history */}
+      <HistoryTable key={`hist-${dateKey}`} dateParams={dateParams} />
     </div>
   );
 };

@@ -25,3 +25,12 @@ export const getRamFinCorpStageLeads = async ({
     skipAdminAppend: true,
   });
 };
+
+// Day-wise journey history — rows = push day, columns = stages reached
+// (cumulative), mirroring the UpSwing funnel's table.
+export const getRamFinCorpHistory = async ({ type, fromDate, toDate, scope } = {}) => {
+  return Api().get(`/ramfincorp-funnel/history`, {
+    params: { type, fromDate, toDate, scope },
+    skipAdminAppend: true,
+  });
+};
