@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Trophy, Send, Star, Percent, RefreshCw, Users, X, Phone,
-  ChevronLeft, ChevronRight, CheckCircle2, Clock, Sparkles,
+  ChevronLeft, ChevronRight, CheckCircle2, Clock, Sparkles, Crown, BarChart3,
 } from "lucide-react";
 import { getFeedbackLeaderboard, getFeedbackAgentLinks } from "../../../api-services/Modules/FeedbackChampions";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
@@ -34,11 +34,11 @@ const MEDALS = {
   },
   silver: {
     emoji: "🥈", label: "Runner-up", order: 1, height: "sm:mt-2",
-    card: "from-slate-100 via-gray-50 to-white border-slate-300",
-    glow: "shadow-[0_10px_30px_-10px_rgba(100,116,139,0.45)]",
-    ring: "from-slate-300 via-gray-300 to-slate-400",
-    text: "text-slate-700", chip: "bg-slate-500 text-white",
-    bar: "from-slate-300 to-slate-400",
+    card: "from-blue-50 via-sky-50 to-white border-blue-200",
+    glow: "shadow-[0_10px_30px_-10px_rgba(59,130,246,0.4)]",
+    ring: "from-blue-400 via-sky-400 to-blue-500",
+    text: "text-blue-600", chip: "bg-blue-500 text-white",
+    bar: "from-blue-400 to-sky-500",
   },
   bronze: {
     emoji: "🥉", label: "Third place", order: 3, height: "sm:mt-4",
@@ -65,8 +65,20 @@ const Kpi = ({ icon, label, value, sub, tone }) => (
 );
 
 // ── Podium card ─────────────────────────────────────────────────────────────
+const RANK_NUM = { gold: 1, silver: 2, bronze: 3 };
+
+// One metric: a colored icon on top, the bold value, then a small caption below.
+const StatCell = ({ Icon, value, label, color }) => (
+  <div className="flex-1 flex flex-col items-center gap-1">
+    <Icon size={15} className={color} />
+    <span className="text-[14px] font-extrabold text-gray-900 leading-none">{value}</span>
+    <span className="text-[8.5px] font-bold uppercase tracking-wide text-gray-400">{label}</span>
+  </div>
+);
+
 const PodiumCard = ({ row, isMe, topFeedback, onClick }) => {
   const m = MEDALS[row.medal];
+  const isGold = row.medal === "gold";
   // Bar length is relative to the leader, so the gap is visible at a glance.
   const share = topFeedback ? Math.max((row.feedback / topFeedback) * 100, 6) : 0;
   return (
@@ -74,18 +86,39 @@ const PodiumCard = ({ row, isMe, topFeedback, onClick }) => {
       onClick={onClick}
       title={`See every link ${row.name} sent`}
       style={{ order: m.order }}
-      className={`group relative flex-1 min-w-[200px] max-w-[300px] text-left rounded-xl border bg-gradient-to-b ${m.card} ${m.glow} ${m.height} px-3.5 py-3 hover:-translate-y-0.5 transition-all duration-300 overflow-hidden`}
+      className={`group relative flex-1 min-w-[215px] max-w-[300px] text-left rounded-2xl border bg-gradient-to-b ${m.card} ${m.glow} ${isGold ? "sm:-mt-4 border-2 pt-8" : "sm:mt-3 pt-9"} px-4 pb-4 hover:-translate-y-1 transition-all duration-300`}
     >
       {/* shine sweep on hover */}
-      <span className="pointer-events-none absolute inset-y-0 -left-full w-1/2 bg-white/50 skew-x-[-20deg] group-hover:left-[140%] transition-all duration-700" />
+      <span className="pointer-events-none absolute inset-y-0 -left-full w-1/2 bg-white/40 skew-x-[-20deg] group-hover:left-[140%] transition-all duration-700 rounded-2xl" />
 
-      {/* medal + name in one compact row */}
-      <div className="relative flex items-center gap-2.5">
-        <div className="relative shrink-0">
-          <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${m.ring} grid place-items-center text-white text-[13px] font-black shadow ring-2 ring-white`}>
-            {initials(row.name)}
+      {isGold ? (
+        /* Champion emblem — floating crown flanked by laurels + a CHAMPION ribbon */
+        <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-10 flex flex-col items-center">
+          <div className="flex items-center">
+            <span className="text-amber-400/70 text-[19px] -mr-1 select-none scale-x-[-1]">🌿</span>
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 grid place-items-center text-white shadow-lg ring-4 ring-white">
+              <Crown size={22} fill="currentColor" />
+            </div>
+            <span className="text-amber-400/70 text-[19px] -ml-1 select-none">🌿</span>
           </div>
-          <span className="absolute -bottom-1 -right-1 text-[15px] leading-none select-none">{m.emoji}</span>
+          <span className="-mt-1 px-2 py-0.5 rounded-full bg-amber-500 text-white text-[8.5px] font-black uppercase tracking-wider shadow-sm">
+            Champion
+          </span>
+        </div>
+      ) : (
+        <>
+          {/* rank number badge (top-left) + accent star (top-right) */}
+          <span className={`absolute top-2.5 left-2.5 w-6 h-6 rounded-full grid place-items-center text-white text-[11px] font-black shadow bg-gradient-to-br ${m.ring}`}>
+            {RANK_NUM[row.medal]}
+          </span>
+          <Star size={16} className={`absolute top-3 right-3 ${m.text}`} fill="currentColor" />
+        </>
+      )}
+
+      {/* avatar + name + feedback count */}
+      <div className="relative flex items-center gap-2.5">
+        <div className={`w-11 h-11 rounded-full bg-gradient-to-br ${m.ring} grid place-items-center text-white text-[13px] font-black shadow ring-2 ring-white shrink-0`}>
+          {initials(row.name)}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[13.5px] font-bold text-gray-900 truncate flex items-center gap-1">
@@ -98,27 +131,25 @@ const PodiumCard = ({ row, isMe, topFeedback, onClick }) => {
         </div>
         <div className="text-right shrink-0">
           <p className={`text-[24px] leading-none font-black ${m.text}`}>{fmtNum(row.feedback)}</p>
-          <p className="text-[9px] font-semibold text-gray-500 uppercase">feedback</p>
+          <p className="text-[8.5px] font-semibold text-gray-500 uppercase">feedback</p>
         </div>
       </div>
 
-      <div className="relative mt-2.5 h-1.5 rounded-full bg-white/70 overflow-hidden border border-white/80">
+      {/* progress bar (relative to the leader) */}
+      <div className="relative mt-3 h-1.5 rounded-full bg-white/70 overflow-hidden border border-white/80">
         <div
           className={`h-full rounded-full bg-gradient-to-r ${m.bar} transition-all duration-700`}
           style={{ width: `${share}%` }}
         />
       </div>
 
-      <div className="relative mt-2 flex items-center gap-3 text-[10.5px] text-gray-600">
-        <span><b className="text-gray-800">{fmtNum(row.sent)}</b> sent</span>
-        <span className="w-px h-3 bg-gray-300/70" />
-        <span><b className="text-gray-800">{row.conversion}%</b> conv</span>
-        {row.avgRating != null && (
-          <>
-            <span className="w-px h-3 bg-gray-300/70" />
-            <span><b className="text-gray-800">{row.avgRating}★</b></span>
-          </>
-        )}
+      {/* metrics — icon + value + caption, three columns */}
+      <div className="relative mt-3 flex items-stretch">
+        <StatCell Icon={Send} value={fmtNum(row.sent)} label="Sent" color={m.text} />
+        <span className="w-px bg-gray-200/70 my-0.5" />
+        <StatCell Icon={BarChart3} value={`${row.conversion}%`} label="Conv" color={m.text} />
+        <span className="w-px bg-gray-200/70 my-0.5" />
+        <StatCell Icon={Star} value={row.avgRating != null ? `${row.avgRating}★` : "—"} label="Rating" color={m.text} />
       </div>
     </button>
   );
@@ -366,11 +397,14 @@ const FeedbackChampions = () => {
 
       {/* Podium — or a nudge when nobody has converted yet */}
       {podium.length > 0 ? (
-        <div className="mb-5">
-          <p className="text-[11px] font-bold uppercase tracking-wide text-gray-400 mb-3 flex items-center gap-1.5">
-            <Trophy size={12} className="text-amber-500" /> Top Performers
-          </p>
-          <div className="flex flex-wrap items-start gap-3">
+        <div className="mb-6">
+          <div className="mb-2">
+            <p className="text-[13px] font-extrabold text-gray-800 flex items-center gap-1.5">
+              <Trophy size={14} className="text-amber-500" /> Top Performers
+            </p>
+            <p className="text-[11px] text-gray-400">The agents who are driving the best results!</p>
+          </div>
+          <div className="flex flex-wrap items-start justify-center gap-4 pt-6">
             {podium.map((r) => (
               <PodiumCard
                 key={r.email}

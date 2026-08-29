@@ -241,6 +241,7 @@ const CampaignPortalDetail = () => {
   const type = sp.get("type") || "";
   const fromDate = sp.get("fromDate") || "";
   const toDate = sp.get("toDate") || "";
+  const provider = sp.get("provider") || "";
 
   const dateLabel = useMemo(() => {
     if (type === "today") return "Today";
@@ -257,7 +258,7 @@ const CampaignPortalDetail = () => {
     (async () => {
       setLoading(true);
       try {
-        const res = await getCampaignPortalDetail({ entity, lander, type, fromDate, toDate });
+        const res = await getCampaignPortalDetail({ entity, lander, type, fromDate, toDate, provider });
         if (!cancelled) {
           if (res?.data?.success) setRows(res.data.data || []);
           else ToastNotification.error("Failed to load detail");
@@ -272,7 +273,7 @@ const CampaignPortalDetail = () => {
     return () => {
       cancelled = true;
     };
-  }, [entity, lander, type, fromDate, toDate]);
+  }, [entity, lander, type, fromDate, toDate, provider]);
 
   // Roll up the raw rows for the summary strip (counts exact; spend = Σ delivered × category rate).
   const totals = useMemo(() => {

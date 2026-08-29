@@ -11,6 +11,7 @@ import {
   Wallet,
   CalendarDays,
   RefreshCw,
+  MessageSquare,
 } from "lucide-react";
 
 // Campaign Team page — backed by its own dedicated /campaign endpoints. Focused
@@ -31,6 +32,37 @@ const COLOR_MAP = {
 };
 
 const fmtNum = (v) => (Number(v) || 0).toLocaleString();
+
+// Per-delivered-message spend rates shown as a small legend. KEEP IN SYNC with the
+// backend rate model in campaign.services.js (SPEND_RATE_CASE / RCS_SPEND_RATE):
+//   WA  → UTILITY ₹0.105, MARKETING ₹0.87
+//   RCS → flat ₹0.07
+const RATE = { utility: "0.105", marketing: "0.87", rcs: "0.07" };
+
+const RateLegend = ({ provider }) => {
+  const isRcs = String(provider || "").toLowerCase() === "onextel";
+  return (
+    <div className="mt-1.5 inline-flex items-center gap-1.5 text-[11.5px] text-gray-500">
+      <MessageSquare size={13} className="text-emerald-500 shrink-0" />
+      {isRcs ? (
+        <span>
+          <span className="font-semibold text-gray-700">RCS Rate:</span>{" "}
+          <span className="font-semibold text-emerald-600">₹{RATE.rcs}</span>{" "}
+          <span className="text-gray-400">/ delivered msg</span>
+        </span>
+      ) : (
+        <span>
+          <span className="font-semibold text-gray-700">WA Rate:</span>{" "}
+          <span className="font-semibold text-amber-600">UTILITY ₹{RATE.utility}</span>
+          <span className="text-gray-400"> (from 1 Aug 2026, was ₹0.11)</span>
+          <span className="mx-1.5 text-gray-300">|</span>
+          <span className="font-semibold text-orange-600">MARKETING ₹{RATE.marketing}</span>
+          <span className="text-gray-400"> / delivered msg</span>
+        </span>
+      )}
+    </div>
+  );
+};
 
 // price is a preformatted "₹<lakhs>" string per row; parse/sum/reformat so the
 // cards can be re-aggregated client-side when an entity filter is applied.
@@ -260,7 +292,10 @@ const EntityFilter = ({ value, options, onChange }) => (
   </div>
 );
 
-const Campaign = () => {
+// `provider` scopes the campaign-portal data: omitted → the default Campaign view
+// (excludes Onextel); "onextel" → the RCS Campaign view (only Onextel). Same page,
+// same calculations — see RcsCampaign.jsx.
+const Campaign = ({ provider, title = "Campaign", subtitle } = {}) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [firstLoad, setFirstLoad] = useState(true);
@@ -279,12 +314,13 @@ const Campaign = () => {
         type: query.filter_date || undefined,
         fromDate: query.startDate || undefined,
         toDate: query.endDate || undefined,
+        provider: provider || undefined,
         perPage: 1,
         currentPage: 1,
       });
       if (res?.data?.success && res.data.summary) {
         setSummary(res?.data?.summary);
-      } 
+      }
     } catch (err) {
       console.error(err);
       ToastNotification.error("Failed to load campaign data");
@@ -292,7 +328,7 @@ const Campaign = () => {
       setLoading(false);
       setFirstLoad(false);
     }
-  }, [query.filter_date, query.startDate, query.endDate]);
+  }, [query.filter_date, query.startDate, query.endDate, provider]);
 
   useEffect(() => {
     fetchData();
@@ -317,9 +353,10 @@ const Campaign = () => {
       if (query.filter_date) params.set("type", query.filter_date);
       if (query.startDate) params.set("fromDate", query.startDate);
       if (query.endDate) params.set("toDate", query.endDate);
+      if (provider) params.set("provider", provider);
       navigate(`/campaign/portal-detail?${params.toString()}`);
     },
-    [navigate, query.filter_date, query.startDate, query.endDate]
+    [navigate, query.filter_date, query.startDate, query.endDate, provider]
   );
 
   // Client-side entity filter + search + pagination over the (small) breakdown set.
@@ -407,7 +444,7 @@ const Campaign = () => {
         <Toaster />
         <PremiumPageLoader
           theme="sky"
-          title="Loading Campaign"
+          title={`Loading ${title}`}
           brandLabel="Campaign Portal Breakdown"
           icon={Megaphone}
           phrases={["Pulling campaign-portal stats…", "Grouping by lander & entity…", "Crunching delivery numbers…", "Polishing the dashboard…"]}
@@ -423,11 +460,12 @@ const Campaign = () => {
       <Toaster />
 
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-gray-900">Campaign</h1>
+        <h1 className="text-xl font-bold text-gray-900">{title}</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Campaign-portal performance broken down by lander &amp; entity — total, sent, delivered, read, clicked,
-          failed and spend. Click a row to drill into the raw rows.
+          {subtitle ||
+            "Campaign-portal performance broken down by lander & entity — total, sent, delivered, read, clicked, failed and spend. Click a row to drill into the raw rows."}
         </p>
+        <RateLegend provider={provider} />
       </div>
 
       {selectedEntity && (

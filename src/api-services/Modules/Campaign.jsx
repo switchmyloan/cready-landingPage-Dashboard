@@ -21,6 +21,7 @@ export const getCampaign = async ({
   source,
   feedbackStatus,
   lender,
+  provider,
 } = {}) => {
     return Api().get(base, {
         params: {
@@ -35,6 +36,7 @@ export const getCampaign = async ({
             source,
             feedbackStatus,
             lender,
+            provider,
         },
         skipAdminAppend: true,
     });
@@ -55,9 +57,9 @@ export const getCampaignDetail = async ({ phone } = {}) => {
 
 // Drill-down: raw campaignportal_campaigns rows for one (entity, lander) within
 // the dashboard's date scope (today / yesterday / custom range / all).
-export const getCampaignPortalDetail = async ({ entity, lander, type, fromDate, toDate } = {}) => {
+export const getCampaignPortalDetail = async ({ entity, lander, type, fromDate, toDate, provider } = {}) => {
     return Api().get(`${base}/portal-detail`, {
-        params: { entity, lander, type, fromDate, toDate },
+        params: { entity, lander, type, fromDate, toDate, provider },
         skipAdminAppend: true,
     });
 };
