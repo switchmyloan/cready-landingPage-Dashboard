@@ -76,6 +76,7 @@ import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
 import CustomerFeedback from './pages/LeadManagement/CustomerFeedback/CustomerFeedback';
 import FeedbackChampions from './pages/LeadManagement/FeedbackChampions/FeedbackChampions';
 import RamFinCorpFunnel from './pages/LeadManagement/RamFinCorp/RamFinCorpFunnel';
+import RamFinCorpDashboard from './pages/LeadManagement/RamFinCorp/RamFinCorpDashboard';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
@@ -199,6 +200,9 @@ function App() {
 
             {/* RamFinCorp funnel — MIS-based journey funnel + stage drill */}
             <Route path="ramfincorp-funnel" element={<RamFinCorpFunnel />} />
+
+            {/* RF Dashboard — the daily dedupe→offer report in RamFinCorp's own format */}
+            <Route path="ramfincorp-dashboard" element={<RamFinCorpDashboard />} />
 
             {/* Super-admin only */}
             <Route path="otp-logs" element={<OtpLogs />} />

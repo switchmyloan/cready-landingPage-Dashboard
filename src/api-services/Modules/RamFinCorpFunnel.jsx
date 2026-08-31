@@ -26,11 +26,19 @@ export const getRamFinCorpStageLeads = async ({
   });
 };
 
-// Day-wise journey history — rows = push day, columns = stages reached
-// (cumulative), mirroring the UpSwing funnel's table.
-export const getRamFinCorpHistory = async ({ type, fromDate, toDate, scope } = {}) => {
+// RF Dashboard — one row per day: dedupe checked -> pass -> lender selected ->
+// offer received, each % measured against the stage before it, plus offer money.
+// `countBy` picks which day a number lands on ('create' | 'event').
+export const getRamFinCorpHistory = async ({ type, fromDate, toDate, scope, countBy, utmMedium } = {}) => {
   return Api().get(`/ramfincorp-funnel/history`, {
-    params: { type, fromDate, toDate, scope },
+    params: { type, fromDate, toDate, scope, countBy, utmMedium },
+    skipAdminAppend: true,
+  });
+};
+
+export const getRamFinCorpUtmMediums = async ({ scope } = {}) => {
+  return Api().get(`/ramfincorp-funnel/utm-mediums`, {
+    params: { scope },
     skipAdminAppend: true,
   });
 };

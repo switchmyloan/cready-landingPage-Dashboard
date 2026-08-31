@@ -332,6 +332,17 @@ export const routes = [
     order: 22.9,
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
+  // The daily dedupe -> offer report, in the format RamFinCorp themselves use.
+  {
+    path: "/ramfincorp-dashboard",
+    label: "RamFinCorp Dashboard",
+    icon: "LayoutDashboard",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.95,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
   {
     path: "/offer-leads-analytics",
     label: "High Analytics Dashboard",
