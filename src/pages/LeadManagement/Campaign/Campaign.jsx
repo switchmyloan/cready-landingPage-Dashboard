@@ -323,7 +323,7 @@ const Campaign = ({ provider, title = "Campaign", subtitle } = {}) => {
       }
     } catch (err) {
       console.error(err);
-      ToastNotification.error("Failed to load campaign data");
+      // ToastNotification.error("Failed to load campaign data");
     } finally {
       setLoading(false);
       setFirstLoad(false);

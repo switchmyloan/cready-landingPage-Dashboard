@@ -841,14 +841,22 @@ const FilterBar = ({
 // Persist filters + pagination across navigation (View → detail → back) so the
 // user returns to the same filtered list instead of a reset-to-default one.
 // sessionStorage scopes this to the current browser tab so it clears on close.
-const FILTERS_STORAGE_KEY = "creadyRpm:filters:v1";
+// Bumped to v2 when the default date became "today" — a v1 entry still holds the
+// old filter_date:"" and would silently override the new default.
+const FILTERS_STORAGE_KEY = "creadyRpm:filters:v2";
 
+// Filters are restored ONLY on the way back from the detail page (handleView
+// stamps `returning`). Without that gate a stored filter_date outlived the whole
+// session and quietly beat the default, so the page kept re-opening on "All".
+// The flag is consumed on read, so the next plain load starts fresh.
 const loadPersistedState = () => {
   try {
     const raw = sessionStorage.getItem(FILTERS_STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.returning) return null;
+    sessionStorage.removeItem(FILTERS_STORAGE_KEY);
     return parsed;
   } catch {
     return null;
@@ -873,7 +881,9 @@ const CreadyRpm = () => {
     page_no: 1,
     limit: 10,
     search: "",
-    filter_date: "",
+    // Open on today — the all-time view aggregates every RPM phone ever, which is
+    // both the slowest query here and rarely the first thing anyone wants.
+    filter_date: "today",
     startDate: null,
     endDate: null,
     stage: "",
@@ -1019,6 +1029,13 @@ const CreadyRpm = () => {
   );
 
   const handleView = (row) => {
+    // Arm the rehydrate: filters are restored ONLY when coming back from the
+    // detail page, so a plain page load always starts on the default (today).
+    try {
+      sessionStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify({ query, returning: true }));
+    } catch {
+      // sessionStorage can throw in private-mode browsers; navigation still works.
+    }
     navigate(`/cready-rpm/${encodeURIComponent(row.phone)}`, {
       state: { row },
     });
