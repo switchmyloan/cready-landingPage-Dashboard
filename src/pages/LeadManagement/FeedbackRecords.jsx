@@ -50,7 +50,9 @@ const FeedbackRecords = ({ embedded = false, agent, minMonthlyIncome, maxMonthly
   const isSuperAdmin = user?.role === 'super-admin';
   const [exporting, setExporting] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
-  const [scope, setScope] = useState('all');
+  // High ticket is the team's primary book — open on it instead of the blended
+  // all-scope view. Both tabs default the same way so switching doesn't reset it.
+  const [scope, setScope] = useState('high');
   const [status, setStatus] = useState('');
   const [utmMedium, setUtmMedium] = useState('');
   const [utmSource, setUtmSource] = useState('');

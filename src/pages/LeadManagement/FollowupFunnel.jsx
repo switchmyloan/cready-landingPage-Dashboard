@@ -141,8 +141,12 @@ const FF_SOURCES = ['google', 'google_ads'];
 const FollowupFunnel = ({ embedded = false, agent, minMonthlyIncome, maxMonthlyIncome, minLoanAmount }) => {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super-admin';
-  const [scope, setScope] = useState('all');
-  const [range, setRange] = useState('all');
+  // High ticket is the team's primary book — open on it instead of the blended
+  // all-scope view. Both tabs default the same way so switching doesn't reset it.
+  const [scope, setScope] = useState('high');
+  // Default to today — the overview is a daily working view, and the all-time
+  // aggregate was both the slowest query and rarely what the team wanted first.
+  const [range, setRange] = useState('today');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
   const [data, setData] = useState(null);
