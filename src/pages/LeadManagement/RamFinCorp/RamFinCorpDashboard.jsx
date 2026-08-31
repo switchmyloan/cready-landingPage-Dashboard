@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  LayoutDashboard, RefreshCw, Download, CalendarDays, Filter, IndianRupee,
+  LayoutDashboard, RefreshCw, Download, Filter, IndianRupee,
 } from "lucide-react";
 import { getRamFinCorpHistory, getRamFinCorpUtmMediums } from "../../../api-services/Modules/RamFinCorpFunnel";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
@@ -28,13 +28,6 @@ const SCOPE_CHIPS = [
   { key: "high", label: "High Ticket" },
   { key: "short", label: "Short Ticket" },
 ];
-// Which day a number lands on. Create = the lead's own day (the row reads as one
-// cohort); Event = the day each step actually happened.
-const COUNT_BY_CHIPS = [
-  { key: "create", label: "Create date" },
-  { key: "event", label: "Event date" },
-];
-
 const SHIMMER = {
   background: "linear-gradient(90deg, #f5f3ff 25%, #e9d5ff 45%, #f5f3ff 65%)",
   backgroundSize: "200% 100%",
@@ -85,7 +78,6 @@ const RamFinCorpDashboard = () => {
 
   const [scope, setScope] = useState("high");
   const [range, setRange] = useState("current_month");
-  const [countBy, setCountBy] = useState("create");
   const [utmMedium, setUtmMedium] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -98,7 +90,7 @@ const RamFinCorpDashboard = () => {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getRamFinCorpHistory({ scope, countBy, utmMedium: utmMedium || undefined, ...dateParams });
+      const res = await getRamFinCorpHistory({ scope, utmMedium: utmMedium || undefined, ...dateParams });
       setData(res?.data?.data || null);
     } catch {
       setData(null);
@@ -106,7 +98,7 @@ const RamFinCorpDashboard = () => {
       setLoading(false);
       setFirstLoad(false);
     }
-  }, [scope, countBy, utmMedium, dateParams]);
+  }, [scope, utmMedium, dateParams]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -140,7 +132,7 @@ const RamFinCorpDashboard = () => {
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `ramfincorp_dashboard_${scope}_${countBy}.csv`;
+    a.download = `ramfincorp_dashboard_${scope}.csv`;
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -191,7 +183,6 @@ const RamFinCorpDashboard = () => {
       {/* Filters */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4 shadow-sm flex flex-wrap items-center gap-x-5 gap-y-3">
         <Chips options={SCOPE_CHIPS} value={scope} onChange={setScope} label="Ticket" />
-        <Chips options={COUNT_BY_CHIPS} value={countBy} onChange={setCountBy} label="Count by" icon={<CalendarDays size={11} />} />
 
         <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
           {RANGE_CHIPS.map((c) => (
@@ -240,10 +231,8 @@ const RamFinCorpDashboard = () => {
         </button>
 
         <span className="text-[11px] text-gray-400 basis-full">
-          {countBy === "create"
-            ? "Create date — every stage is credited on the day the lead came in, so a row is one cohort's funnel."
-            : "Event date — each stage lands on the day it happened (selection on its click day, offer on its dispatch day)."}
-          {" "}Data since 20 Aug 2026 (go-live).
+          Every stage is credited on the day the lead came in, so a row is one cohort's
+          funnel. Data since 20 Aug 2026 (go-live).
         </span>
       </div>
 
