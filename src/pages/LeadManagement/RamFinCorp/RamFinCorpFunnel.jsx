@@ -21,6 +21,8 @@ const LIVE_FROM = "2026-08-20";
 const RANGE_CHIPS = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
+  { key: "current_month", label: "This Month" },
+  { key: "last_month", label: "Last Month" },
 ];
 
 // RamFinCorp runs in BOTH flows — the toggle picks the side's tables
