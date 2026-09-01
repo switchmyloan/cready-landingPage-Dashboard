@@ -123,8 +123,13 @@ const UpSwingBankOfferAlerts = () => {
           fresh.slice(0, 5).forEach((it) => {
             try {
               const amt = it.bankOfferedAmount != null ? ` · ${fmtInr(it.bankOfferedAmount)}` : '';
+              // Lead with the phone — the desktop notification is what an agent
+              // acts on, and without the number they had to open the dashboard
+              // just to find out who to call.
+              const who = it.phone ? `📞 ${it.phone}
+` : '';
               new window.Notification(`${isDisbursed(it.stage) ? '🎉' : '🏦'} UpSwing · ${stageLabel(it.stage)}`, {
-                body: `${it.productVariant || 'UL-PERSONAL'}${amt}`,
+                body: `${who}${it.productVariant || 'UL-PERSONAL'}${amt}`,
                 tag: keyOf(it),
               });
             } catch { /* ignore */ }

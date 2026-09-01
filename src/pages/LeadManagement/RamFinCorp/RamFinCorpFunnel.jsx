@@ -116,11 +116,24 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
         stage, perPage: 100000, currentPage: 1, search, ...dateParams,
       });
       const all = res?.data?.data?.data || [];
-      const head = ["Name", "Mobile", "Status", ...(showApproved ? ["Approved Amount"] : []), "Lead Date"];
+      // RamFinCorp's own response is the point of this export — the BRE outcome
+      // and offer value live nowhere else per lead. The raw `ramfincorpLead`
+      // object rides along in the last column for anything not broken out here.
+      const head = [
+        "Name", "Mobile", "Status",
+        ...(showApproved ? ["Approved Amount"] : []),
+        "Lead Date",
+        "RamFinCorp Dedupe", "RamFinCorp Lead ID", "RamFinCorp BRE Decision",
+        "RamFinCorp Offered Amount", "RamFinCorp Outcome", "RamFinCorp Reject Remark",
+        "RamFinCorp Dispatched At", "ramfincorpLead (raw)",
+      ];
       const body = all.map((r) => [
         r.name || "", r.mobile || "", r.status || "",
         ...(showApproved ? [r.approveAmount ?? ""] : []),
         r.leadAt || "",
+        r.rfcDedupe || "", r.rfcLeadId || "", r.rfcBreDecision || "",
+        r.rfcOfferedAmount ?? "", r.rfcOutcome || "", r.rfcRejectRemark || "",
+        r.rfcDispatchedAt || "", r.ramfincorpLead || "",
       ]);
       const csv = [head, ...body]
         .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
