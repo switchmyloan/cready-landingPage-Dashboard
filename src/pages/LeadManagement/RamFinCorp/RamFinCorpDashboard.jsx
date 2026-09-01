@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, RefreshCw, Download, Filter, IndianRupee,
 } from "lucide-react";
@@ -87,16 +87,24 @@ const RamFinCorpDashboard = () => {
     [range, fromDate, toDate],
   );
 
+  // Same race as the funnel page: a slow short-ticket window still in flight would
+  // overwrite the newer selection when it finally lands. Only the newest request wins.
+  const reqId = useRef(0);
+
   const fetchData = useCallback(async () => {
+    const mine = ++reqId.current;
     setLoading(true);
     try {
       const res = await getRamFinCorpHistory({ scope, utmMedium: utmMedium || undefined, ...dateParams });
+      if (mine !== reqId.current) return;
       setData(res?.data?.data || null);
     } catch {
-      setData(null);
+      if (mine === reqId.current) setData(null);
     } finally {
-      setLoading(false);
-      setFirstLoad(false);
+      if (mine === reqId.current) {
+        setLoading(false);
+        setFirstLoad(false);
+      }
     }
   }, [scope, utmMedium, dateParams]);
 

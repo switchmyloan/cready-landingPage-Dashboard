@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  CheckCircle2, TrendingDown, Search, Users,
+  CheckCircle2, TrendingDown, Search, Users, Download,
   RefreshCw, ChevronLeft, ChevronRight, Phone, BadgeCheck, MousePointerClick,
 } from "lucide-react";
 import { getRamFinCorpFunnel, getRamFinCorpStageLeads } from "../../../api-services/Modules/RamFinCorpFunnel";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
+import ExportModal from "../../../components/ExportModal";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
 const fmtInr = (n) => `₹${Number(n || 0).toLocaleString("en-IN")}`;
@@ -101,6 +102,44 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
   }, [stage, page, search, dateParams]);
 
   const totalPages = Math.max(Math.ceil(total / perPage), 1);
+
+  // OTP-gated CSV of the CURRENTLY selected card, honouring the same stage, date
+  // window, ticket scope and search the grid is showing — so what downloads is
+  // exactly what's on screen, just without the pagination.
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const res = await getRamFinCorpStageLeads({
+        stage, perPage: 100000, currentPage: 1, search, ...dateParams,
+      });
+      const all = res?.data?.data?.data || [];
+      const head = ["Name", "Mobile", "Status", ...(showApproved ? ["Approved Amount"] : []), "Lead Date"];
+      const body = all.map((r) => [
+        r.name || "", r.mobile || "", r.status || "",
+        ...(showApproved ? [r.approveAmount ?? ""] : []),
+        r.leadAt || "",
+      ]);
+      const csv = [head, ...body]
+        .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      const url = URL.createObjectURL(new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8;" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ramfincorp_${stage}_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportOpen(false);
+    } catch {
+      // the modal stays open so the user can retry
+    } finally {
+      setExporting(false);
+    }
+  };
   // Approved ₹ (offeredAmount) only exists on BRE-approved rows — hide the
   // column entirely for the other stages instead of showing a dash-filled one.
   const showApproved = stage === "bre_approved";
@@ -113,7 +152,15 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
         <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold border border-purple-100">
           {fmtNum(total)} LEADS
         </span>
-        <div className="relative ml-auto">
+        <button
+          onClick={() => setExportOpen(true)}
+          disabled={!total}
+          title={total ? `Export these ${fmtNum(total)} leads` : "Nothing to export"}
+          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 shadow-sm"
+        >
+          <Download size={13} /> Export CSV
+        </button>
+        <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             value={searchInput}
@@ -178,6 +225,13 @@ const LeadsPanel = ({ stage, label, dateParams }) => {
           <button disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(p + 1, totalPages))} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-40 hover:bg-gray-50"><ChevronRight size={15} /></button>
         </div>
       </div>
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onSubmit={handleExport}
+        isSubmitting={exporting}
+      />
     </div>
   );
 };
@@ -204,16 +258,27 @@ const RamFinCorpFunnel = () => {
   // Stable key so child effects only refire on real filter changes.
   const dateKey = JSON.stringify(dateParams);
 
+  // A short-ticket window can take 15-35s, so switching filters leaves the previous
+  // request in flight. Without a guard its late response overwrites the new one and
+  // the cards show a window the user is no longer on (Short/Last Month displayed
+  // Short/Today's 5,749 while the drill below correctly showed 33,983). Only the
+  // newest request is allowed to write.
+  const reqId = useRef(0);
+
   const fetchData = useCallback(async () => {
+    const mine = ++reqId.current;
     setLoading(true);
     try {
       const res = await getRamFinCorpFunnel(dateParams);
+      if (mine !== reqId.current) return;          // superseded — drop it
       setData(res?.data?.data || null);
     } catch {
-      setData(null);
+      if (mine === reqId.current) setData(null);
     } finally {
-      setLoading(false);
-      setFirstLoad(false);
+      if (mine === reqId.current) {
+        setLoading(false);
+        setFirstLoad(false);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dateKey]);

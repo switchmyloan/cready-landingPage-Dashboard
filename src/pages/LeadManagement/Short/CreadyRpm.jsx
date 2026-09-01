@@ -747,6 +747,8 @@ const FilterBar = ({
                 { v: "", l: "All" },
                 { v: "today", l: "Today" },
                 { v: "yesterday", l: "Yest" },
+                { v: "current_month", l: "This Month" },
+                { v: "last_month", l: "Last Month" },
               ].map(({ v, l }) => {
                 const active = !showCustom && dateType === v;
                 return (
