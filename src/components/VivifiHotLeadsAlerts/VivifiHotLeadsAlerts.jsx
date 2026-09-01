@@ -129,7 +129,10 @@ const VivifiHotLeadsAlerts = () => {
             try {
               const amt = it.eligibleAmount != null ? ` · ${fmtInr(it.eligibleAmount)}` : '';
               new window.Notification(`🔥 Vivifi · ${it.status || 'Hot lead'}`, {
-                body: `${it.name || it.phone || it.leadId}${amt}`,
+                // Name AND number — `name || phone` hid the number whenever a
+                // name existed, leaving the agent nothing to dial from.
+                body: `${it.phone ? `📞 ${it.phone}
+` : ''}${it.name || it.leadId || ''}${amt}`,
                 tag: keyOf(it),
               });
             } catch { /* ignore */ }
