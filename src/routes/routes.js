@@ -274,6 +274,11 @@ export const routes = [
     groupOrder: 3,
     order: 22,
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
+    // Extra roles allowed on the DETAIL path only (/upswing-webhook/<pci>), not on
+    // the list page and not in the sidebar. The UpSwing offer bell is shown to
+    // call-center agents by email, and its (i) opens a lead's detail — so the
+    // agents who get the alert must be able to open what it points at.
+    detailRoles: ["call-center", "call-center-40-65", "call-center-65plus"],
   },
   {
     path: "/upswing-funnel",

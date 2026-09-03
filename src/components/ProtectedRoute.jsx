@@ -43,17 +43,28 @@ export default function ProtectedRoute() {
   // prefix fallback makes them inherit their parent's roles, which is what the
   // original comment claimed was already happening.
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
-  const currentRoute =
-    routes.find((r) => r.path === pathname) ||
-    routes
-      .filter((r) => r.path !== "/" && pathname.startsWith(`${r.path}/`))
-      .sort((a, b) => b.path.length - a.path.length)[0];
+  const exactRoute = routes.find((r) => r.path === pathname);
+  const parentRoute = exactRoute
+    ? null
+    : routes
+        .filter((r) => r.path !== "/" && pathname.startsWith(`${r.path}/`))
+        .sort((a, b) => b.path.length - a.path.length)[0];
+  const currentRoute = exactRoute || parentRoute;
+
+  // A parent may widen access for its detail pages via `detailRoles`. UpSwing is
+  // the case: the module is admin-only, but the offer bell that call-center agents
+  // see deep-links into a single lead's detail, so blanket-inheriting the parent's
+  // roles bounced them off their own alert. `detailRoles` applies ONLY on the
+  // prefix match — the list page keeps the narrower `roles`.
+  const allowedRoles = parentRoute?.detailRoles
+    ? [...(parentRoute.roles || []), ...parentRoute.detailRoles]
+    : currentRoute?.roles;
 
   // `dev` is a super-role — full access to EVERY module (bypasses the per-route
   // role gate, including any routes added later). No need to list it per route.
   const isDev = user?.role === "dev";
 
-  if (currentRoute?.roles && !isDev && !currentRoute.roles.includes(user?.role)) {
+  if (allowedRoles && !isDev && !allowedRoles.includes(user?.role)) {
     // Logged in but this route isn't allowed for the role → bounce to the first
     // route the role CAN open (so a call-center agent lands on Offer Leads, not the
     // login screen). Falls back to /login if the role has no allowed route.
