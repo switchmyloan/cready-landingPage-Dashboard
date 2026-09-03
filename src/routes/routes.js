@@ -258,7 +258,12 @@ export const routes = [
     group: "Lenders",
     groupOrder: 3,
     order: 21,
-    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+    // Call-centre agents use this as a follow-up queue: the page gives them only
+    // the Applications tab and only their own round-robin-assigned leads.
+    roles: [
+      "super-admin", "mv-page-admin", "management", "dev",
+      "call-center", "call-center-40-65", "call-center-65plus",
+    ],
   },
   {
     path: "/upswing-webhook",
@@ -330,6 +335,16 @@ export const routes = [
     group: "Lenders",
     groupOrder: 3,
     order: 22.9,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
+    path: "/loanwalle",
+    label: "LoanWalle",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.97,
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   // The daily dedupe -> offer report, in the format RamFinCorp themselves use.

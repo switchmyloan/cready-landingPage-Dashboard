@@ -77,6 +77,7 @@ import CustomerFeedback from './pages/LeadManagement/CustomerFeedback/CustomerFe
 import FeedbackChampions from './pages/LeadManagement/FeedbackChampions/FeedbackChampions';
 import RamFinCorpFunnel from './pages/LeadManagement/RamFinCorp/RamFinCorpFunnel';
 import RamFinCorpDashboard from './pages/LeadManagement/RamFinCorp/RamFinCorpDashboard';
+import LoanWalleLeads from './pages/LeadManagement/LoanWalle/LoanWalleLeads';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
@@ -203,6 +204,9 @@ function App() {
 
             {/* RF Dashboard — the daily dedupe→offer report in RamFinCorp's own format */}
             <Route path="ramfincorp-dashboard" element={<RamFinCorpDashboard />} />
+
+            {/* LoanWalle — current status of every lead sent to the partner */}
+            <Route path="loanwalle" element={<LoanWalleLeads />} />
 
             {/* Super-admin only */}
             <Route path="otp-logs" element={<OtpLogs />} />

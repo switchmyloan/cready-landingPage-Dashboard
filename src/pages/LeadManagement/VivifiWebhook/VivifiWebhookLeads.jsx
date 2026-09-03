@@ -6,6 +6,8 @@ import { CheckCircle2, Clock, TrendingUp, Users, XCircle, Filter, BarChart3, X }
 import ToastNotification from '@components/Notification/ToastNotification';
 import MainTable from '../../../components/Table/MainTable';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
+import { useAuth } from '../../../custom-hooks/useAuth';
+import { getCallCenterAgentId } from '../../../custom-hooks/callCenterPool';
 import { vivifiApplicationsColumn, vivifiLoansColumn } from '../../../components/TableHeader';
 import { getVivifiApplications, getVivifiLoans } from '../../../api-services/Modules/VivifiWebhook';
 
@@ -162,6 +164,12 @@ const toneForStatus = (s) => {
 // true for this flow, but it's an inference from the snapshot, not something the
 // webhook tells us directly, so the UI labels it as "reached".
 // ---------------------------------------------------------------------------
+// Call-centre agents work this module as their own follow-up queue: only the
+// Applications tab, and only the leads round-robin-assigned to them. Both the
+// ownership filter and the removal of the money-side stages (Disbursed /
+// Pending For Disbursal) happen in the backend when `agentId` is sent, so the
+// chips and counts here need no client-side filtering.
+
 const PIPELINE_ORDER = [
   'Waiting for documents',
   'Documents under review',
@@ -393,6 +401,8 @@ const StageMiniCard = ({ label, value, count, tone = 'gray' }) => {
 // Applications panel — current-state snapshot (one row per lead).
 // ---------------------------------------------------------------------------
 const ApplicationsPanel = () => {
+  const { user } = useAuth();
+  const agentId = getCallCenterAgentId(user);
   const navigate = useNavigate();
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
@@ -405,6 +415,7 @@ const ApplicationsPanel = () => {
     setLoading(true);
     try {
       const res = await getVivifiApplications({
+        agentId: agentId || undefined,
         search: query.search,
         perPage: query.limit,
         currentPage: query.page_no,
@@ -426,7 +437,7 @@ const ApplicationsPanel = () => {
     } finally {
       setLoading(false);
     }
-  }, [query]);
+  }, [query, agentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -452,6 +463,7 @@ const ApplicationsPanel = () => {
   const handleExport = useCallback(async () => {
     try {
       const all = await fetchAllVivifi(getVivifiApplications, {
+        agentId: agentId || undefined,
         search: query.search,
         type: query.type || undefined,
         fromDate: query.startDate || undefined,
@@ -483,7 +495,10 @@ const ApplicationsPanel = () => {
   return (
     <>
       {/* Eligible-amount KPIs — one prominent total, then a compact per-stage grid
-          (journey order) so the many stages read cleanly instead of as big cards. */}
+          (journey order) so the many stages read cleanly instead of as big cards.
+          Hidden for call-centre agents: this is the money view, and their job is
+          the queue below it. */}
+      {!agentId && (
       <div className="mb-3">
         {/* Prominent total — single compact row */}
         <div className="flex items-center gap-2.5 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200/60 rounded-lg px-3 py-2 mb-2">
@@ -509,6 +524,7 @@ const ApplicationsPanel = () => {
             ))}
         </div>
       </div>
+      )}
 
       {/* Stage chips (dynamic statuses) — click to filter */}
       <div className="flex flex-wrap items-center gap-1.5 bg-white border border-gray-200 rounded-lg px-3 py-2 mb-3 shadow-sm">
@@ -529,15 +545,18 @@ const ApplicationsPanel = () => {
         )}
 
         {/* Opens the pipeline analysis. ml-auto keeps it pinned right however
-            many stage chips wrap onto the row. */}
-        <button
-          onClick={() => setAnalyticsOpen(true)}
-          className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 hover:border-purple-300 transition"
-          title="View pipeline analysis"
-        >
-          <BarChart3 size={14} />
-          Analysis
-        </button>
+            many stage chips wrap onto the row. Agents don't get it — same reason
+            as the KPIs above. */}
+        {!agentId && (
+          <button
+            onClick={() => setAnalyticsOpen(true)}
+            className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-xs font-bold hover:bg-purple-100 hover:border-purple-300 transition"
+            title="View pipeline analysis"
+          >
+            <BarChart3 size={14} />
+            Analysis
+          </button>
+        )}
       </div>
 
       <AnalyticsModal
@@ -557,7 +576,7 @@ const ApplicationsPanel = () => {
         onPageChange={onPageChange}
         onSearch={onSearch}
         onRefresh={fetchData}
-        onExport={handleExport}
+        onExport={agentId ? undefined : handleExport}
         title="VIVIFI · APPLICATIONS"
         onFilterByDate={onFilterByDate}
         activeFilter={query.type}
@@ -718,17 +737,23 @@ const LoansPanel = () => {
 // Module shell — tab switcher.
 // ---------------------------------------------------------------------------
 const VivifiWebhookLeads = () => {
-  const tabs = [
-    { key: 'applications', label: 'Applications' },
-    { key: 'loans', label: 'Loans (Disbursal)' },
-  ];
+  const { user } = useAuth();
+  // A pooled call-centre agent has no business on the disbursal tab.
+  const isAgent = !!getCallCenterAgentId(user);
+
+  const tabs = isAgent
+    ? [{ key: 'applications', label: 'Applications' }]
+    : [
+        { key: 'applications', label: 'Applications' },
+        { key: 'loans', label: 'Loans (Disbursal)' },
+      ];
 
   // The open tab rides in the URL too — otherwise a reload (or Back from a loan's
   // detail page) would drop the user on Applications with their Loans filters
   // still in the URL but invisible. 'applications' is the default, so it's the
   // absence of the param rather than a value.
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') === 'loans' ? 'loans' : 'applications';
+  const activeTab = !isAgent && searchParams.get('tab') === 'loans' ? 'loans' : 'applications';
   const setActiveTab = useCallback((key) => {
     setSearchParams((prev) => {
       const sp = new URLSearchParams(prev);

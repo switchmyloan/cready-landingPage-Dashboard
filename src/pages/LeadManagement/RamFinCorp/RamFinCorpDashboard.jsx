@@ -126,12 +126,15 @@ const RamFinCorpDashboard = () => {
     const head = [
       "Date", "Dedupe checked", "Dedupe Pass", "Dedupe pass (%)",
       "Ram Fincorp(lender) selected", "lender selected/dedupe pass %",
-      "Offer received", "offer/selected", "Total offer amount", "avg offer amount",
+      "Offer received (BRE Approved)", "offer/selected",
+      "Proceed to bank", "proceed to bank/selected",
+      "Total offer amount", "avg offer amount",
     ];
     const line = (r) => [
       r.date, r.dedupe_checked, r.dedupe_pass, `${r.dedupe_pass_pct}%`,
       r.lender_selected, `${r.lender_selected_pct}%`,
       r.offer_received, `${r.offer_received_pct}%`,
+      r.proceed_to_bank, `${r.proceed_to_bank_pct}%`,
       Math.round(r.total_offer_amount), Math.round(r.avg_offer_amount),
     ];
     const csv = [head, ...rows.map(line), [], ["Grand total", ...line(t).slice(1)]]
@@ -249,7 +252,8 @@ const RamFinCorpDashboard = () => {
         <Kpi label="Dedupe checked" value={fmtNum(t.dedupe_checked)} sub="pushed to RamFinCorp" tone="border-blue-200" />
         <Kpi label="Dedupe pass" value={fmtNum(t.dedupe_pass)} sub={`${fmtPct(t.dedupe_pass_pct)} of checked`} tone="border-emerald-200" />
         <Kpi label="Lender selected" value={fmtNum(t.lender_selected)} sub={`${fmtPct(t.lender_selected_pct)} of dedupe pass`} tone="border-violet-200" />
-        <Kpi label="Offer received" value={fmtNum(t.offer_received)} sub={`${fmtPct(t.offer_received_pct)} of selected`} tone="border-amber-200" />
+        <Kpi label="Offer received" value={fmtNum(t.offer_received)} sub={`BRE approved · ${fmtPct(t.offer_received_pct)} of selected`} tone="border-amber-200" />
+        <Kpi label="Proceed to Bank" value={fmtNum(t.proceed_to_bank)} sub={`${fmtPct(t.proceed_to_bank_pct)} of selected`} tone="border-sky-200" />
         <Kpi label="Offer amount" value={fmtInr(t.total_offer_amount)} sub={`avg ${fmtInr(t.avg_offer_amount)}`} tone="border-purple-200" />
       </div>
 
@@ -264,7 +268,7 @@ const RamFinCorpDashboard = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-[12.5px] min-w-[900px]">
+          <table className="w-full text-[12.5px] min-w-[1080px]">
             <thead>
               <tr className="text-left text-[10.5px] uppercase tracking-wider text-gray-400 border-b border-gray-100 bg-gray-50/60">
                 <th className="px-5 py-2.5 font-medium sticky left-0 bg-gray-50/60">Date</th>
@@ -275,6 +279,8 @@ const RamFinCorpDashboard = () => {
                 <th className="px-3 py-2.5 font-medium text-right">Selected / pass %</th>
                 <th className="px-3 py-2.5 font-medium text-right">Offer received</th>
                 <th className="px-3 py-2.5 font-medium text-right">Offer / selected %</th>
+                <th className="px-3 py-2.5 font-medium text-right">Proceed to bank</th>
+                <th className="px-3 py-2.5 font-medium text-right">PTB / selected %</th>
                 <th className="px-3 py-2.5 font-medium text-right">Total offer amt</th>
                 <th className="px-3 py-2.5 font-medium text-right">Avg offer amt</th>
               </tr>
@@ -301,6 +307,8 @@ const RamFinCorpDashboard = () => {
                   <td className={`px-3 py-3 text-right tabular-nums font-semibold ${pctTone(r.lender_selected_pct)}`}>{fmtPct(r.lender_selected_pct)}</td>
                   <td className="px-3 py-3 text-right tabular-nums font-bold text-emerald-700">{fmtNum(r.offer_received)}</td>
                   <td className={`px-3 py-3 text-right tabular-nums font-semibold ${pctTone(r.offer_received_pct)}`}>{fmtPct(r.offer_received_pct)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums font-semibold text-sky-700">{fmtNum(r.proceed_to_bank)}</td>
+                  <td className={`px-3 py-3 text-right tabular-nums font-semibold ${pctTone(r.proceed_to_bank_pct)}`}>{fmtPct(r.proceed_to_bank_pct)}</td>
                   <td className="px-3 py-3 text-right tabular-nums text-gray-800">{r.total_offer_amount ? fmtInr(r.total_offer_amount) : <span className="text-gray-300">—</span>}</td>
                   <td className="px-3 py-3 text-right tabular-nums text-gray-600">{r.avg_offer_amount ? fmtInr(r.avg_offer_amount) : <span className="text-gray-300">—</span>}</td>
                 </tr>
@@ -317,6 +325,8 @@ const RamFinCorpDashboard = () => {
                   <td className={`px-3 py-3 text-right tabular-nums ${pctTone(t.lender_selected_pct)}`}>{fmtPct(t.lender_selected_pct)}</td>
                   <td className="px-3 py-3 text-right tabular-nums text-emerald-700">{fmtNum(t.offer_received)}</td>
                   <td className={`px-3 py-3 text-right tabular-nums ${pctTone(t.offer_received_pct)}`}>{fmtPct(t.offer_received_pct)}</td>
+                  <td className="px-3 py-3 text-right tabular-nums text-sky-700">{fmtNum(t.proceed_to_bank)}</td>
+                  <td className={`px-3 py-3 text-right tabular-nums ${pctTone(t.proceed_to_bank_pct)}`}>{fmtPct(t.proceed_to_bank_pct)}</td>
                   <td className="px-3 py-3 text-right tabular-nums text-gray-900">{fmtInr(t.total_offer_amount)}</td>
                   <td className="px-3 py-3 text-right tabular-nums text-gray-700">{fmtInr(t.avg_offer_amount)}</td>
                 </tr>

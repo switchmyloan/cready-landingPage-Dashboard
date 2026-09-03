@@ -105,7 +105,14 @@ const VivifiHotLeadsAlerts = () => {
 
   const poll = useCallback(async () => {
     try {
-      const res = await getVivifiHotLeadAlerts({ agentId: agentId || undefined });
+      // Agents want to hear about ANY movement on their own leads, not just the
+      // hot four — the dedupe key is leadId+status, so each stage change fires
+      // once. Super Admin (no agentId) keeps the narrow hot-only bell; the whole
+      // book changing stage would be unusable as a notification stream.
+      const res = await getVivifiHotLeadAlerts({
+        agentId: agentId || undefined,
+        allStages: agentId ? true : undefined,
+      });
       if (!res?.data?.success) return;
       const rows = res.data.data || [];
       rows.sort((a, b) => new Date(String(b.updatedAt).replace(' ', 'T')) - new Date(String(a.updatedAt).replace(' ', 'T')));

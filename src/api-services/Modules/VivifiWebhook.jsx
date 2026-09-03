@@ -12,9 +12,10 @@ export const getVivifiApplications = async ({
   fromDate,
   toDate,
   status = '',
+  agentId,
 } = {}) => {
   return Api().get(`/vivifi-webhook-leads/applications`, {
-    params: { search, perPage, currentPage, type, fromDate, toDate, status },
+    params: { search, perPage, currentPage, type, fromDate, toDate, status, agentId},
     skipAdminAppend: true,
   });
 };
@@ -50,10 +51,11 @@ export const getVivifiLeadEvents = async (leadId) => {
 
 // Live "hot leads" (awaiting VKYC / e-Sign / e-Mandate / loan-chosen) — polled by the
 // navbar alert bell. `agentId` scopes it to that call-center agent's OWN assigned
-// leads (lead_assignments); omit (Super Admin) for all.
-export const getVivifiHotLeadAlerts = async ({ agentId } = {}) => {
+// leads (lead_assignments); omit (Super Admin) for all. `allStages` widens it to
+// EVERY stage, so an agent is alerted on any movement, not only the hot ones.
+export const getVivifiHotLeadAlerts = async ({ agentId, allStages } = {}) => {
   return Api().get(`/vivifi-webhook-leads/hot-alerts`, {
-    params: { agentId },
+    params: { agentId, allStages },
     skipAdminAppend: true,
   });
 };

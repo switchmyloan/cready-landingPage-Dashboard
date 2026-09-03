@@ -34,10 +34,20 @@ export default function ProtectedRoute() {
     return <Navigate to="/login" replace />;
   }
 
-  // Match the route by exact path (trailing slash tolerant). Detail/param routes
-  // aren't listed in routes.js, so they fall through to their parent's access.
+  // Match the route by exact path (trailing slash tolerant), then fall back to the
+  // longest listed path this URL sits under.
+  //
+  // Detail/param routes (/upswing-webhook/:id, /offer-leads/:id, …) are NOT listed
+  // in routes.js, and an exact-match-only lookup left them with no `roles` at all —
+  // so any signed-in user could open another module's detail page by URL. The
+  // prefix fallback makes them inherit their parent's roles, which is what the
+  // original comment claimed was already happening.
   const pathname = location.pathname.replace(/\/+$/, "") || "/";
-  const currentRoute = routes.find((r) => r.path === pathname);
+  const currentRoute =
+    routes.find((r) => r.path === pathname) ||
+    routes
+      .filter((r) => r.path !== "/" && pathname.startsWith(`${r.path}/`))
+      .sort((a, b) => b.path.length - a.path.length)[0];
 
   // `dev` is a super-role — full access to EVERY module (bypasses the per-route
   // role gate, including any routes added later). No need to list it per route.

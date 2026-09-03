@@ -756,7 +756,7 @@ const LenderBreakdownModal = ({ lender, range, scope, fromDate, toDate, utmSourc
 // LendingPlate and Mpokket; every other lender is shown (RamFinCorp included).
 // Matches the blacklist in the backend high aggregates (trend / lender-stats /
 // employment) + grid handling.
-const HIGH_HIDDEN_LENDERS = new Set(['rpm', 'rapidmoney', 'lendingplate', 'mpokket']);
+const HIGH_HIDDEN_LENDERS = new Set(['rpm', 'rapidmoney', 'lendingplate', 'mpokket', 'cashmysalary']);
 const isHighWhitelistLender = (name) =>
     !HIGH_HIDDEN_LENDERS.has(String(name || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
 
