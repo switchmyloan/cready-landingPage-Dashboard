@@ -40,6 +40,8 @@ export default function RamFinCorpOfferAlerts() {
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [disbursedCount, setDisbursedCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [flash, setFlash] = useState(null);
   const seenRef = useRef(null);
@@ -68,6 +70,8 @@ export default function RamFinCorpOfferAlerts() {
       const list = payload.data || [];
       setItems(list);
       setTotalAmount(payload.totalOfferAmount || 0);
+      setPendingCount(payload.pendingCount ?? (payload.data || []).length);
+      setDisbursedCount(payload.disbursedCount || 0);
 
       // Flash only for offers that appeared AFTER this tab opened. On the first
       // poll we just record what exists — otherwise every reload would toast the
@@ -116,9 +120,9 @@ export default function RamFinCorpOfferAlerts() {
         aria-label="RamFinCorp offer alerts"
       >
         <TrendingUp size={18} />
-        {items.length > 0 && (
+        {pendingCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 min-w-[17px] h-[17px] px-1 grid place-items-center rounded-full bg-gradient-to-br from-teal-500 to-emerald-500 text-white text-[9.5px] font-bold shadow">
-            {items.length > 99 ? '99+' : items.length}
+            {pendingCount > 99 ? '99+' : pendingCount}
           </span>
         )}
       </button>
@@ -130,10 +134,12 @@ export default function RamFinCorpOfferAlerts() {
               <p className="text-[13px] font-bold text-gray-800 inline-flex items-center gap-1.5">
                 <TrendingUp size={14} className="text-teal-600" /> RamFinCorp · Approved Offers
               </p>
-              <span className="text-[11px] font-semibold text-gray-500">{items.length} leads</span>
+              <span className="text-[11px] font-semibold text-gray-500">
+                {pendingCount} to call{disbursedCount > 0 && <span className="text-emerald-600"> · {disbursedCount} paid</span>}
+              </span>
             </div>
             <p className="mt-0.5 text-[11px] text-gray-500">
-              BRE approved with an offer · last {WITHIN_HOURS}h
+              BRE approved · last {WITHIN_HOURS}h
               {totalAmount > 0 && <span className="font-semibold text-teal-700"> · {fmtInr(totalAmount)}</span>}
             </p>
           </div>
@@ -145,7 +151,12 @@ export default function RamFinCorpOfferAlerts() {
                 <p className="text-[12.5px] text-gray-400">No approved offers in the last {WITHIN_HOURS}h.</p>
               </div>
             ) : items.map((it) => (
-              <div key={`${it.phone}-${it.createdAt}`} className="px-4 py-3 border-b border-gray-50 hover:bg-teal-50/30 transition">
+              <div
+                key={`${it.phone}-${it.createdAt}`}
+                className={`px-4 py-3 border-b border-gray-50 transition ${
+                  it.disbursed ? 'bg-emerald-50/50 hover:bg-emerald-50 opacity-70' : 'hover:bg-teal-50/30'
+                }`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="text-[13px] font-bold text-gray-800 truncate" title={it.name}>
@@ -176,11 +187,20 @@ export default function RamFinCorpOfferAlerts() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
-                      it.scope === 'high' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
-                    }`}>
-                      {it.scope === 'high' ? 'High' : 'Short'}
-                    </span>
+                    {it.disbursed ? (
+                      <span
+                        className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700"
+                        title={`Already disbursed${it.disbursedAmount ? ` — ${fmtInr(it.disbursedAmount)}` : ''}`}
+                      >
+                        <CheckCircle2 size={9} /> Paid
+                      </span>
+                    ) : (
+                      <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide ${
+                        it.scope === 'high' ? 'bg-indigo-100 text-indigo-700' : 'bg-amber-100 text-amber-700'
+                      }`}>
+                        {it.scope === 'high' ? 'High' : 'Short'}
+                      </span>
+                    )}
                     {it.id != null && (
                       <button
                         onClick={() => { setOpen(false); navigate(detailPathFor(it)); }}
@@ -195,7 +215,13 @@ export default function RamFinCorpOfferAlerts() {
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-500 font-medium">
                   <Clock size={11} /> {fmtWhen(it.createdAt)}
-                  {it.utmMedium && <span className="ml-auto text-gray-400 truncate max-w-[110px]">{it.utmMedium}</span>}
+                  {it.disbursed ? (
+                    <span className="ml-auto text-[10.5px] font-bold text-emerald-700 whitespace-nowrap">
+                      Disbursed {it.disbursedAmount ? fmtInr(it.disbursedAmount) : ''}
+                    </span>
+                  ) : it.utmMedium ? (
+                    <span className="ml-auto text-gray-400 truncate max-w-[110px]">{it.utmMedium}</span>
+                  ) : null}
                 </div>
               </div>
             ))}
