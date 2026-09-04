@@ -76,6 +76,7 @@ import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
 import CustomerFeedback from './pages/LeadManagement/CustomerFeedback/CustomerFeedback';
 import FeedbackChampions from './pages/LeadManagement/FeedbackChampions/FeedbackChampions';
 import RamFinCorpFunnel from './pages/LeadManagement/RamFinCorp/RamFinCorpFunnel';
+import SmartCoinFunnel from './pages/LeadManagement/SmartCoin/SmartCoinFunnel';
 import RamFinCorpDashboard from './pages/LeadManagement/RamFinCorp/RamFinCorpDashboard';
 import LoanWalleLeads from './pages/LeadManagement/LoanWalle/LoanWalleLeads';
 import AllLenders from './pages/LeadManagement/AllLenders';
@@ -201,6 +202,7 @@ function App() {
 
             {/* RamFinCorp funnel — MIS-based journey funnel + stage drill */}
             <Route path="ramfincorp-funnel" element={<RamFinCorpFunnel />} />
+            <Route path="smartcoin-funnel" element={<SmartCoinFunnel />} />
 
             {/* RF Dashboard — the daily dedupe→offer report in RamFinCorp's own format */}
             <Route path="ramfincorp-dashboard" element={<RamFinCorpDashboard />} />

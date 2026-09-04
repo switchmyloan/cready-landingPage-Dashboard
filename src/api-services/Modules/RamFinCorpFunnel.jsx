@@ -42,3 +42,10 @@ export const getRamFinCorpUtmMediums = async ({ scope } = {}) => {
     skipAdminAppend: true,
   });
 };
+
+// Hot leads — BRE-approved users carrying a real offer amount (the call-worthy ones).
+export const getRamFinCorpHotLeads = async ({ withinHours = 24, scope, agentId } = {}) =>
+  Api().get(`/ramfincorp-funnel/hot-leads`, {
+    params: { withinHours, scope, agentId },
+    skipAdminAppend: true,
+  });

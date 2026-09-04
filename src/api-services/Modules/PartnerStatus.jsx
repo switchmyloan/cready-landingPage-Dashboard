@@ -12,9 +12,13 @@ export const getPartnerStatusLeads = async ({
   fromDate,
   toDate,
   status,
+  disbursedOn,
+  disbursedFrom,
+  disbursedTo,
 } = {}) => {
   return Api().get(`/partner-status/leads`, {
-    params: { partner, search, perPage, currentPage, type, fromDate, toDate, status },
+    params: { partner, search, perPage, currentPage, type, fromDate, toDate, status,
+              disbursedOn, disbursedFrom, disbursedTo },
     skipAdminAppend: true,
   });
 };

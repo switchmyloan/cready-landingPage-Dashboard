@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Landmark, Users, IndianRupee, CheckCircle2, Search, RefreshCw, X,
-  Phone, Download, ChevronLeft, ChevronRight, Clock,
-} from "lucide-react";
+import { Landmark, Users, IndianRupee, CheckCircle2, Search, RefreshCw, X, Phone, Download, Clock } from "lucide-react";
 import { getLoanWalleLeads, getLoanWalleTypes, getLoanWalleMediums, getLoanWallePartners } from "../../../api-services/Modules/LoanWalle";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
 import CompactDateFilter from "../../../components/CompactDateFilter";
+import TablePagination from "../../../components/TablePagination";
 import PartnerStatusLeads from "../PartnerStatus/PartnerStatusLeads";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -139,8 +137,11 @@ const LeadsPanel = () => {
   const [partners, setPartners] = useState([]);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [disbursedOn, setDisbursedOn] = useState("");
+  const [disbursedFrom, setDisbursedFrom] = useState("");
+  const [disbursedTo, setDisbursedTo] = useState("");
   const [page, setPage] = useState(1);
-  const perPage = 20;
+  const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
     const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
@@ -159,10 +160,13 @@ const LeadsPanel = () => {
       utmMedium: utmMedium || undefined,
       partnerName: partnerName || undefined,
       search,
+      disbursedOn: disbursedOn || undefined,
+      disbursedFrom: disbursedFrom && disbursedTo ? disbursedFrom : undefined,
+      disbursedTo: disbursedFrom && disbursedTo ? disbursedTo : undefined,
       perPage,
       currentPage: page,
     }),
-    [range, fromDate, toDate, status, ticket, utmMedium, partnerName, search, page],
+    [range, fromDate, toDate, status, ticket, utmMedium, partnerName, search, page, perPage, disbursedOn, disbursedFrom, disbursedTo],
   );
 
   const fetchData = useCallback(async () => {
@@ -190,12 +194,29 @@ const LeadsPanel = () => {
   const total = data?.pagination?.total || 0;
   const totalPages = data?.pagination?.totalPages || 1;
 
-  const exportCsv = () => {
+  // Export must be the WHOLE filtered set, not the page you happen to be looking
+  // at. `rows` is one page (20 by default), so exporting it silently handed over
+  // 20 of 893 leads. Re-runs the same `params` the table used, with paging
+  // widened to the backend's cap, so filters/search/date all carry over.
+  const [exporting, setExporting] = useState(false);
+
+  const exportCsv = async () => {
+    setExporting(true);
+    let all = rows;
+    try {
+      const res = await getLoanWalleLeads({ ...params, perPage: 100000, currentPage: 1 });
+      all = res?.data?.data?.data || rows;
+    } catch {
+      /* fall back to what is on screen rather than handing back nothing */
+    } finally {
+      setExporting(false);
+    }
+
     const head = ["Name", "Mobile", "PAN", "Email", "Type", "Partner", "Status Bucket", "Final Status",
       "Message", "Rejection Reason", "Ineligibility Reason", "External Loan ID",
       "Loan Amount", "Disbursed Amount", "Disbursed Date", "UTM Source", "UTM Medium",
       "Clicked At", "Status Changed", "Last Checked", "Check Count"];
-    const body = rows.map((r) => [
+    const body = all.map((r) => [
       r.name, r.mobile, r.pan, r.email, r.type, r.partnerName, r.statusBucket, r.finalStatus,
       r.message, r.rejectionReason, r.ineligibilityReason, r.externalLoanId,
       r.loanAmount ?? "", r.disbursedAmount ?? "", r.disbursedDate ?? "",
@@ -248,6 +269,21 @@ const LeadsPanel = () => {
           onClearRange={() => { setFromDate(""); setToDate(""); setPage(1); }}
         />
 
+        {/* Second, independent date control. The one above buckets a lead by
+            when it CAME IN; this one by when the money actually went out - a
+            lead clicked in August can disburse in September, so neither filter
+            can answer the other's question. */}
+        <CompactDateFilter
+          label="Disbursed"
+          range={disbursedOn}
+          onRangeChange={(k) => { setDisbursedOn(k); setPage(1); }}
+          fromDate={disbursedFrom}
+          toDate={disbursedTo}
+          onFromChange={(v) => { setDisbursedFrom(v); setPage(1); }}
+          onToChange={(v) => { setDisbursedTo(v); setPage(1); }}
+          onClearRange={() => { setDisbursedFrom(""); setDisbursedTo(""); setPage(1); }}
+        />
+
         <select
           value={ticket}
           onChange={(e) => { setTicket(e.target.value); setPage(1); }}
@@ -291,10 +327,12 @@ const LeadsPanel = () => {
 
         <button
           onClick={exportCsv}
-          disabled={!rows.length}
+          disabled={!rows.length || exporting}
+          title={`Exports all ${fmtNum(total)} leads matching the current filters`}
           className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 shadow-sm"
         >
-          <Download size={13} /> Export CSV
+          <Download size={13} className={exporting ? "animate-pulse" : ""} />
+          {exporting ? "Preparing…" : `Export CSV (${fmtNum(total)})`}
         </button>
       </div>
 
@@ -405,13 +443,15 @@ const LeadsPanel = () => {
           </table>
         </div>
 
-        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-          <p className="text-[12px] text-gray-500">{fmtNum(total)} leads · page {page} / {totalPages}</p>
-          <div className="flex items-center gap-1">
-            <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(p - 1, 1))} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-40 hover:bg-gray-50"><ChevronLeft size={15} /></button>
-            <button disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(p + 1, totalPages))} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-40 hover:bg-gray-50"><ChevronRight size={15} /></button>
-          </div>
-        </div>
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={(n) => { setPerPage(n); setPage(1); }}
+          noun="leads"
+        />
       </div>
 
       {active && <DetailModal row={active} onClose={() => setActive(null)} />}
