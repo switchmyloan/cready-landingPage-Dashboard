@@ -62,6 +62,17 @@ export const routes = [
       "management",
     ],
   },
+  // Comparison — new top-level group (super-admin only). Scaffold; sub-pages TBD.
+  {
+    path: "/comparison",
+    label: "Disbursal Comparison",
+    icon: "Scale",
+    showInSidebar: true,
+    group: "Comparison",
+    groupOrder: 0.5,
+    order: 1,
+    roles: ["super-admin"],
+  },
   // Standalone module (no group) — call-center feedback: funnel + agent activity +
   // records, all under one entry (two tabs inside) so the sidebar stays uncluttered.
   {
