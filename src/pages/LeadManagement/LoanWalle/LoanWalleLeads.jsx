@@ -492,13 +492,13 @@ const LoanWalleLeads = () => {
             </p>
           </div>
 
-          <select
+          {/* <select
             value={view}
             onChange={(e) => setView(e.target.value)}
             className="ml-auto px-3 py-2 text-[12.5px] font-semibold rounded-lg border border-indigo-200 bg-white text-indigo-700"
           >
             {VIEWS.map((v) => <option key={v.key} value={v.key}>{v.label}</option>)}
-          </select>
+          </select> */}
         </div>
       </div>
 
