@@ -28,7 +28,7 @@ import {
   Tooltip,
 } from "recharts";
 
-import { getCreadyRpm, getCreadyRpmAfPaidTrend } from "../../../api-services/Modules/Leads";
+import { getCreadyRpm, getCreadyRpmAfPaidTrend, getCreadyRpmExternalStats } from "../../../api-services/Modules/Leads";
 import { shortUserTrackColumn } from "../../../components/TableHeader";
 import ToastNotification from "../../../components/Notification/ToastNotification";
 import ExportModal from "../../../components/ExportModal";
@@ -405,13 +405,15 @@ const AfPaidTrendModal = ({ open, onClose }) => {
   );
 };
 
-const StatCards = ({ summary, loading }) => {
+const StatCards = ({ summary, loading, externalStats = {}, externalLoading = false }) => {
   const [afOpen, setAfOpen] = useState(false);
   const landed = summary.total || 0;
   const lenderSelected = summary.lender_clicked || 0;
-  const campaign = summary.campaign || {};
-  const application = summary.application || {};
-  const afPaid = summary.afPaid || {};
+  // Campaign Click / Application Date / AF Paid come from the separate (slow)
+  // external-stats fetch, so they load independently and always match the filter.
+  const campaign = externalStats.campaign || {};
+  const application = externalStats.application || {};
+  const afPaid = externalStats.afPaid || {};
   const otp = summary.otp_verified || 0;
   const form = summary.form_submitted || 0;
   const pct = (n) => (landed ? Math.round((n / landed) * 100) : 0);
@@ -427,6 +429,7 @@ const StatCards = ({ summary, loading }) => {
       Icon: Megaphone,
       color: "slate",
       breakdown: campaign, // hover → total/sent/delivered/clicked/failed
+      external: true,
     },
     {
       key: "landed",
@@ -467,6 +470,7 @@ const StatCards = ({ summary, loading }) => {
       Icon: CalendarDays,
       color: "amber",
       pct: pct(application.count || 0),
+      external: true,
     },
     {
       key: "afpaid",
@@ -477,14 +481,16 @@ const StatCards = ({ summary, loading }) => {
       pct: pct(afPaid.count || 0),
       clickable: true,
       onClick: () => setAfOpen(true),
+      external: true,
     },
     {
       key: "afamount",
       label: "AF Amount",
-      // AF Amount = AF Paid count × ₹150 (preformatted ₹ string).
-      value: `₹${((afPaid.count || 0) * 120).toLocaleString("en-IN")}`,
+      // AF Amount = AF Paid count × ₹55 (preformatted ₹ string).
+      value: `₹${((afPaid.count || 0) * 55).toLocaleString("en-IN")}`,
       Icon: IndianRupee,
       color: "green",
+      external: true,
       // clickable: true,
       // onClick: () => setAfOpen(true),
     },
@@ -509,7 +515,8 @@ const StatCards = ({ summary, loading }) => {
   return (
     <>
     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-4">
-      {cards.map(({ key, label, Icon, color, value, pct, placeholder, isBase, breakdown, clickable, onClick }) => {
+      {cards.map(({ key, label, Icon, color, value, pct, placeholder, isBase, breakdown, clickable, onClick, external }) => {
+        const pending = external && externalLoading;
         const c = COLOR_MAP[color];
         return (
           <div
@@ -541,6 +548,11 @@ const StatCards = ({ summary, loading }) => {
                 <>
                   <p className="mt-0.5 text-xl font-bold text-gray-300">—</p>
                   <p className="text-[10px] text-gray-400 mt-0.5">Coming soon</p>
+                </>
+              ) : pending ? (
+                <>
+                  <p className="mt-0.5 text-xl font-bold text-gray-300 animate-pulse">…</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Loading…</p>
                 </>
               ) : (
                 <>
@@ -915,6 +927,33 @@ const CreadyRpm = () => {
     lender_clicked: 0,
   });
 
+  // Campaign Click / Application Date / AF Paid — slow external-DB metrics, fetched
+  // separately (date-only) so they never stall the funnel/list and always reflect
+  // the current date filter.
+  const [externalStats, setExternalStats] = useState({});
+  const [externalLoading, setExternalLoading] = useState(false);
+
+  const fetchExternalStats = useCallback(async () => {
+    setExternalLoading(true);
+    try {
+      const res = await getCreadyRpmExternalStats({
+        type: query.filter_date || undefined,
+        fromDate: query.startDate || undefined,
+        toDate: query.endDate || undefined,
+      });
+      setExternalStats(res?.data || {});
+    } catch (err) {
+      console.error(err);
+      setExternalStats({});
+    } finally {
+      setExternalLoading(false);
+    }
+  }, [query.filter_date, query.startDate, query.endDate]);
+
+  useEffect(() => {
+    fetchExternalStats();
+  }, [fetchExternalStats]);
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
@@ -1149,7 +1188,7 @@ const CreadyRpm = () => {
         </p>
       </div>
 
-      <StatCards summary={summary} loading={loading} />
+      <StatCards summary={summary} loading={loading} externalStats={externalStats} externalLoading={externalLoading} />
 
       <FilterBar
         search={query.search}
