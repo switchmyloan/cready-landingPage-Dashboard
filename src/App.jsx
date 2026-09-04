@@ -89,6 +89,7 @@ import ApolloWebhook from './pages/LeadManagement/Apollo/ApolloWebhook';
 import ApolloWebhookDetail from './pages/LeadManagement/Apollo/ApolloWebhookDetail';
 import ApolloFunnel from './pages/LeadManagement/Apollo/ApolloFunnel';
 import ThreeNOneAnalysis from './pages/LeadManagement/ThreeNOne/ThreeNOneAnalysis';
+import Comparison from './pages/Comparison/Comparison';
 import RouteChangeAborter from './components/RouteChangeAborter';
 
 function App() {
@@ -115,14 +116,14 @@ function App() {
             <Route path="mv-success-leads/:id" element={<MVSuccessDetail />} />
             <Route path="sc-response-leads" element={<ScResponseLeads />} />
             <Route path="all-lenders" element={<AllLenders />} />
-            <Route
+            {/* <Route
               path="intelligence"
               element={
                 <Suspense fallback={<PremiumPageLoader theme="purple" title="Loading Intelligence" progressLabel="Preparing analytics" />}>
                   <Intelligence />
                 </Suspense>
               }
-            />
+            /> */}
             <Route path="vivifi-webhook-leads" element={<VivifiWebhookLeads />} />
             <Route path="vivifi-webhook-leads/:leadId" element={<VivifiWebhookLeadDetail />} />
             <Route path="upswing-webhook" element={<UpSwingWebhook />} />
@@ -133,6 +134,7 @@ function App() {
             <Route path="apollo-webhook/:id" element={<ApolloWebhookDetail />} />
             <Route path="apollo-funnel" element={<ApolloFunnel />} />
             <Route path="3n1-page" element={<ThreeNOneAnalysis />} />
+            <Route path="comparison" element={<Comparison />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />
