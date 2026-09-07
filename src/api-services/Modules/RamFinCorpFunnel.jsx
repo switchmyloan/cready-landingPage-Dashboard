@@ -49,3 +49,10 @@ export const getRamFinCorpHotLeads = async ({ withinHours = 24, scope, agentId }
     params: { withinHours, scope, agentId },
     skipAdminAppend: true,
   });
+
+// Lead-level rows behind the dashboard's daily report — the "who" export.
+export const getRamFinCorpDashboardDetail = async ({ scope, type, fromDate, toDate, utmMedium } = {}) =>
+  Api().get(`/ramfincorp-funnel/dashboard-detail`, {
+    params: { scope, type, fromDate, toDate, utmMedium },
+    skipAdminAppend: true,
+  });

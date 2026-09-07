@@ -292,6 +292,16 @@ export const routes = [
       "call-center", "call-center-40-65", "call-center-65plus",
     ],
   },
+  // {
+  //   path: "/vivifi-funnel",
+  //   label: "Vivifi Funnel",
+  //   icon: "TrendingDown",
+  //   showInSidebar: true,
+  //   group: "Lenders",
+  //   groupOrder: 3,
+  //   order: 21.5,
+  //   roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  // },
   {
     path: "/upswing-webhook",
     label: "UpSwing",

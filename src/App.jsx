@@ -82,6 +82,7 @@ import LoanWalleLeads from './pages/LeadManagement/LoanWalle/LoanWalleLeads';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
+import VivifiFunnel from './pages/LeadManagement/VivifiWebhook/VivifiFunnel';
 import UpSwingWebhook from './pages/LeadManagement/UpSwing/UpSwingWebhook';
 import UpSwingWebhookDetail from './pages/LeadManagement/UpSwing/UpSwingWebhookDetail';
 import UpSwingFunnel from './pages/LeadManagement/UpSwing/UpSwingFunnel';
@@ -127,6 +128,7 @@ function App() {
             /> */}
             <Route path="vivifi-webhook-leads" element={<VivifiWebhookLeads />} />
             <Route path="vivifi-webhook-leads/:leadId" element={<VivifiWebhookLeadDetail />} />
+            <Route path="vivifi-funnel" element={<VivifiFunnel />} />
             <Route path="upswing-webhook" element={<UpSwingWebhook />} />
             <Route path="upswing-webhook/:id" element={<UpSwingWebhookDetail />} />
             <Route path="upswing-funnel" element={<UpSwingFunnel />} />
