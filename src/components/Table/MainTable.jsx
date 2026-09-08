@@ -436,15 +436,27 @@ function MainTable({
             {/* Title row — sits on its own line so the filter row below
                 has full width and wraps cleanly from left-to-right (no more
                 weird right-aligned gaps when filters spill onto row 2). */}
-            <div className="flex items-center gap-2.5 mb-3">
+            <div className="flex items-center gap-2.5 mb-2">
                 <span className="w-1 h-5 rounded-full bg-gradient-to-b from-purple-500 to-indigo-500" />
                 <h1 className="text-[16px] font-bold tracking-tight text-gray-800 whitespace-nowrap">{title}</h1>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold tracking-wider uppercase bg-gradient-to-r from-purple-50 to-indigo-50 text-purple-700 border border-purple-200/70 whitespace-nowrap">
                     {totalDataCount} entries
                 </span>
-                {/* Inline header actions — Refresh/Export pushed to the right */}
-                {headerActionsInline && (onRefresh || onExport) && (
+                {/* Inline header actions — Search + Refresh/Export on the right.
+                    Search belongs here too: without it, a page that supplies its
+                    own filter bar (so the whole filter row is skipped) still had
+                    to render that row just to hold one search box, which is the
+                    entire second band under the title. */}
+                {headerActionsInline && (onRefresh || onExport || onSearch) && (
                     <div className="ml-auto flex items-center gap-1.5">
+                        {onSearch && (
+                            <DebouncedInput
+                                value={globalFilter}
+                                onChange={setGlobalFilter}
+                                onSearch={(v) => onSearch(v)}
+                                placeholder="Search..."
+                            />
+                        )}
                         {onRefresh && (
                             <button className="h-8 w-8 grid place-items-center rounded-md text-gray-600 bg-white border border-gray-200 hover:bg-purple-50 hover:border-purple-300 hover:text-purple-700 transition" onClick={onRefresh} title='Refresh'>
                                 <RefreshCcw size={16} />
@@ -894,11 +906,18 @@ function MainTable({
                 strip on narrow viewports). */}
             <div className="w-full overflow-x-auto rounded-lg">
             <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow-sm overflow-hidden">
-                <thead className="bg-gray-100 text-gray-700 text-sm font-semibold uppercase tracking-wide border-b border-gray-200">
+                {/* Header row kept to ONE line.
+                    At text-sm + py-3 a two-word heading like "VIEW ALL OFFERS"
+                    wrapped, and because a table row is as tall as its tallest
+                    cell, that one heading doubled the height of the entire
+                    header on every table in the app. whitespace-nowrap stops the
+                    wrap; the smaller type and tighter padding keep the row from
+                    simply getting wide instead. */}
+                <thead className="bg-gray-50 text-gray-500 text-[10.5px] font-bold uppercase tracking-wide border-b border-gray-200">
                     {table.getHeaderGroups().map(headerGroup => (
                         <tr key={headerGroup.id}>
                             {headerGroup.headers.map(header => (
-                                <th key={header.id} className="px-4 py-3 text-left cursor-pointer select-none hover:bg-gray-200 transition-colors duration-200">
+                                <th key={header.id} className="px-3 py-2 text-left whitespace-nowrap cursor-pointer select-none hover:bg-gray-100 transition-colors duration-200">
                                     {flexRender(header.column.columnDef.header, header.getContext())}
                                 </th>
                             ))}
@@ -912,7 +931,7 @@ function MainTable({
                         ) : table.getRowModel().rows.map(row => (
                             <tr key={row.id} className="hover:bg-purple-50">
                                 {row.getVisibleCells().map(cell => (
-                                    <td key={cell.id} className="px-4 py-3 border-b border-gray-200 text-sm whitespace-nowrap">
+                                    <td key={cell.id} className="px-3 py-2 border-b border-gray-100 text-sm whitespace-nowrap">
                                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                                     </td>
                                 ))}

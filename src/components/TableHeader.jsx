@@ -2494,24 +2494,9 @@ export const userTrackColumn = ({ handleEdit }) => [
       );
     },
   },
-  {
-    header: 'Name',
-    accessorKey: 'fullname',
-    cell: ({ row }) => {
-      const raw =[row.original.first_name, row.original.last_name].filter(Boolean).join(' ');
-      if (!raw) return <span className="text-gray-400 italic">N/A</span>;
-      const display = toTitleCase(raw);
-      const colors = colorFromString(display);
-      return (
-        <div className="flex items-center gap-2.5">
-          <div className={`w-9 h-9 rounded-full ${colors.ring} flex items-center justify-center text-white text-xs font-semibold shrink-0`}>
-            {getInitials(display)}
-          </div>
-          <span className="font-medium text-gray-800 whitespace-nowrap">{display}</span>
-        </div>
-      );
-    },
-  },
+  // Name column removed from High User Track on request. The avatar + full name
+  // was the widest cell in the grid and pushed the journey columns off-screen;
+  // the name is still searchable and still shows on the lead's detail page.
   {
     header: 'Phone',
     accessorKey: 'phone',

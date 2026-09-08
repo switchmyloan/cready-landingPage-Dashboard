@@ -10,6 +10,8 @@ import {
   MousePointerClick,
   Search,
   RefreshCw,
+  SlidersHorizontal,
+  ChevronDown,
   X,
   ChevronLeft,
   ChevronRight,
@@ -206,14 +208,20 @@ const StatCards = ({ summary, loading }) => {
   ];
 
   if (loading) {
-    // Sweeping shimmer skeleton (animate-shimmer keyframe in tailwind.config.js)
-    // — matches the rest of the High Ticket module loading style.
+    // The skeleton MUST use the same grid as the real cards below.
+    //
+    // It stopped at lg:grid-cols-3 while the cards go to xl:grid-cols-6, so six
+    // placeholders stacked into two tall rows, then collapsed to one row the
+    // instant data arrived — the whole page jumped and the skeleton looked like
+    // a different screen. The bar heights now match the real label (12px) and
+    // value (24px) too, so nothing shifts when the numbers land.
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mb-3">
         {cards.map((_, i) => (
-          <div key={i} className="p-4 bg-white rounded-lg border border-gray-200">
-            <div className="h-3 w-1/2 rounded bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:200%_100%] animate-shimmer mb-3" />
-            <div className="h-7 w-2/3 rounded-md bg-gradient-to-r from-indigo-100 via-purple-200 to-indigo-100 bg-[length:200%_100%] animate-shimmer" />
+          <div key={i} className="p-2.5 bg-white rounded-lg border border-gray-200">
+            <div className="h-2.5 w-2/3 rounded bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 bg-[length:200%_100%] animate-shimmer" />
+            <div className="mt-1 h-5 w-1/2 rounded bg-gradient-to-r from-indigo-100 via-purple-200 to-indigo-100 bg-[length:200%_100%] animate-shimmer" />
+            <div className="mt-1.5 h-2 w-1/3 rounded bg-gray-100" />
           </div>
         ))}
       </div>
@@ -221,42 +229,41 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 mb-3">
       {cards.map(({ key, label, Icon, color, value, pct, note, hint, display, subText }) => {
         const c = COLOR_MAP[color];
         return (
           <div
             key={key}
             title={hint || undefined}
-            className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:shadow-md transition"
+            className="p-2.5 bg-white rounded-lg border border-gray-200 hover:shadow-sm transition"
           >
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-500 truncate">
-                {label}
-                {hint && <span className="ml-1 text-gray-300 cursor-help">ⓘ</span>}
+            {/* Icon moved INLINE with the label instead of a 44px badge on the
+                right. That badge was eating the label's width, which is why five
+                of the six read "Landed (All U…", "Form Submitt…", "Click → Disbu…"
+                — the numbers were legible and the thing they measured was not.
+                Full width for the label also lets the whole card get shorter. */}
+            <p className="flex items-center gap-1 text-[10.5px] font-medium text-gray-500 min-w-0">
+              <Icon size={11} className={`shrink-0 ${c.iconText}`} />
+              <span className="truncate">{label}</span>
+              {hint && <span className="text-gray-300 cursor-help shrink-0">ⓘ</span>}
+            </p>
+            <p className="mt-0.5 text-[19px] font-bold text-gray-900 leading-none tabular-nums">
+              {display ?? value.toLocaleString()}
+            </p>
+            {subText ? (
+              <p className="text-[10px] text-gray-500 mt-1 truncate">{subText}</p>
+            ) : key !== "total" ? (
+              <p className="text-[10px] text-gray-500 mt-1 truncate">
+                <span
+                  className={`font-semibold ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
+                >
+                  {pct}%
+                </span>{" "}
+                of landed
+                {note && <span className="text-emerald-700 font-semibold"> · {note}</span>}
               </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {display ?? value.toLocaleString()}
-              </p>
-              {subText ? (
-                <p className="text-[11px] text-gray-500 mt-0.5 truncate">{subText}</p>
-              ) : key !== "total" ? (
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  <span
-                    className={`font-semibold ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
-                  >
-                    {pct}%
-                  </span>{" "}
-                  of landed
-                  {note && <span className="text-emerald-700 font-semibold"> · {note}</span>}
-                </p>
-              ) : null}
-            </div>
-            <div
-              className={`p-2.5 rounded-lg ${c.iconBg} ${c.iconText} shrink-0 ml-2`}
-            >
-              <Icon size={20} />
-            </div>
+            ) : null}
           </div>
         );
       })}
@@ -304,6 +311,11 @@ const FilterBar = ({
   // Whether the Custom date-range popover is open. Default closed = filter
   // bar stays compact; opens only when user wants a custom window.
   const [customOpen, setCustomOpen] = useState(Boolean(startDate || endDate));
+  const advancedCount = [lender, medium, source, viewAllClicked, feedbackStatus, trackingEvent, disbursedOn]
+    .filter((v) => v !== "" && v !== null && v !== undefined).length;
+  // Opens itself when something inside is already set, so a filter carried in
+  // from a previous view is never hidden behind a closed panel.
+  const [moreOpen, setMoreOpen] = useState(advancedCount > 0);
 
   useEffect(() => {
     setRng({ start: startDate || "", end: endDate || "" });
@@ -319,10 +331,19 @@ const FilterBar = ({
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
           Filter by Stage
         </p>
-        <div className="flex flex-wrap gap-2">
+
+        {/* Equal-width cells instead of free-flowing pills.
+            As pills these were six different widths in six different colours,
+            wrapping onto a second line — "Landed (All Users) 272,272" next to
+            "Disbursed 5,592" — so nothing lined up and the eye had no column to
+            follow. A fixed grid gives every stage the same box and puts all six
+            counts in the same place, which is what makes a funnel readable.
+            Colour is now carried by a small dot plus the active fill, not by
+            painting every chip a different shade. */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-1.5">
           {STAGES.map(({ key, label, Icon, color }) => {
             const c = COLOR_MAP[color];
             const active = stage === key;
@@ -332,21 +353,22 @@ const FilterBar = ({
                 key={key || "all"}
                 type="button"
                 onClick={() => onStageChange(key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition ${
+                title={label}
+                className={`text-left rounded-lg border px-2.5 py-2 transition ${
                   active
-                    ? `${c.pillActive} border-transparent`
-                    : `bg-white ${c.pillIdle}`
+                    ? `${c.pillActive} border-transparent shadow-sm`
+                    : "bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                 }`}
               >
-                <Icon size={14} />
-                <span>{label}</span>
-                <span
-                  className={`inline-flex items-center justify-center min-w-[22px] h-[18px] px-1.5 rounded-full text-[10px] font-bold ${
-                    active
-                      ? "bg-white/25 text-white"
-                      : "bg-gray-100 text-gray-700"
-                  }`}
-                >
+                <span className={`flex items-center gap-1 text-[10.5px] font-semibold truncate ${
+                  active ? "text-white/90" : "text-gray-500"
+                }`}>
+                  <Icon size={11} className="shrink-0" />
+                  <span className="truncate">{label}</span>
+                </span>
+                <span className={`block mt-0.5 text-[16px] font-bold leading-none tabular-nums ${
+                  active ? "text-white" : "text-gray-900"
+                }`}>
                   {(Number(count) || 0).toLocaleString()}
                 </span>
               </button>
@@ -362,8 +384,12 @@ const FilterBar = ({
           inputs stay legible. */}
       <div className="flex flex-wrap items-end gap-2">
 
-        {/* Search — grows to fill leftover space */}
-        <div className="grow basis-[200px]">
+        {/* Search — fixed width, not `grow`.
+            With `grow basis-[200px]` it ate every pixel the other controls left
+            over, so on a wide screen a box for a phone number stretched half the
+            bar. The actions take `ml-auto` below instead, which keeps the row
+            balanced without handing the slack to one input. */}
+        <div className="basis-[240px] shrink-0">
           <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
             Search
           </label>
@@ -454,6 +480,16 @@ const FilterBar = ({
           )}
         </div>
 
+        {/* ADVANCED FILTERS, collapsed by default.
+
+            Ten controls sat in one wrapping grid — Search, Date, Selected Lender,
+            Medium, Source, View All, Feedback, Incred Activity, Disbursed On,
+            Refresh — every one wearing the same tiny uppercase label, so finding
+            the one you wanted meant reading all ten. Search and Date carry almost
+            all the use, so they stay out; the rest open on demand, and the toggle
+            carries a count so a filter can never sit on unnoticed. */}
+        {moreOpen && (
+          <div className="w-full flex flex-wrap items-end gap-2 pt-2.5 mt-1 border-t border-gray-100">
         {/* Lender select */}
         <div className="basis-[140px] shrink-0">
           <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -575,8 +611,31 @@ const FilterBar = ({
           </select>
         </div>
 
+          </div>
+        )}
+
         {/* Inline actions — no label */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((o) => !o)}
+            className={`inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold rounded-md border transition ${
+              advancedCount
+                ? "border-purple-300 bg-purple-50 text-purple-700"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+            title="Lender, medium, source, feedback and other filters"
+          >
+            <SlidersHorizontal size={12} />
+            More filters
+            {advancedCount > 0 && (
+              <span className="ml-0.5 px-1.5 rounded-full bg-purple-600 text-white text-[10px] font-bold tabular-nums">
+                {advancedCount}
+              </span>
+            )}
+            <ChevronDown size={12} className={`transition ${moreOpen ? "rotate-180" : ""}`} />
+          </button>
+
           <button
             type="button"
             onClick={onRefresh}
@@ -753,6 +812,15 @@ const SimpleTable = ({
 // user returns to the same filtered list instead of a reset-to-default one.
 // sessionStorage scopes this to the current browser tab so it clears on close.
 const FILTERS_STORAGE_KEY = "userTrack:filters:v1";
+// Set only while navigating out to a detail page, so the two reasons this page
+// mounts can be told apart: coming BACK from a row (restore what they had) vs
+// opening it fresh (start clean).
+//
+// This matters for speed, not just tidiness. The cache warmer keeps the DEFAULT
+// view hot. A sticky leftover filter — one earlier click on "Today" plus a stage
+// chip — means every fresh visit asks for a combination nobody warmed, so the
+// page pays the full cold query and the warming does nothing for it.
+const RETURN_FLAG_KEY = "userTrack:returning";
 
 const loadPersistedState = () => {
   try {
@@ -779,13 +847,24 @@ const UserTrack = () => {
   // detail page (computed once on first render). Without this, every filter
   // resets to default after View → detail → back.
   const persisted = useMemo(() => loadPersistedState(), []);
+  // Read AND clear together, so only the very next mount counts as a return.
+  const isReturning = useMemo(() => {
+    try {
+      const flag = sessionStorage.getItem(RETURN_FLAG_KEY);
+      sessionStorage.removeItem(RETURN_FLAG_KEY);
+      return flag === "1";
+    } catch {
+      return false;
+    }
+  }, []);
 
   const DEFAULT_QUERY = {
     page_no: 1,
     limit: 10,
     search: "",
-    // Default to "All" on landing — user can narrow with Today/Yesterday/Custom.
-    filter_date: "",
+    // Open on Today — the working view is what came in today, not the 272k
+    // all-time list. Widen with All/Yesterday/Custom from the chips.
+    filter_date: "today",
     startDate: null,
     endDate: null,
     stage: "",
@@ -798,11 +877,14 @@ const UserTrack = () => {
     disbursedOn: "",
   };
 
-  const [query, setQuery] = useState(() =>
-    persisted?.query && typeof persisted.query === "object"
-      ? { ...DEFAULT_QUERY, ...persisted.query }
-      : DEFAULT_QUERY
-  );
+  const [query, setQuery] = useState(() => {
+    // Restore only when coming back from a detail row — the one case this
+    // persistence was built for. Any other way in starts on DEFAULT_QUERY,
+    // which is deliberately the exact view the warmer keeps hot.
+    if (!isReturning) return DEFAULT_QUERY;
+    if (!persisted?.query || typeof persisted.query !== "object") return DEFAULT_QUERY;
+    return { ...DEFAULT_QUERY, ...persisted.query };
+  });
 
   // Persist filter + pagination state on every change so back-navigation from
   // the detail page restores exactly where the user left off.
@@ -1034,6 +1116,12 @@ const UserTrack = () => {
   );
 
   const handleView = (row) => {
+    try {
+      sessionStorage.setItem(RETURN_FLAG_KEY, "1");
+    } catch {
+      // Private-mode browsers throw; losing the flag only means the list comes
+      // back on defaults, which is the safe direction.
+    }
     navigate(`/user-track/${encodeURIComponent(row.phone)}`, {
       state: { row },
     });
@@ -1180,15 +1268,21 @@ const UserTrack = () => {
         totalDataCount={totalCount}
         loading={loading}
         onPageChange={onPageChange}
-        onSearch={debouncedSearch}
+        // No onSearch here on purpose. The filter bar above already has a search
+        // box wired to this same debouncedSearch, so passing it again rendered a
+        // SECOND box driving the identical query — two inputs, one filter, and
+        // whichever you typed in last silently won.
         onRefresh={fetchUsers}
         onExport={handleExport}
         title="User Track"
+        // This page has its own filter bar above, so MainTable's filter row held
+        // nothing but Refresh, Export and Search — a whole band for three
+        // controls. Inline mode folds them into the title row instead.
+        headerActionsInline
         // Seed page + search from restored state so returning from a detail
         // page keeps the same page/search (without these MainTable resets both
         // to page 1 / empty on mount).
         initialPagination={{ pageIndex: Math.max(0, query.page_no - 1), pageSize: query.limit }}
-        initialSearch={query.search}
       />
 
       <ModuleInfoCard

@@ -591,6 +591,14 @@ const FilterBar = ({
 // v2: bumped so previously-persisted sessions (saved under the old "All" date
 // default) are discarded and the new "today" default applies on next load.
 const FILTERS_STORAGE_KEY = "shortUserTrack:filters:v2";
+// Set only while navigating out to a detail page. It is what separates the two
+// reasons this page mounts: coming BACK from a detail row (restore everything,
+// date included) versus opening the page fresh (start on today).
+//
+// Without it the date was sticky for the whole tab session: one click on "All"
+// and every later visit reopened on the full 270k list, which is why the page
+// looked like it defaulted to All when the default was already today.
+const RETURN_FLAG_KEY = "shortUserTrack:returning";
 
 const loadPersistedState = () => {
   try {
@@ -611,6 +619,16 @@ const ShortUserTrack = () => {
   // detail page (computed once on first render). Without this, every filter
   // resets to default after View → detail → back.
   const persisted = useMemo(() => loadPersistedState(), []);
+  // Read AND clear in one go, so a later plain visit is treated as fresh.
+  const isReturning = useMemo(() => {
+    try {
+      const flag = sessionStorage.getItem(RETURN_FLAG_KEY);
+      sessionStorage.removeItem(RETURN_FLAG_KEY);
+      return flag === "1";
+    } catch {
+      return false;
+    }
+  }, []);
 
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -636,11 +654,16 @@ const ShortUserTrack = () => {
     disbursedOn: "",
   };
 
-  const [query, setQuery] = useState(() =>
-    persisted?.query && typeof persisted.query === "object"
-      ? { ...DEFAULT_QUERY, ...persisted.query }
-      : DEFAULT_QUERY
-  );
+  const [query, setQuery] = useState(() => {
+    // Restore only when coming back from a detail row — the one case this
+    // persistence was built for. Any other way in starts on DEFAULT_QUERY,
+    // which is deliberately the exact view the warmer keeps hot. Carrying a
+    // leftover filter into a fresh visit is what made warming useless: the page
+    // asked for a combination nobody had warmed.
+    if (!isReturning) return DEFAULT_QUERY;
+    if (!persisted?.query || typeof persisted.query !== "object") return DEFAULT_QUERY;
+    return { ...DEFAULT_QUERY, ...persisted.query };
+  });
 
   // Persist filter + pagination state on every change so back-navigation from
   // the detail page restores exactly where the user left off.
@@ -854,6 +877,12 @@ const ShortUserTrack = () => {
   );
 
   const handleView = (row) => {
+    try {
+      sessionStorage.setItem(RETURN_FLAG_KEY, "1");
+    } catch {
+      // Private-mode browsers can throw; losing the flag just means the date
+      // resets to today on return, which is the safe direction.
+    }
     navigate(`/short-user-track/${encodeURIComponent(row.phone)}`, {
       state: { row },
     });

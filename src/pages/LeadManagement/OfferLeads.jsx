@@ -18,7 +18,7 @@ import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
 import CallCenterBandBanner from '../../components/CallCenterBandBanner';
 import { FEEDBACK_STATUSES } from '../../components/LeadFeedback/LeadFeedback';
 import { Link } from 'react-router-dom';
-import { BarChart3, ClipboardList, Sparkles } from 'lucide-react';
+import { BarChart3, ClipboardList, Sparkles, SlidersHorizontal, ChevronDown } from 'lucide-react';
 
 const debounce = (func, delay) => {
   let timeoutId;
@@ -35,6 +35,15 @@ const debounce = (func, delay) => {
 // filter. sessionStorage scopes this to the current browser tab/session so
 // it clears naturally on tab close.
 const FILTERS_STORAGE_KEY = 'offerLeads:filters:v1';
+
+// Set only while navigating out to a detail page, so the two reasons this page
+// mounts can be told apart: coming BACK from a lead (restore what they had) vs
+// opening it fresh (start clean).
+//
+// This is a speed fix as much as a UX one. The cache warmer keeps the DEFAULT
+// view hot; a filter left over in sessionStorage means a fresh visit asks for a
+// combination nobody warmed, so the page pays the full cold query.
+const RETURN_FLAG_KEY = 'offerLeads:returning';
 
 // Hot Leads (lender-success shortlist) — ON. Shows the "InCred Success" filter on
 // the Offer Leads page. The query field + handler are wired up; flip to false to hide.
@@ -77,6 +86,16 @@ const OfferLeads = () => {
   // Hydrate filters / pagination from sessionStorage if user is returning from
   // a detail page. Computed once on first render; ignored on subsequent renders.
   const persisted = useMemo(() => loadPersistedState(), []);
+  // Read AND clear together, so only the very next mount counts as a return.
+  const isReturning = useMemo(() => {
+    try {
+      const flag = sessionStorage.getItem(RETURN_FLAG_KEY);
+      sessionStorage.removeItem(RETURN_FLAG_KEY);
+      return flag === '1';
+    } catch {
+      return false;
+    }
+  }, []);
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filteredCount, setFilteredCount] = useState(0);
@@ -125,10 +144,9 @@ const OfferLeads = () => {
     page_no: 1,
     limit: 10,
     search: '',
-    // Default to "" (All) — no date filter on first load so the user sees
-    // the full historical leads list. They can pick Today / Yesterday /
-    // Custom Range explicitly from the toolbar.
-    filter_date: '',
+    // Open on Today — the working view is today's leads, not the full
+    // historical list. All / Yesterday / Custom Range widen it from the toolbar.
+    filter_date: 'today',
     startDate: null,
     endDate: null,
     minLoanAmount: '',
@@ -152,7 +170,7 @@ const OfferLeads = () => {
   };
 
   const [query, setQuery] = useState(() => {
-    let base = persisted?.query && typeof persisted.query === 'object'
+    let base = isReturning && persisted?.query && typeof persisted.query === 'object'
       ? { ...DEFAULT_QUERY, ...persisted.query }
       : DEFAULT_QUERY;
     // The control is hidden → drop any hotLeads value left over in
@@ -443,6 +461,45 @@ const OfferLeads = () => {
     setQuery(prev => ({ ...prev, minMonthlyIncome: '', maxMonthlyIncome: '', page_no: 1 }));
   }, [salaryBand]);
 
+  // How many of the panel's own filters are set. Drives the badge, and decides
+  // whether the panel starts open — a filter carried in from elsewhere must
+  // never sit applied behind a closed panel where nobody can see it.
+  const panelFilterCount = [
+    query.lender,
+    query.disbStatus,
+    query.utmMedium,
+    query.utmSource,
+    query.trackingEvent,
+    query.lntActivity,
+    query.feedbackStatus,
+    query.hotLeads,
+    query.lntBankOffer,
+  ].filter((v) => v !== '' && v !== null && v !== undefined).length;
+
+  // Starts open only when something inside is already applied.
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  useEffect(() => {
+    if (panelFilterCount > 0) setFiltersOpen(true);
+  // Deliberately keyed on the count alone: opening once when a filter appears,
+  // without slamming the panel shut again the moment the user clears one.
+  }, [panelFilterCount]);
+
+  const handleClearPanelFilters = useCallback(() => {
+    setQuery((prev) => ({
+      ...prev,
+      page_no: 1,
+      lender: '',
+      disbStatus: '',
+      utmMedium: '',
+      utmSource: '',
+      trackingEvent: '',
+      lntActivity: '',
+      feedbackStatus: '',
+      hotLeads: '',
+      lntBankOffer: '',
+    }));
+  }, []);
+
   const handleClearAllFilters = useCallback(() => {
     setQuery(prev => ({
       ...prev,
@@ -603,6 +660,12 @@ const OfferLeads = () => {
   };
 
   const handleEdit = (lead) => {
+    try {
+      sessionStorage.setItem(RETURN_FLAG_KEY, '1');
+    } catch {
+      // Private-mode browsers throw; losing the flag only means the list comes
+      // back on defaults, which is the safe direction.
+    }
     navigate(`/offer-leads/${lead.id}`, { state: { lead } });
   };
 
@@ -824,7 +887,50 @@ const OfferLeads = () => {
         {/* Subtle left accent stripe */}
         <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-purple-500 to-indigo-500" />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pl-2">
+        {/* Header bar. Nine selects used to sit open permanently, above ten more
+            controls in the table toolbar — nineteen things competing before you
+            reached a single lead. They collapse to this one line, and the badge
+            means an applied filter is still impossible to miss while hidden. */}
+        <div className="flex items-center gap-2 pl-2">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen((o) => !o)}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] font-semibold rounded-lg border transition ${
+              panelFilterCount
+                ? 'border-purple-300 bg-purple-50 text-purple-700'
+                : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+            title="Lender, disbursement, medium, source, activity and feedback filters"
+          >
+            <SlidersHorizontal size={13} />
+            Filters
+            {panelFilterCount > 0 && (
+              <span className="ml-0.5 px-1.5 rounded-full bg-purple-600 text-white text-[10px] font-bold tabular-nums">
+                {panelFilterCount}
+              </span>
+            )}
+            <ChevronDown size={13} className={`transition ${filtersOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {panelFilterCount > 0 && (
+            <button
+              type="button"
+              onClick={handleClearPanelFilters}
+              className="text-[11px] px-2 py-1 rounded-md bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 transition"
+              title="Clear the filters in this panel"
+            >
+              Clear
+            </button>
+          )}
+
+          {!filtersOpen && panelFilterCount === 0 && (
+            <span className="text-[11px] text-gray-400">No filters applied</span>
+          )}
+        </div>
+
+        {filtersOpen && (
+        <>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pl-2 mt-3 pt-3 border-t border-gray-100">
           {/* Lender */}
           <div className="flex flex-col gap-1 min-w-0">
             <label className="text-[11px] font-bold tracking-[0.08em] uppercase text-gray-500">
@@ -1082,6 +1188,8 @@ const OfferLeads = () => {
               </button>
             )}
           </div>
+        )}
+        </>
         )}
 
         {query.lender && (
