@@ -12,7 +12,14 @@ import PremiumPageLoader from "../../../components/PremiumPageLoader";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
-const crore = (n) => `₹${(Number(n || 0) / 10000000).toFixed(2)} Cr`;
+// Indian money reads badly in a fixed unit: ₹3,50,490 as "₹0.04 Cr" is harder to
+// grasp than "₹3.50 L". Pick the unit that fits the number.
+const compactInr = (n) => {
+  const v = Number(n) || 0;
+  if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)} Cr`;
+  if (v >= 100000) return `₹${(v / 100000).toFixed(2)} L`;
+  return `₹${Math.round(v).toLocaleString("en-IN")}`;
+};
 const fmtDT = (v) => {
   if (!v) return "—";
   const d = new Date(String(v).replace(" ", "T"));
@@ -30,10 +37,6 @@ const statusTone = (s) => {
 };
 
 const VivifiFunnel = () => {
-  // "create" credits every stage to the day the lead ARRIVED; "event" dates each
-  // stage on the day it actually happened — the only one that can answer
-  // "how many disbursed today".
-  const [countBy, setCountBy] = useState("create");
   const [range, setRange] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -60,14 +63,13 @@ const VivifiFunnel = () => {
     [range, fromDate, toDate],
   );
 
-  const viewParams = useMemo(() => ({ ...dateParams, countBy }), [dateParams, countBy]);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
       const [f, h] = await Promise.all([
-        getVivifiFunnel(viewParams),
-        getVivifiFunnelHistory(viewParams),
+        getVivifiFunnel(dateParams),
+        getVivifiFunnelHistory(dateParams),
       ]);
       setData(f?.data?.data || null);
       setHistory(h?.data?.data || []);
@@ -78,19 +80,12 @@ const VivifiFunnel = () => {
       setLoading(false);
       setFirstLoad(false);
     }
-  }, [viewParams]);
+  }, [dateParams]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
   const stageParams = useMemo(
-    () => ({
-      ...dateParams,
-      rank: stage?.currentStatus ? undefined : stage?.rank,
-      currentStatus: stage?.currentStatus,
-      perPage,
-      currentPage: page,
-      search,
-    }),
+    () => ({ ...dateParams, status: stage?.status, perPage, currentPage: page, search }),
     [dateParams, stage, perPage, page, search],
   );
 
@@ -107,15 +102,13 @@ const VivifiFunnel = () => {
 
   const totals = data?.totals || {};
   const funnel = data?.funnel || [];
-  const current = data?.currentStatus || [];
-  const currentMax = current.reduce((m, c) => Math.max(m, c.count), 0);
+  const rejected = data?.rejected || [];
   const win = data?.window;
   const rows = stageData?.data || [];
   const stageTotal = stageData?.pagination?.total || 0;
   const stageTotalPages = stageData?.pagination?.totalPages || 1;
 
-  const openStage = (f, i) => { setStage({ rank: i, label: f.label }); setPage(1); setSearch(""); };
-  const openCurrent = (c) => { setStage({ currentStatus: c.status, label: `Currently at ${c.status}` }); setPage(1); setSearch(""); };
+  const openStage = (f) => { setStage({ status: f.key, label: f.label }); setPage(1); setSearch(""); };
 
   const exportCsv = async () => {
     if (!stage) return;
@@ -129,13 +122,11 @@ const VivifiFunnel = () => {
     } finally {
       setExporting(false);
     }
-    const head = ["Lead ID", "Name", "Phone", "Current Status", "Furthest Stage",
-      "Rejection Reason", "Eligible Amount", "Disbursal Amount", "Disbursal Date",
-      "Cohort Date", "Created At", "Updated At"];
+    const head = ["Lead ID", "Name", "Phone", "Current Status",
+      "Rejection Reason", "Eligible Amount", "Created At", "Updated At"];
     const body = all.map((r) => [
-      r.leadId, r.name, r.phone, r.currentStatus, r.furthestStage,
-      r.rejectionReason, r.eligibleAmount ?? "", r.disbursalAmount ?? "", r.disbursalDate ?? "",
-      String(r.cohortDate ?? "").slice(0, 10), r.createdAt, r.updatedAt,
+      r.leadId, r.name, r.phone, r.currentStatus,
+      r.rejectionReason, r.eligibleAmount ?? "", r.createdAt, r.updatedAt,
     ]);
     const csv = [head, ...body]
       .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
@@ -164,103 +155,67 @@ const VivifiFunnel = () => {
 
   return (
     <>
-      {/* Header */}
-      <div className="rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 p-5 mb-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 grid place-items-center text-white shadow-sm">
-            <TrendingDown size={22} />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-[22px] font-bold text-gray-800">Vivifi Funnel</h1>
-            <p className="text-[12.5px] text-gray-500">
-              Every lead's journey through FlexSalary — each % is against the stage before it
-              {win && <span className="text-gray-400"> · {win.from} → {win.to}</span>}
-            </p>
-          </div>
+      {/* Header, filter and refresh on ONE line. They were three stacked bands —
+          a 100px title card, a filter row, then a two-line note — which is a lot
+          of screen for a page whose point is the numbers underneath. The date
+          range is not repeated in the title either; the chips already say it. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-100 px-3 py-2 mb-2.5">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-600 to-indigo-600 grid place-items-center text-white shadow-sm shrink-0">
+          <TrendingDown size={16} />
+        </div>
+        <h1 className="text-[16px] font-bold text-gray-800 leading-none">Vivifi Funnel</h1>
+
+        <div className="ml-auto flex items-center gap-2">
+          <CompactDateFilter
+            range={range}
+            onRangeChange={(k) => { setRange(k); setStage(null); }}
+            fromDate={fromDate}
+            toDate={toDate}
+            onFromChange={(v) => { setFromDate(v); setStage(null); }}
+            onToChange={(v) => { setToDate(v); setStage(null); }}
+            onClearRange={() => { setFromDate(""); setToDate(""); }}
+            accent="purple"
+          />
+          <button
+            onClick={fetchAll}
+            title="Refresh"
+            className="p-2 rounded-lg border border-purple-200 bg-white text-gray-500 hover:bg-purple-50 transition"
+          >
+            <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
+          </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2 mb-3">
-        <CompactDateFilter
-          range={range}
-          onRangeChange={(k) => { setRange(k); setStage(null); }}
-          fromDate={fromDate}
-          toDate={toDate}
-          onFromChange={(v) => { setFromDate(v); setStage(null); }}
-          onToChange={(v) => { setToDate(v); setStage(null); }}
-          onClearRange={() => { setFromDate(""); setToDate(""); }}
-          accent="purple"
-        />
-        <span className="text-[10.5px] font-bold uppercase tracking-wide text-gray-400 ml-1">Count by</span>
-        <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
-          {[
-            { key: "create", label: "Create day", hint: "Credit every stage to the day the lead arrived" },
-            { key: "event", label: "Event day", hint: "Date each stage on the day it actually happened" },
-          ].map((c) => (
-            <button
-              key={c.key}
-              onClick={() => { setCountBy(c.key); setStage(null); }}
-              title={c.hint}
-              className={`px-3 py-1.5 text-[12px] font-semibold transition ${
-                countBy === c.key ? "bg-purple-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"
-              }`}
-            >
-              {c.label}
-            </button>
-          ))}
-        </div>
+      {/* Worth one line: the obvious alternative reading (each lead's FURTHEST
+          stage over its whole history) gives different, also-correct numbers, and
+          that version used to disagree with the module beside it. */}
+      <p className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2.5">
+        <Info size={12} className="shrink-0 text-purple-400" />
+        Each lead counted once, on its current stage — tallies exactly with Vivifi Webhook Leads.
+      </p>
 
-        <button onClick={fetchAll} title="Refresh" className="p-2 rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50">
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} />
-        </button>
-      </div>
-
-      {/* The go-live note is not decoration: before this date the feed was not
-          emitting the top-of-funnel statuses, so earlier windows read backwards. */}
-      {win?.liveFrom && (
-        <p className="flex items-start gap-1.5 text-[11.5px] text-gray-500 mb-4">
-          <Info size={13} className="mt-px shrink-0 text-purple-500" />
-          {countBy === "event"
-            ? "Each stage is dated on the day it HAPPENED — so a lead that arrived last week and disbursed today counts in today's Disbursed. Stages belong to different cohorts, so they do not narrow. "
-            : "Every stage is credited to the day the lead ARRIVED, so a row is one cohort's whole journey. "}
-          Counted from each lead's own event history, not its current status. Data starts
-          {" "}{win.liveFrom} — before that the webhook feed wasn't sending the early stages yet.
-        </p>
-      )}
-
-      {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-        <div className="rounded-xl border border-indigo-200 bg-white p-4 shadow-sm">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-            <Users size={13} /> Total Leads
-          </span>
-          <p className="mt-1 text-[26px] font-bold text-gray-800 leading-none">{fmtNum(totals.leads)}</p>
-          <p className="mt-1.5 text-[11px] text-gray-400">entered the journey</p>
-        </div>
-        <div className="rounded-xl border border-emerald-200 bg-white p-4 shadow-sm">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-            <CheckCircle2 size={13} /> Disbursed
-          </span>
-          <p className="mt-1 text-[26px] font-bold text-gray-800 leading-none">{fmtNum(totals.disbursedLeads)}</p>
-          <p className="mt-1.5 text-[11px] text-gray-400">
-            {totals.leads ? `${Math.round((totals.disbursedLeads / totals.leads) * 1000) / 10}% of leads` : "—"}
-          </p>
-        </div>
-        <div className="rounded-xl border border-purple-200 bg-white p-4 shadow-sm">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-            <IndianRupee size={13} /> Disbursed Amount
-          </span>
-          <p className="mt-1 text-[26px] font-bold text-gray-800 leading-none">{crore(totals.disbursedAmount)}</p>
-          <p className="mt-1.5 text-[11px] text-gray-400">{inr(totals.disbursedAmount)}</p>
-        </div>
-        <div className="rounded-xl border border-amber-200 bg-white p-4 shadow-sm">
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-            <IndianRupee size={13} /> Sanctioned
-          </span>
-          <p className="mt-1 text-[26px] font-bold text-gray-800 leading-none">{crore(totals.sanctionedAmount)}</p>
-          <p className="mt-1.5 text-[11px] text-gray-400">approved, not all paid out</p>
-        </div>
+      {/* Compact KPI strip: context for the funnel below, not the headline, so no
+          more 26px numbers and 16px padding each. */}
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 mb-2.5">
+        {[
+          { icon: <Users size={11} />, label: "Total Leads", tone: "border-l-indigo-400",
+            value: fmtNum(totals.leads), sub: "in this window" },
+          { icon: <CheckCircle2 size={11} />, label: "Disbursed", tone: "border-l-emerald-400",
+            value: fmtNum(totals.disbursedLeads),
+            sub: totals.leads ? `${Math.round((totals.disbursedLeads / totals.leads) * 1000) / 10}% of leads` : "—" },
+          { icon: <IndianRupee size={11} />, label: "Disbursed Amt", tone: "border-l-purple-400",
+            value: compactInr(totals.disbursedAmount), sub: inr(totals.disbursedAmount) },
+          { icon: <IndianRupee size={11} />, label: "Sanctioned", tone: "border-l-amber-400",
+            value: compactInr(totals.sanctionedAmount), sub: "approved, not all paid" },
+        ].map((k) => (
+          <div key={k.label} className={`rounded-lg border border-gray-200 border-l-[3px] ${k.tone} bg-white px-2.5 py-2 shadow-sm`}>
+            <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wide text-gray-400">
+              {k.icon} {k.label}
+            </span>
+            <p className="mt-0.5 text-[18px] font-bold text-gray-900 leading-none tabular-nums">{k.value}</p>
+            <p className="mt-0.5 text-[10px] text-gray-400 truncate">{k.sub}</p>
+          </div>
+        ))}
       </div>
 
       {/* Stage drill */}
@@ -268,7 +223,7 @@ const VivifiFunnel = () => {
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-4">
           <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-gray-100">
             <span className="w-1 h-5 rounded-full bg-purple-600" />
-            <h2 className="text-[15px] font-bold text-gray-800">Reached {stage.label}</h2>
+            <h2 className="text-[15px] font-bold text-gray-800">Currently at {stage.label}</h2>
             <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold border border-purple-100">
               {fmtNum(stageTotal)} LEADS
             </span>
@@ -303,7 +258,6 @@ const VivifiFunnel = () => {
                 <col className="w-[190px]" />
                 <col className="w-[128px]" />
                 <col className="w-[150px]" />
-                <col className="w-[150px]" />
                 <col className="w-[110px]" />
                 <col />
                 <col className="w-[128px]" />
@@ -313,17 +267,16 @@ const VivifiFunnel = () => {
                   <th className="px-5 py-2.5 font-medium">Lead</th>
                   <th className="px-3 py-2.5 font-medium">Phone</th>
                   <th className="px-3 py-2.5 font-medium">Current Status</th>
-                  <th className="px-3 py-2.5 font-medium">Furthest Stage</th>
-                  <th className="px-3 py-2.5 font-medium text-right">Disbursed</th>
+                  <th className="px-3 py-2.5 font-medium text-right">Eligible Amt</th>
                   <th className="px-3 py-2.5 font-medium">Rejection Reason</th>
                   <th className="px-3 py-2.5 font-medium">Updated</th>
                 </tr>
               </thead>
               <tbody>
                 {stageLoading ? (
-                  <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">No leads at this stage.</td></tr>
+                  <tr><td colSpan={6} className="px-5 py-10 text-center text-gray-400">No leads at this stage.</td></tr>
                 ) : rows.map((r) => (
                   <tr key={r.leadId} className="h-[46px] border-b border-gray-50 hover:bg-purple-50/30">
                     <td className="px-5 max-w-0">
@@ -339,11 +292,8 @@ const VivifiFunnel = () => {
                         {r.currentStatus || "—"}
                       </span>
                     </td>
-                    <td className="px-3 max-w-0 truncate text-gray-600" title={r.furthestStage || ""}>
-                      {r.furthestStage || "—"}
-                    </td>
                     <td className="px-3 text-right tabular-nums font-semibold text-emerald-700">
-                      {r.disbursalAmount ? inr(r.disbursalAmount) : <span className="text-gray-300">—</span>}
+                      {r.eligibleAmount ? inr(r.eligibleAmount) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 max-w-0 truncate text-gray-500" title={r.rejectionReason || ""}>
                       {r.rejectionReason || <span className="text-gray-300">—</span>}
@@ -367,53 +317,21 @@ const VivifiFunnel = () => {
         </div>
       )}
 
-      {/* Current stage — a DIFFERENT question from the funnel, and labelled as
-          such. The funnel counts "ever reached"; this counts "parked here now",
-          so a lead appears once here but at every rung it passed above. Adding
-          the two together, or reading this as conversion, is the trap. */}
-      <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden mb-4">
-        <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-gray-100">
-          <span className="w-1 h-5 rounded-full bg-purple-600" />
-          <h2 className="text-[15px] font-bold text-gray-800">Current stage</h2>
-          <span className="px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 text-[11px] font-bold border border-purple-100">
-            {fmtNum(totals.leads)} LEADS
-          </span>
-          <span className="text-[11px] text-gray-400">where each lead sits today &mdash; click to see them</span>
-        </div>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-2">
-          {current.length === 0 ? (
-            <p className="px-1 py-6 text-center text-gray-400 text-[12.5px] md:col-span-2">No leads in this window.</p>
-          ) : current.map((c) => (
+      {rejected.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <span className="text-[10.5px] font-bold uppercase tracking-wide text-gray-400">Rejected</span>
+          {rejected.map((r) => (
             <button
-              key={c.status}
-              onClick={() => openCurrent(c)}
-              className={`text-left rounded-lg border p-2.5 transition hover:shadow-sm ${
-                stage?.currentStatus === c.status
-                  ? "ring-2 ring-purple-400 border-purple-300"
-                  : "border-gray-200 hover:bg-gray-50/60"
-              }`}
+              key={r.key}
+              onClick={() => openStage(r)}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-200 bg-rose-50 text-rose-700 text-[12px] font-semibold hover:bg-rose-100"
             >
-              <div className="flex items-baseline justify-between gap-3">
-                <span className="text-[12.5px] font-semibold text-gray-800 truncate" title={c.status}>{c.status}</span>
-                <span className="flex items-baseline gap-2 shrink-0">
-                  <span className="text-[15px] font-bold text-gray-900 tabular-nums">{fmtNum(c.count)}</span>
-                  <span className="text-[10.5px] text-gray-400 tabular-nums">
-                    {totals.leads ? `${Math.round((c.count / totals.leads) * 1000) / 10}%` : ""}
-                  </span>
-                </span>
-              </div>
-              {/* Scaled to the BIGGEST bucket, not to the cohort — otherwise the
-                  small late-stage buckets are invisible slivers. */}
-              <div className="mt-1.5 h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                <div
-                  className="h-full bg-purple-500 transition-all"
-                  style={{ width: `${currentMax ? Math.max((c.count / currentMax) * 100, c.count ? 2 : 0) : 0}%` }}
-                />
-              </div>
+              {r.label}
+              <span className="tabular-nums">{fmtNum(r.count)}</span>
             </button>
           ))}
         </div>
-      </div>
+      )}
 
       {/* Day by day */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
@@ -423,9 +341,7 @@ const VivifiFunnel = () => {
           <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-100">
             {fmtNum(history.length)} DAYS
           </span>
-          <span className="text-[11px] text-gray-400">
-            {countBy === "event" ? "each stage on the day it happened" : "leads bucketed on the day they entered"}
-          </span>
+          <span className="text-[11px] text-gray-400">leads touched that day, by current stage</span>
         </div>
         <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
           <table className="w-full text-[12.5px] min-w-[900px]">
@@ -435,32 +351,30 @@ const VivifiFunnel = () => {
                 {funnel.map((f, i) => (
                   <th
                     key={f.key}
-                    onClick={() => openStage(f, i)}
-                    title={`See the ${fmtNum(f.count)} leads that reached ${f.label}`}
+                    onClick={() => openStage(f)}
+                    title={`See the ${fmtNum(f.count)} leads currently at ${f.label}`}
                     className={`px-3 py-2.5 font-medium text-right whitespace-nowrap cursor-pointer select-none transition hover:text-purple-700 ${
-                      stage?.rank === i ? "text-purple-700 underline" : ""
+                      stage?.status === f.key ? "text-purple-700 underline" : ""
                     }`}
                   >
                     {f.label}
                   </th>
                 ))}
-                {countBy !== "event" && <th className="px-3 py-2.5 font-medium text-right">Disb %</th>}
+                <th className="px-3 py-2.5 font-medium text-right">Disb %</th>
               </tr>
             </thead>
             <tbody>
               {history.length === 0 ? (
-                <tr><td colSpan={funnel.length + (countBy === "event" ? 1 : 2)} className="px-5 py-10 text-center text-gray-400">No activity in this window.</td></tr>
+                <tr><td colSpan={funnel.length + 2} className="px-5 py-10 text-center text-gray-400">No activity in this window.</td></tr>
               ) : history.map((h) => (
                 <tr key={h.date} className="h-[42px] border-b border-gray-50 hover:bg-indigo-50/30">
                   <td className="px-5 font-semibold text-gray-700 whitespace-nowrap">{h.date}</td>
                   {funnel.map((f, i) => (
                     <td key={f.key} className={`px-3 text-right tabular-nums ${i === 0 ? "font-semibold text-gray-800" : "text-gray-600"}`}>
-                      {fmtNum(h[`rank_${i}`])}
+                      {fmtNum(h[f.key])}
                     </td>
                   ))}
-                  {countBy !== "event" && (
-                    <td className="px-3 text-right tabular-nums font-semibold text-emerald-700">{h.disbursed_pct}%</td>
-                  )}
+                  <td className="px-3 text-right tabular-nums font-semibold text-emerald-700">{h.disbursed_pct}%</td>
                 </tr>
               ))}
             </tbody>
