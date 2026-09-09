@@ -6,7 +6,10 @@ import { getUpSwingBankOfferAlerts } from '../../api-services/Modules/UpSwingWeb
 import { useAuth } from '../../custom-hooks/useAuth';
 
 // How often we check the backend for new UpSwing BANK_OFFER_AVAILABLE leads.
-const POLL_MS = 30000;
+// 5 minutes. At 30s these four bells together made ~6 DB-backed calls a minute
+// per open tab, all day, whether or not anyone was looking at them — the bells
+// were quietly the most frequent load on the database in the whole CMS.
+const POLL_MS = 5 * 60 * 1000;
 
 // Who sees this alert: Super Admin (role) + the specific call-center agent(s) by
 // email — same gating as the InCred alert. Everyone else gets no bell.

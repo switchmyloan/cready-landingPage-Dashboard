@@ -15,7 +15,10 @@ import { getRamFinCorpHotLeads } from '../../api-services/Modules/RamFinCorpFunn
 // 'Proceed to bank' is not here on purpose — it is a different BRE outcome and
 // never carries an offeredAmount, so those rows would give an agent nothing to
 // quote. Same rule the funnel's BRE Approved column uses.
-const POLL_MS = 30000;
+// 5 minutes. At 30s these four bells together made ~6 DB-backed calls a minute
+// per open tab, all day, whether or not anyone was looking at them — the bells
+// were quietly the most frequent load on the database in the whole CMS.
+const POLL_MS = 5 * 60 * 1000;
 const WITHIN_HOURS = 24;
 
 const fmtInr = (n) => (n == null ? '' : `₹${Number(n).toLocaleString('en-IN')}`);

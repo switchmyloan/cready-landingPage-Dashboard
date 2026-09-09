@@ -7,7 +7,10 @@ import { useAuth } from '../../custom-hooks/useAuth';
 import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
 
 // How often we check the backend for new InCred-SUCCESS leads.
-const POLL_MS = 30000;
+// 5 minutes. At 30s these four bells together made ~6 DB-backed calls a minute
+// per open tab, all day, whether or not anyone was looking at them — the bells
+// were quietly the most frequent load on the database in the whole CMS.
+const POLL_MS = 5 * 60 * 1000;
 
 // Who sees the InCred success alert: Super Admin (role, sees all) + the specific
 // call-center agent(s) who work InCred leads (by email). Everyone else gets no bell.

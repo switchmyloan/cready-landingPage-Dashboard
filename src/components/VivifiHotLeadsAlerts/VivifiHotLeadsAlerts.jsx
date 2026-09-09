@@ -8,7 +8,10 @@ import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
 import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
 
 // How often we poll the backend for Vivifi leads at a hot status.
-const POLL_MS = 30000;
+// 5 minutes. At 30s these four bells together made ~6 DB-backed calls a minute
+// per open tab, all day, whether or not anyone was looking at them — the bells
+// were quietly the most frequent load on the database in the whole CMS.
+const POLL_MS = 5 * 60 * 1000;
 
 const fmtInr = (n) => (n == null ? '' : `₹${Number(n).toLocaleString('en-IN')}`);
 
