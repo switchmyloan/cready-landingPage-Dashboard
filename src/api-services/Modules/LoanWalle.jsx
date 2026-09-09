@@ -14,9 +14,12 @@ export const getLoanWalleLeads = async ({
   ticket,
   utmMedium,
   partnerName,
+  disbursedOn,
+  disbursedFrom,
+  disbursedTo,
 } = {}) => {
   return Api().get(`/loanwalle/leads`, {
-    params: { search, perPage, currentPage, type, fromDate, toDate, status, ticket, utmMedium, partnerName },
+    params: { search, perPage, currentPage, type, fromDate, toDate, status, ticket, utmMedium, partnerName, disbursedOn, disbursedFrom, disbursedTo },
     skipAdminAppend: true,
   });
 };

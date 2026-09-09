@@ -1,11 +1,29 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Sidebar from "../components/Sidebar/Sidebar";
 import Navbar from "../components/Navbar/Navbar";
 import Breadcrumb from "../components/BreadCrumb/BreadCrumb";
 import BackToTop from "../components/BackToTop";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { cancelPendingRequests } from "../api-services/api";
 
 function DefaultLayout({ children }) {
+  // Abort every in-flight request when the user leaves a module.
+  //
+  // The axios layer already attaches an AbortController to each request and
+  // exports cancelPendingRequests() — but NOTHING was calling it, so a heavy page
+  // the user navigated away from kept its request alive: the browser held the
+  // socket open and the backend kept the query running for an answer nobody was
+  // going to read. Clicking through four modules queued four full workloads.
+  //
+  // Fires on pathname change only. Skipping the first render matters: aborting
+  // there would kill the requests the landing page just started.
+  const { pathname } = useLocation();
+  const firstRender = useRef(true);
+  useEffect(() => {
+    if (firstRender.current) { firstRender.current = false; return; }
+    cancelPendingRequests(`route-change:${pathname}`);
+  }, [pathname]);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false); 
 

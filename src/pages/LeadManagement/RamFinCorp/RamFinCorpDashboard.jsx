@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutDashboard, RefreshCw, Download, Filter, IndianRupee,
 } from "lucide-react";
-import { getRamFinCorpHistory, getRamFinCorpUtmMediums } from "../../../api-services/Modules/RamFinCorpFunnel";
+import { getRamFinCorpHistory, getRamFinCorpUtmMediums, getRamFinCorpDashboardDetail } from "../../../api-services/Modules/RamFinCorpFunnel";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
@@ -122,6 +122,69 @@ const RamFinCorpDashboard = () => {
   const rows = data?.matrix || [];
   const t = data?.totals || {};
 
+  // Shared, descriptive file naming. Every export used to land as
+  // `ramfincorp_dashboard_high.csv` - download a week of them and nothing tells
+  // you which window, which ticket or which medium any of them covered. The
+  // stamp carries all three, and the dates come from the DATA (or the explicit
+  // range), so the name matches what is actually inside even when a preset
+  // resolved the window.
+  const fileStamp = () => {
+    const dates = rows.map((r) => r.date).filter(Boolean).sort();
+    const from = fromDate || dates[0] || "";
+    const to = toDate || dates[dates.length - 1] || "";
+    const ticket = scope === "short" ? "Short-Ticket" : "High-Ticket";
+    const medium = utmMedium ? `_${String(utmMedium).replace(/[^\w-]+/g, "-")}` : "";
+    const span = from && to ? (from === to ? from : `${from}_to_${to}`) : "all-time";
+    return `${ticket}${medium}_${span}`;
+  };
+
+  const downloadCsv = (matrixRows, filename) => {
+    const csv = matrixRows
+      .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  // One row per LEAD rather than per day - same window, same filters, same
+  // definitions (the endpoint reuses the daily report's own CTE, so the detail
+  // rows are literally the ones behind the summary's numbers).
+  const [detailBusy, setDetailBusy] = useState(false);
+  const exportDetail = async () => {
+    setDetailBusy(true);
+    try {
+      const res = await getRamFinCorpDashboardDetail({ scope, utmMedium, ...dateParams });
+      const list = res?.data?.data?.data || [];
+      if (!list.length) return;
+      const head = [
+        "Date", "Name", "Mobile", "Stage",
+        "Dedupe Pass", "Lender Selected", "Offer Received", "Proceed to Bank",
+        "Offer Amount", "Pushed At", "Selected At", "Offer Dispatched At",
+        "UTM Medium", "UTM Source",
+        "RFC Lead ID", "BRE Decision", "BRE Offered Amount", "Outcome", "Reject Remark",
+        "RamFinCorp Lead (raw)",
+      ];
+      const body = list.map((r) => [
+        r.date, r.name, r.mobile, r.stage,
+        r.dedupePass, r.lenderSelected, r.offerReceived, r.proceedToBank,
+        r.offerAmount ?? "", r.pushedAt, r.selectedAt, r.dispatchedAt,
+        r.utmMedium, r.utmSource,
+        r.rfcLeadId ?? "", r.rfcBreDecision ?? "", r.rfcOfferedAmount ?? "",
+        r.rfcOutcome ?? "", r.rfcRejectRemark ?? "",
+        r.ramfincorpLead ?? "",
+      ]);
+      downloadCsv([head, ...body], `RamFinCorp-Dashboard-Detail_${fileStamp()}.csv`);
+    } finally {
+      setDetailBusy(false);
+    }
+  };
+
   const exportCsv = () => {
     const head = [
       "Date", "Dedupe checked", "Dedupe Pass", "Dedupe pass (%)",
@@ -137,17 +200,10 @@ const RamFinCorpDashboard = () => {
       r.proceed_to_bank, `${r.proceed_to_bank_pct}%`,
       Math.round(r.total_offer_amount), Math.round(r.avg_offer_amount),
     ];
-    const csv = [head, ...rows.map(line), [], ["Grand total", ...line(t).slice(1)]]
-      .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
-      .join("\n");
-    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }));
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ramfincorp_dashboard_${scope}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
+    downloadCsv(
+      [head, ...rows.map(line), [], ["Grand total", ...line(t).slice(1)]],
+      `RamFinCorp-Dashboard-Summary_${fileStamp()}.csv`,
+    );
   };
 
   if (firstLoad) {
@@ -181,13 +237,27 @@ const RamFinCorpDashboard = () => {
               against the stage before it.
             </p>
           </div>
-          <button
-            onClick={exportCsv}
-            disabled={!rows.length}
-            className="ml-auto inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 shadow-sm"
-          >
-            <Download size={14} /> Export CSV
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={exportCsv}
+              disabled={!rows.length}
+              title="Daily totals - one row per day"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 disabled:opacity-40 shadow-sm"
+            >
+              <Download size={14} /> Export CSV
+            </button>
+            {/* The summary answers "how many"; this answers "who" - every lead
+                behind those numbers, on the same window and filters. */}
+            <button
+              onClick={exportDetail}
+              disabled={!rows.length || detailBusy}
+              title="Every lead behind these numbers - name, mobile, stage, offer"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[12.5px] font-semibold border border-purple-300 text-purple-700 bg-white hover:bg-purple-50 disabled:opacity-40 shadow-sm"
+            >
+              <Download size={14} className={detailBusy ? "animate-pulse" : ""} />
+              {detailBusy ? "Preparing\u2026" : "Detail Export"}
+            </button>
+          </div>
         </div>
       </div>
 

@@ -76,11 +76,13 @@ import CallCenterFeedback from './pages/LeadManagement/CallCenterFeedback';
 import CustomerFeedback from './pages/LeadManagement/CustomerFeedback/CustomerFeedback';
 import FeedbackChampions from './pages/LeadManagement/FeedbackChampions/FeedbackChampions';
 import RamFinCorpFunnel from './pages/LeadManagement/RamFinCorp/RamFinCorpFunnel';
+import SmartCoinFunnel from './pages/LeadManagement/SmartCoin/SmartCoinFunnel';
 import RamFinCorpDashboard from './pages/LeadManagement/RamFinCorp/RamFinCorpDashboard';
 import LoanWalleLeads from './pages/LeadManagement/LoanWalle/LoanWalleLeads';
 import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
+import VivifiFunnel from './pages/LeadManagement/VivifiWebhook/VivifiFunnel';
 import UpSwingWebhook from './pages/LeadManagement/UpSwing/UpSwingWebhook';
 import UpSwingWebhookDetail from './pages/LeadManagement/UpSwing/UpSwingWebhookDetail';
 import UpSwingFunnel from './pages/LeadManagement/UpSwing/UpSwingFunnel';
@@ -127,6 +129,7 @@ function App() {
             /> */}
             <Route path="vivifi-webhook-leads" element={<VivifiWebhookLeads />} />
             <Route path="vivifi-webhook-leads/:leadId" element={<VivifiWebhookLeadDetail />} />
+            <Route path="vivifi-funnel" element={<VivifiFunnel />} />
             <Route path="upswing-webhook" element={<UpSwingWebhook />} />
             <Route path="upswing-webhook/:id" element={<UpSwingWebhookDetail />} />
             <Route path="upswing-funnel" element={<UpSwingFunnel />} />
@@ -205,6 +208,7 @@ function App() {
 
             {/* RamFinCorp funnel — MIS-based journey funnel + stage drill */}
             <Route path="ramfincorp-funnel" element={<RamFinCorpFunnel />} />
+            <Route path="smartcoin-funnel" element={<SmartCoinFunnel />} />
 
             {/* RF Dashboard — the daily dedupe→offer report in RamFinCorp's own format */}
             <Route path="ramfincorp-dashboard" element={<RamFinCorpDashboard />} />

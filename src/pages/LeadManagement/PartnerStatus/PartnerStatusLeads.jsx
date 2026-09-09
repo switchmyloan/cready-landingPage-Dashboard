@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Network, Users, IndianRupee, CheckCircle2, Search, RefreshCw, X,
-  Phone, Download, ChevronLeft, ChevronRight, Clock,
-} from "lucide-react";
+import { Network, Users, IndianRupee, CheckCircle2, Search, RefreshCw, X, Phone, Download, Clock } from "lucide-react";
 import { getPartnerStatusLeads, getPartnerStatusPartners } from "../../../api-services/Modules/PartnerStatus";
 import PremiumPageLoader from "../../../components/PremiumPageLoader";
 import CompactDateFilter from "../../../components/CompactDateFilter";
+import TablePagination from "../../../components/TablePagination";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
@@ -85,9 +83,13 @@ const DetailModal = ({ row, onClose }) => (
           ["Loan Amount", row.loanAmount != null ? inr(row.loanAmount) : null],
           ["Disbursed Amount", row.disbursedAmount != null ? inr(row.disbursedAmount) : null],
           ["Disbursed Date", row.disbursedDate ? fmtDT(row.disbursedDate) : null],
-          ["Checked At", fmtDT(row.checkedAt)],
-          ["HTTP Status", row.httpStatus],
-          ["Latency", row.latencyMs != null ? `${row.latencyMs} ms` : null],
+          ["Last Checked", fmtDT(row.checkedAt)],
+          ["First Checked", row.firstCheckedAt ? fmtDT(row.firstCheckedAt) : null],
+          ["Status Changed", row.statusChangedAt ? fmtDT(row.statusChangedAt) : null],
+          ["Times Checked", row.checkCount],
+          ["Ticket Type", row.type],
+          ["Medium", row.utmMedium],
+          ["Clicked At", row.clickedAt ? fmtDT(row.clickedAt) : null],
         ].map(([k, v]) => (
           <div key={k}>
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">{k}</p>
@@ -124,8 +126,11 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
   const [status, setStatus] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [disbursedOn, setDisbursedOn] = useState("");
+  const [disbursedFrom, setDisbursedFrom] = useState("");
+  const [disbursedTo, setDisbursedTo] = useState("");
   const [page, setPage] = useState(1);
-  const perPage = 20;
+  const [perPage, setPerPage] = useState(20);
 
   useEffect(() => {
     const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400);
@@ -158,10 +163,13 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
       toDate: fromDate && toDate ? toDate : undefined,
       status: status || undefined,
       search,
+      disbursedOn: disbursedOn || undefined,
+      disbursedFrom: disbursedFrom && disbursedTo ? disbursedFrom : undefined,
+      disbursedTo: disbursedFrom && disbursedTo ? disbursedTo : undefined,
       perPage,
       currentPage: page,
     }),
-    [partner, range, fromDate, toDate, status, search, page],
+    [partner, range, fromDate, toDate, status, search, page, perPage, disbursedOn, disbursedFrom, disbursedTo],
   );
 
   const fetchData = useCallback(async () => {
@@ -186,14 +194,31 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
   const totalPages = data?.pagination?.totalPages || 1;
   const partnerLabel = data?.partner?.label || "";
 
-  const exportCsv = () => {
+  // Same rule as the Leads tab: export the whole FILTERED set, not the current
+  // page. Re-runs the table's own `params` with paging widened to the cap.
+  const [exporting, setExporting] = useState(false);
+
+  const exportCsv = async () => {
+    setExporting(true);
+    let all = rows;
+    try {
+      const res = await getPartnerStatusLeads({ ...params, perPage: 100000, currentPage: 1 });
+      all = res?.data?.data?.data || rows;
+    } catch {
+      /* fall back to what is on screen rather than handing back nothing */
+    } finally {
+      setExporting(false);
+    }
+
     const head = ["PAN", "Name", "Mobile", "Found", "Status Bucket", "Final Status", "Raw Status",
       "Message", "Rejection Reason", "Ineligibility Reason", "External Loan ID",
-      "Loan Amount", "Disbursed Amount", "Disbursed Date", "Checked At", "HTTP Status", "Latency (ms)"];
-    const body = rows.map((r) => [
+      "Loan Amount", "Disbursed Amount", "Disbursed Date", "Last Checked", "First Checked",
+      "Status Changed", "Times Checked", "Ticket Type", "Medium"];
+    const body = all.map((r) => [
       r.pan, r.name, r.mobile, r.found ? "Yes" : "No", r.statusBucket, r.finalStatus, r.rawStatus,
       r.message, r.rejectionReason, r.ineligibilityReason, r.externalLoanId,
-      r.loanAmount ?? "", r.disbursedAmount ?? "", r.disbursedDate ?? "", r.checkedAt, r.httpStatus, r.latencyMs,
+      r.loanAmount ?? "", r.disbursedAmount ?? "", r.disbursedDate ?? "", r.checkedAt,
+      r.firstCheckedAt ?? "", r.statusChangedAt ?? "", r.checkCount ?? "", r.type ?? "", r.utmMedium ?? "",
     ]);
     const csv = [head, ...body]
       .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
@@ -211,7 +236,7 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
       <PremiumPageLoader
         theme="purple"
         title="Loading Partner Status"
-        brandLabel="Lender Status Checks"
+        brandLabel="Partner Lead Status"
         icon={Network}
         phrases={["Reading partner verdicts…", "Resolving customers…", "Grouping by outcome…"]}
         tiles={[{ label: "Checks" }, { label: "Found" }, { label: "Disbursed" }]}
@@ -233,7 +258,7 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
             <div className="min-w-0">
               <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Partner Status</h1>
               <p className="text-[13px] text-gray-500">
-                What each partner says about the leads we sent them — one row per status check.
+                What each partner says about the leads we sent them — the same LoanWalle leads, split by partner.
               </p>
             </div>
           </div>
@@ -263,20 +288,26 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
         ))}
         <button
           onClick={exportCsv}
-          disabled={!rows.length}
+          disabled={!rows.length || exporting}
+          title={`Exports all ${fmtNum(total)} leads matching the current filters`}
           className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 shadow-sm"
         >
-          <Download size={13} /> Export CSV
+          <Download size={13} className={exporting ? "animate-pulse" : ""} />
+          {exporting ? "Preparing…" : `Export CSV (${fmtNum(total)})`}
         </button>
       </div>
       )}
 
       {/* KPIs */}
       <div className="flex flex-wrap gap-3 mb-4">
-        <Kpi icon={<Users size={13} />} label="Status Checks" value={fmtNum(s.total)} sub={`${fmtNum(s.customers)} unique PANs`} tone="border-indigo-200" />
-        <Kpi icon={<CheckCircle2 size={13} />} label="Found at Partner" value={fmtNum(s.foundCount)} sub="matched on their side" tone="border-emerald-200" />
-        <Kpi icon={<IndianRupee size={13} />} label="Disbursed Amount" value={inr(s.disbursedAmount)} sub={`${fmtNum(s.disbursedCount)} disbursed`} tone="border-purple-200" />
+        <Kpi icon={<Users size={13} />} label="Total Leads" value={fmtNum(s.total)} sub={`${fmtNum(s.customers)} unique customers`} tone="border-indigo-200" />
+        <Kpi icon={<CheckCircle2 size={13} />} label="Disbursed" value={fmtNum(s.disbursedCount)} sub="loans disbursed" tone="border-emerald-200" />
+        <Kpi icon={<IndianRupee size={13} />} label="Disbursed Amount" value={inr(s.disbursedAmount)} sub="total paid out" tone="border-purple-200" />
         <Kpi icon={<Clock size={13} />} label="Loan Amount" value={inr(s.loanAmount)} sub="approved / offered" tone="border-amber-200" />
+        {/* Partner-only extra: how many of these PANs the partner could actually
+            match on their side. It is NOT a funnel stage, so it sits after the
+            four shared cards rather than replacing one of them. */}
+        <Kpi icon={<Search size={13} />} label="Found at Partner" value={fmtNum(s.foundCount)} sub="matched on their side" tone="border-sky-200" />
       </div>
 
       {/* Filters */}
@@ -289,6 +320,21 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
           onFromChange={(v) => { setFromDate(v); setPage(1); }}
           onToChange={(v) => { setToDate(v); setPage(1); }}
           onClearRange={() => { setFromDate(""); setToDate(""); setPage(1); }}
+        />
+
+        {/* Second, independent date control. The one above buckets a lead by
+            when it CAME IN; this one by when the money actually went out - a
+            lead clicked in August can disburse in September, so neither filter
+            can answer the other's question. */}
+        <CompactDateFilter
+          label="Disbursed"
+          range={disbursedOn}
+          onRangeChange={(k) => { setDisbursedOn(k); setPage(1); }}
+          fromDate={disbursedFrom}
+          toDate={disbursedTo}
+          onFromChange={(v) => { setDisbursedFrom(v); setPage(1); }}
+          onToChange={(v) => { setDisbursedTo(v); setPage(1); }}
+          onClearRange={() => { setDisbursedFrom(""); setDisbursedTo(""); setPage(1); }}
         />
 
         <div className="relative">
@@ -308,10 +354,12 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
         {pinnedPartner && (
           <button
             onClick={exportCsv}
-            disabled={!rows.length}
+            disabled={!rows.length || exporting}
+            title={`Exports all ${fmtNum(total)} leads matching the current filters`}
             className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold text-white bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 disabled:opacity-40 shadow-sm"
           >
-            <Download size={13} /> Export CSV
+            <Download size={13} className={exporting ? "animate-pulse" : ""} />
+          {exporting ? "Preparing…" : `Export CSV (${fmtNum(total)})`}
           </button>
         )}
       </div>
@@ -336,7 +384,7 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
         <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
           <span className="w-1 h-5 rounded-full bg-indigo-600" />
-          <h2 className="text-[15px] font-bold text-gray-800">{partnerLabel || "Partner"} · Status Checks</h2>
+          <h2 className="text-[15px] font-bold text-gray-800">{partnerLabel || "Partner"} · Leads</h2>
           <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-100">
             {fmtNum(total)} ENTRIES
           </span>
@@ -371,7 +419,7 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
                 <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
               ) : rows.length === 0 ? (
                 <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">
-                  No status checks yet for {partnerLabel || "this partner"}.
+                  No leads yet for {partnerLabel || "this partner"}.
                 </td></tr>
               ) : rows.map((r, i) => (
                 <tr key={`${r.pan}-${i}`} onClick={() => setActive(r)} className="h-[46px] border-b border-gray-50 hover:bg-indigo-50/40 cursor-pointer" title="Open full detail">
@@ -407,13 +455,15 @@ const PartnerStatusLeads = ({ embedded = false, pinnedPartner = '' }) => {
           </table>
         </div>
 
-        <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100">
-          <p className="text-[12px] text-gray-500">{fmtNum(total)} checks · page {page} / {totalPages}</p>
-          <div className="flex items-center gap-1">
-            <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(p - 1, 1))} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-40 hover:bg-gray-50"><ChevronLeft size={15} /></button>
-            <button disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(p + 1, totalPages))} className="p-1.5 rounded-lg border border-gray-200 text-gray-500 disabled:opacity-40 hover:bg-gray-50"><ChevronRight size={15} /></button>
-          </div>
-        </div>
+        <TablePagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={(n) => { setPerPage(n); setPage(1); }}
+          noun="leads"
+        />
       </div>
 
       {active && <DetailModal row={active} onClose={() => setActive(null)} />}

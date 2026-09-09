@@ -6,6 +6,7 @@ import { UserService } from "../../custom-hooks";
 import CallbackReminders from "../CallbackReminders/CallbackReminders";
 import IncredSuccessAlerts from "../IncredSuccessAlerts/IncredSuccessAlerts";
 import UpSwingBankOfferAlerts from "../UpSwingBankOfferAlerts/UpSwingBankOfferAlerts";
+import RamFinCorpOfferAlerts from "../RamFinCorpOfferAlerts/RamFinCorpOfferAlerts";
 import VivifiHotLeadsAlerts from "../VivifiHotLeadsAlerts/VivifiHotLeadsAlerts";
 
 function Navbar({ onToggleSidebar }) {
@@ -113,6 +114,10 @@ function Navbar({ onToggleSidebar }) {
 
         {/* UpSwing bank-offer-available alerts — same pattern, Super Admin + CC2 only */}
         <UpSwingBankOfferAlerts />
+
+        {/* RamFinCorp BRE-approved offers — the lender has already named an
+            amount, so these are the call-worthy leads */}
+        <RamFinCorpOfferAlerts />
 
         {/* Vivifi hot-lead alerts (awaiting VKYC / e-Sign / e-Mandate / loan-chosen) —
             shared across ALL call-center agents + Super Admin */}

@@ -52,7 +52,11 @@ const ShortOfferLeads = () => {
       page_no: 1,
       limit: 10,
       search: '',
-      filter_date: '',
+      // Open on Today. The all-time list is 436k rows nobody scrolls; the working
+      // view is what came in today. The Today chip reads its active state from
+      // this same field, so it lights up on load, and clicking it clears back to
+      // all-time via the toggle in the date-filter handler.
+      filter_date: 'today',
       startDate: null,
       endDate: null,
       minLoanAmount: '',
