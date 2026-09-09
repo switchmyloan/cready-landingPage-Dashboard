@@ -81,6 +81,15 @@ export const getUpSwingFunnelEventDayLeads = async ({ event, type, fromDate, toD
   });
 };
 
+// Leads behind Journey History's "Redirected" column. Its own endpoint because the
+// column is a Cready selectedLenders count (phone-keyed), not a webhook event.
+export const getUpSwingFunnelRedirectedLeads = async ({ type, fromDate, toDate, medium, day } = {}) => {
+  return Api().get(`/upswing-webhook/funnel-redirected-leads`, {
+    params: { type, fromDate, toDate, medium, day },
+    skipAdminAppend: true,
+  });
+};
+
 // Resolve a phone → its UpSwing pci, so the Offer Leads list can open the L&T detail
 // page (same page the alert bell's "i" button opens). Returns { pci } (or null).
 export const getUpSwingPciByPhone = async (phone) => {

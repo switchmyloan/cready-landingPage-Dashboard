@@ -5,7 +5,7 @@ import { Filter, Download, Users, CheckCircle2, XCircle, TrendingDown, Calendar,
 import ToastNotification from '@components/Notification/ToastNotification';
 import ModuleInfoCard from '../../../components/ModuleInfoCard';
 import PremiumLoader from '../../../components/PremiumLoader';
-import { getUpSwingFunnelHistory, getUpSwingFunnelHistoryByEvent, getUpSwingFunnelStageStatus, getUpSwingFunnelStageLeads, getUpSwingFunnelEventDayLeads } from '../../../api-services/Modules/UpSwingWebhook';
+import { getUpSwingFunnelHistory, getUpSwingFunnelHistoryByEvent, getUpSwingFunnelStageStatus, getUpSwingFunnelStageLeads, getUpSwingFunnelEventDayLeads, getUpSwingFunnelRedirectedLeads } from '../../../api-services/Modules/UpSwingWebhook';
 
 const fmtNum = (n) => Number(n || 0).toLocaleString('en-IN');
 const fmtPct = (n) => `${Number(n || 0)}%`;
@@ -331,6 +331,41 @@ const UpSwingFunnel = () => {
     }
   }, [params, isEventDrillable]);
 
+  // Redirected drill. Same modal, its own endpoint: Redirected is counted from
+  // Cready's selectedLenders (LnT clicks), so the webhook drills cannot serve it —
+  // which is why the column used to be a dead number you could not open.
+  const openRedirectedLeads = useCallback(async (day = null) => {
+    const label = 'Redirected';
+    setDrill({ key: 'REDIRECTED', label, day: day || null, byEvent: true });
+    setDrillData(null);
+    setStatusLeads({ status: 'REDIRECTED', label, tone: null, count: null, leads: null, byEvent: true });
+    setStatusLeadsLoading(true);
+    try {
+      const res = await getUpSwingFunnelRedirectedLeads({ ...params, day: day || undefined });
+      if (res?.data?.success) {
+        const d = res.data.data || {};
+        setStatusLeads((prev) => (prev && prev.status === 'REDIRECTED' ? { ...prev, leads: d.leads || [], count: d.count || 0 } : prev));
+      } else ToastNotification.error('Failed to load leads');
+    } catch (err) {
+      console.error(err);
+      ToastNotification.error('Failed to load leads');
+    } finally {
+      setStatusLeadsLoading(false);
+    }
+  }, [params]);
+
+  // One entry point for every stage click, so the three call sites below don't each
+  // have to know which of the three drills a stage belongs to.
+  const isRedirect = useCallback((st) => st?.key === 'REDIRECTED', []);
+  const canDrill = useCallback(
+    (st) => isRedirect(st) || (data?.byEvent ? isEventDrillable(st) : isDrillable(st)),
+    [data, isRedirect, isEventDrillable, isDrillable],
+  );
+  const openStage = useCallback((st, day = null) => {
+    if (isRedirect(st)) return openRedirectedLeads(day);
+    return data?.byEvent ? openEventDayLeads(st, day) : openDrill(st, day);
+  }, [data, isRedirect, openRedirectedLeads, openEventDayLeads, openDrill]);
+
   // Export the drill modal as CSV. In the one-status sub-view → just those leads. In
   // the breakdown view → the ACTUAL leads behind EVERY status (the users inside), one
   // row per lead with its status — fetched fresh (no status = all) so the caller gets
@@ -510,12 +545,12 @@ const UpSwingFunnel = () => {
                     <th className="sticky left-0 z-20 bg-gray-50 text-left px-4 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500 min-w-[120px]">Date</th>
                     <th className="sticky left-[120px] z-20 bg-gray-100 text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-600 min-w-[70px]">Total</th>
                     {data.stages.map((st) => {
-                      const drillable = data?.byEvent ? isEventDrillable(st) : isDrillable(st);
+                      const drillable = canDrill(st);
                       return (
                         <th
                           key={st.key}
                           title={drillable ? (data?.byEvent ? `${st.key} — click to see the leads for this event` : `${st.key} — click to see where these leads are now`) : st.key}
-                          onClick={() => drillable && (data?.byEvent ? openEventDayLeads(st) : openDrill(st))}
+                          onClick={() => drillable && openStage(st)}
                           className={`text-right px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-wide whitespace-nowrap ${st.tone === 'red' ? 'text-rose-600' : st.tone === 'green' ? 'text-emerald-600' : 'text-gray-500'} ${drillable ? 'cursor-pointer hover:text-purple-700 hover:underline underline-offset-2' : ''}`}
                         >
                           {st.label}
@@ -540,13 +575,13 @@ const UpSwingFunnel = () => {
                           const pct = step && v > 0 && fromV > 0 ? (v / fromV) * 100 : null;
                           // Click a non-zero cell → create-day: that day's leads at this
                           // stage now; event-day: the leads who fired this event that day.
-                          const cellDrillable = (data?.byEvent ? isEventDrillable(st) : isDrillable(st)) && v > 0;
+                          const cellDrillable = canDrill(st) && v > 0;
                           return (
                             <td key={st.key} className={`px-3 py-2 text-right text-[12.5px] tabular-nums ${v ? 'text-gray-800 font-medium' : 'text-gray-300'}`}>
                               {cellDrillable ? (
                                 <button
                                   type="button"
-                                  onClick={() => (data?.byEvent ? openEventDayLeads(st, row.date) : openDrill(st, row.date))}
+                                  onClick={() => openStage(st, row.date)}
                                   title={data?.byEvent ? `${st.label} · ${fmtDate(row.date)} — see the leads` : `${st.label} · ${fmtDate(row.date)} — where are these leads now?`}
                                   className="tabular-nums cursor-pointer hover:text-purple-700 hover:underline underline-offset-2"
                                 >
@@ -575,13 +610,13 @@ const UpSwingFunnel = () => {
                       const step = data?.byEvent ? null : RATIO_BY_TO[st.key];
                       const fromTotal = step ? (stageTotal[step.from] || 0) : 0;
                       const pct = step && fromTotal > 0 ? (st.total / fromTotal) * 100 : null;
-                      const drillable = data?.byEvent ? isEventDrillable(st) : isDrillable(st);
+                      const drillable = canDrill(st);
                       return (
                         <td key={st.key} className="px-3 py-2.5 text-right text-[12.5px] font-bold text-gray-800 tabular-nums">
                           {drillable ? (
                             <button
                               type="button"
-                              onClick={() => (data?.byEvent ? openEventDayLeads(st) : openDrill(st))}
+                              onClick={() => openStage(st)}
                               title={data?.byEvent ? 'See the leads for this event' : 'Where are these leads now?'}
                               className="tabular-nums cursor-pointer hover:text-purple-700 hover:underline underline-offset-2"
                             >
@@ -715,14 +750,31 @@ const UpSwingFunnel = () => {
                 ) : (
                   <div className="flex flex-col divide-y divide-gray-100">
                     {statusLeads.leads.map((l) => (
-                      <div key={l.pci} className="flex items-center justify-between py-2 gap-3">
+                      // A Redirected row is a CLICK, and it may have no pci at all
+                      // (L&T only mints one once the journey starts), so pci alone
+                      // is not a unique key here — two clicks would collide on null.
+                      <div key={`${l.pci || ''}|${l.phone || ''}|${l.at}`} className="flex items-center justify-between py-2 gap-3">
                         <div className="min-w-0">
                           {l.phone ? (
                             <a href={`tel:${l.phone}`} onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 font-mono font-bold text-[13px] text-gray-800 hover:text-purple-700 hover:underline" title="Call">
                               <Phone size={11} className="text-indigo-500" /> {l.phone}
                             </a>
                           ) : <span className="text-[12px] text-gray-400">no phone</span>}
-                          <div className="text-[10.5px] text-gray-400 font-mono truncate max-w-[240px]" title={l.pci}>{l.pci}</div>
+                          {/* Name (Redirected rows only — it comes from offerLeads)
+                              above the pci, rather than one instead of the other:
+                              the name says who it is, the pci is what you paste
+                              into L&T. Webhook stages carry no name, so they show
+                              the pci alone exactly as before. */}
+                          {l.name && (
+                            <div className="text-[11px] font-medium text-gray-500 truncate max-w-[280px]" title={l.name}>{l.name}</div>
+                          )}
+                          {l.pci ? (
+                            <div className="text-[10.5px] text-gray-400 font-mono truncate max-w-[280px]" title={l.pci}>{l.pci}</div>
+                          ) : (
+                            // A redirect click has no pci until L&T actually creates
+                            // the journey — say so rather than showing a blank line.
+                            <div className="text-[10.5px] text-gray-300 italic">no pci yet</div>
+                          )}
                         </div>
                         <span className="text-[11px] text-gray-500 shrink-0 whitespace-nowrap">{l.at}</span>
                       </div>

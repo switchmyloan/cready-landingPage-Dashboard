@@ -28,7 +28,9 @@ import {
   Tooltip,
 } from "recharts";
 
-import { getCreadyRpm, getCreadyRpmAfPaidTrend, getCreadyRpmExternalStats } from "../../../api-services/Modules/Leads";
+import { getCreadyRpm, getCreadyRpmAfPaidTrend, getCreadyRpmExternalStats,
+  getCreadyRpmDistinctMediums,
+} from "../../../api-services/Modules/Leads";
 import { shortUserTrackColumn } from "../../../components/TableHeader";
 import ToastNotification from "../../../components/Notification/ToastNotification";
 import ExportModal from "../../../components/ExportModal";
@@ -637,6 +639,9 @@ const FilterBar = ({
   stage,
   onStageChange,
   stageCounts,
+  medium,
+  onMediumChange,
+  mediumOptions,
   onRefresh,
   onClearAll,
   hasFilters,
@@ -826,6 +831,29 @@ const FilterBar = ({
           </div>
         </div>
 
+        {/* Medium.
+            Every row here is rapidmoney by definition — that is what the page
+            filters on — so a medium built from the newest row would say the same
+            thing on every line. This matches against EVERY medium the phone came
+            through, which is the useful question: of our RapidMoney users, who
+            also arrived via ramfincorp, rupinow, moneydot and so on. */}
+        <div className="w-[150px] shrink-0">
+          <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
+            Medium
+          </label>
+          <select
+            value={medium || ""}
+            onChange={(e) => onMediumChange(e.target.value)}
+            className="w-full px-2 py-1.5 rounded-md border border-gray-300 text-xs bg-white focus:outline-none focus:ring-1 focus:ring-purple-400"
+            title="Also came through this medium"
+          >
+            <option value="">All Mediums</option>
+            {(mediumOptions || []).map((m) => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+
         {/* Inline actions — Refresh + Clear */}
         <div className="flex items-center gap-1.5 shrink-0">
           <button
@@ -901,6 +929,7 @@ const CreadyRpm = () => {
     startDate: null,
     endDate: null,
     stage: "",
+    medium: "",
   };
 
   const [query, setQuery] = useState(() =>
@@ -918,6 +947,18 @@ const CreadyRpm = () => {
       // sessionStorage can throw in private-mode browsers; silently ignore.
     }
   }, [query]);
+
+  // Medium dropdown options — the mediums these RapidMoney users ALSO came
+  // through. Loaded once; the backend caches it for an hour because the answer
+  // changes when a new lender appears, not minute to minute.
+  const [mediumOptions, setMediumOptions] = useState([]);
+  useEffect(() => {
+    let alive = true;
+    getCreadyRpmDistinctMediums()
+      .then((res) => { if (alive) setMediumOptions(res?.data?.data || []); })
+      .catch(() => { if (alive) setMediumOptions([]); });
+    return () => { alive = false; };
+  }, []);
 
   const [summary, setSummary] = useState({
     total: 0,
@@ -965,6 +1006,7 @@ const CreadyRpm = () => {
         currentPage: query.page_no,
         search: query.search,
         stage: query.stage || undefined,
+        medium: query.medium || undefined,
       });
 
       if (res?.data?.success) {
@@ -992,6 +1034,7 @@ const CreadyRpm = () => {
     query.page_no,
     query.search,
     query.stage,
+    query.medium,
   ]);
 
   useEffect(() => {
@@ -1047,6 +1090,11 @@ const CreadyRpm = () => {
       })),
     [],
   );
+  const onMediumChange = useCallback(
+    (v) => setQuery((prev) => ({ ...prev, medium: v, page_no: 1 })),
+    [],
+  );
+
   const onClearAll = useCallback(
     () =>
       setQuery((prev) => ({
@@ -1057,6 +1105,7 @@ const CreadyRpm = () => {
         startDate: null,
         endDate: null,
         stage: "",
+        medium: "",
       })),
     [],
   );
@@ -1066,7 +1115,8 @@ const CreadyRpm = () => {
     query.filter_date ||
     query.startDate ||
     query.endDate ||
-    query.stage
+    query.stage ||
+    query.medium
   );
 
   const handleView = (row) => {
@@ -1139,7 +1189,7 @@ const CreadyRpm = () => {
   };
 
   const columns = useMemo(
-    () => shortUserTrackColumn({ handleEdit: handleView }),
+    () => shortUserTrackColumn({ handleEdit: handleView, showMedium: true }),
     [],
   );
 
@@ -1201,6 +1251,9 @@ const CreadyRpm = () => {
         stage={query.stage}
         onStageChange={onStageChange}
         stageCounts={summary}
+        medium={query.medium}
+        onMediumChange={onMediumChange}
+        mediumOptions={mediumOptions}
         onRefresh={fetchUsers}
         onClearAll={onClearAll}
         hasFilters={hasFilters}

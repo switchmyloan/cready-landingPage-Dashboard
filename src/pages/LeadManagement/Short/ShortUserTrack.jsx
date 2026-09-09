@@ -6,6 +6,7 @@ import {
   UserX,
   ShieldCheck,
   FileCheck,
+  FileX,
   MousePointerClick,
   Search,
   RefreshCw,
@@ -53,8 +54,18 @@ const STAGES = [
     color: "amber",
   },
   {
-    key: "form_submitted",
+    // Everyone who never submitted, whatever else they did — landed_only plus
+    // OTP-verified-pending in one chip. It deliberately OVERLAPS those two rather
+    // than being another step between them, because "who do we still need to chase
+    // for the form" is the question being asked, and that answer spans both.
+    key: "form_not_submitted",
     label: "Form Not Submitted",
+    Icon: FileX,
+    color: "rose",
+  },
+  {
+    key: "form_submitted",
+    label: "Form Submitted",
     Icon: FileCheck,
     color: "purple",
   },
@@ -112,6 +123,12 @@ const COLOR_MAP = {
     pillActive: "bg-teal-600 text-white",
     pillIdle: "border-teal-200 text-teal-700 hover:bg-teal-50",
   },
+  rose: {
+    iconBg: "bg-rose-100",
+    iconText: "text-rose-600",
+    pillActive: "bg-rose-600 text-white",
+    pillIdle: "border-rose-200 text-rose-700 hover:bg-rose-50",
+  },
   slate: {
     iconBg: "bg-slate-100",
     iconText: "text-slate-600",
@@ -128,6 +145,7 @@ const STAT_GRAD = {
   green: "from-emerald-500 to-green-500",
   emerald: "from-emerald-500 to-teal-500",
   teal: "from-teal-500 to-cyan-500",
+  rose: "from-rose-500 to-pink-500",
   slate: "from-slate-400 to-slate-500",
 };
 
@@ -142,6 +160,11 @@ const StatCards = ({ summary, loading }) => {
   const total = summary.total || 0;
   const otp = summary.otp_verified || 0;
   const form = summary.form_submitted || 0;
+  // No landedOnly/notSubmitted pair here by accident: "Form Not Submitted" is a
+  // filter, not a funnel step — it spans Landed Only + OTP Pending, so it lives on
+  // the chip row (which reads the summary directly) and NOT in the cards, where it
+  // would stop the row adding up to Landed.
+  const landedOnly = summary.landed_only || 0;
   const lender = summary.lender_clicked || 0;
   const disbursed = summary.disbursed || 0;
   const disbursedAmt = summary.disbursed_amount || 0;
@@ -164,6 +187,17 @@ const StatCards = ({ summary, loading }) => {
       pct: 100,
     },
     {
+      // Funnel order, and a partition: these four add up to Landed exactly.
+      // Landed Only had no card at all, which is why the row never reconciled
+      // even before Form Not Submitted existed.
+      key: "landed_only",
+      label: "Landed Only",
+      value: landedOnly,
+      Icon: UserX,
+      color: "slate",
+      pct: pct(landedOnly),
+    },
+    {
       key: "otp",
       label: "OTP Verified Pending",
       value: otp,
@@ -173,7 +207,7 @@ const StatCards = ({ summary, loading }) => {
     },
     {
       key: "form_submitted",
-      label: "Form Not Submitted",
+      label: "Form Submitted",
       value: form,
       Icon: FileCheck,
       color: "purple",

@@ -2388,7 +2388,10 @@ export const lendingUserJourneyColumn = ({ handleEdit }) => [
 // keys (first_name, last_name, phone, email, first_seen_at,
 // has_otp_verified, otp_verified_at) since the short backend exposes them
 // identically.
-export const shortUserTrackColumn = ({ handleEdit }) => [
+// showMedium is opt-in because this column set is shared by three pages (Cready
+// RPM, Short User Track, Vyapar User Track) and only RPM asked for it — adding it
+// unconditionally would widen two tables nobody asked to change.
+export const shortUserTrackColumn = ({ handleEdit, showMedium = false }) => [
   {
     header: 'SN',
     id: 'sn',
@@ -2462,6 +2465,37 @@ export const shortUserTrackColumn = ({ handleEdit }) => [
       />
     ),
   },
+  // Every medium this phone arrived through, not just the latest one. On the RPM
+  // page every row is rapidmoney by definition (that is what the page filters on),
+  // so rapidmoney is drawn muted and the OTHER mediums are highlighted — those are
+  // the ones that actually tell you where the user came from.
+  ...(showMedium ? [{
+    header: 'Medium',
+    id: 'all-mediums',
+    enableSorting: false,
+    cell: ({ row }) => {
+      const list = row.original.all_mediums || [];
+      if (!list.length) return <span className="text-[11px] text-gray-300">—</span>;
+      const others = list.filter((m) => m !== 'rapidmoney');
+      const ordered = [...others, ...list.filter((m) => m === 'rapidmoney')];
+      return (
+        <div className="flex flex-wrap gap-1 max-w-[220px]">
+          {ordered.map((m) => (
+            <span
+              key={m}
+              className={`px-1.5 py-0.5 rounded text-[10.5px] font-medium whitespace-nowrap ${
+                m === 'rapidmoney'
+                  ? 'bg-gray-100 text-gray-500'
+                  : 'bg-purple-50 text-purple-700 border border-purple-100'
+              }`}
+            >
+              {m}
+            </span>
+          ))}
+        </div>
+      );
+    },
+  }] : []),
   {
     header: 'Action',
     id: 'actions-short-user-track',
