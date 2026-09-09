@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toaster } from "react-hot-toast";
 import {
   Scale, TrendingUp, TrendingDown, Calendar, RefreshCw, Download,
-  IndianRupee, Layers, Gauge, HelpCircle, ArrowUp, ArrowDown, Minus,
+  IndianRupee, Layers, Gauge, HelpCircle, ArrowUp, ArrowDown, Minus, Loader2,
 } from "lucide-react";
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -105,12 +105,15 @@ const Comparison = () => {
 
   const exportLenders = () => {
     if (!data?.byLender?.length) return;
-    const head = ["Lender", "Status", "Cur Count", "Cur Amount", "Cur Share %", "Cur Rank", "Prior Count", "Prior Amount", "Prior Share %", "Prior Rank", "Amount Δ", "Amount Δ%", "Share Δpp", "Rank Δ", "Low Base"];
+    const head = ["Lender", "Status", "Cur Count", "Cur Amount", "Cur Share %", "Cur Rank", "Prior Count", "Prior Amount", "Prior Share %", "Prior Rank", "Amount Δ", "Amount Δ%", "Share Δpp", "Rank Δ", "Low Base",
+      "Pace Proj Amount", "Pace Proj Count", "Prior Full Amount", "Prior Full Count", "Pace Δ% (amount)", "Pace Low Base"];
     const lines = [head.map(csvEscape).join(",")];
     data.byLender.forEach((r) => lines.push([
       r.lender, r.status, r.current.count, r.current.amount, r.current.shareAmtPct, r.current.rank,
       r.prior.count, r.prior.amount, r.prior.shareAmtPct, r.prior.rank,
       r.amountAbs, r.amountPct === null ? "" : r.amountPct, r.shareAmtDeltaPp, r.rankDelta === null ? "" : r.rankDelta, r.lowBase,
+      r.pace?.projectedAmount ?? "", r.pace?.projectedCount ?? "", r.pace?.priorFullAmount ?? "", r.pace?.priorFullCount ?? "",
+      r.pace?.amountPct === null || r.pace?.amountPct === undefined ? "" : r.pace.amountPct, r.pace?.lowBase ?? "",
     ].map(csvEscape).join(",")));
     const blob = new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
@@ -152,8 +155,9 @@ const Comparison = () => {
       <div className="flex flex-wrap items-center gap-2 bg-white border border-gray-200 rounded-xl px-4 py-3 mb-3 shadow-sm">
         <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide mr-1"><Layers size={13} className="inline mb-0.5" /> Scope:</span>
         {SCOPES.map((s) => (
-          <button key={s.key} onClick={() => setScope(s.key)}
-            className={`px-3 py-1.5 rounded-full border text-xs font-semibold transition ${scope === s.key ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300"}`}>
+          <button key={s.key} onClick={() => setScope(s.key)} disabled={loading}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition disabled:cursor-wait ${scope === s.key ? "bg-indigo-600 border-indigo-600 text-white" : "bg-white border-gray-200 text-gray-600 hover:border-indigo-300 disabled:opacity-50"}`}>
+            {loading && scope === s.key && <Loader2 size={12} className="animate-spin" />}
             {s.label}
           </button>
         ))}
@@ -170,6 +174,21 @@ const Comparison = () => {
         </button>
       </div>
 
+      {/* Refetch (e.g. switching High ↔ Short Ticket) keeps the current view on
+          screen, dims it, and floats a labelled spinner — no blank flash, and the
+          page stays scrollable while the new scope loads. */}
+      <div className="relative">
+        {loading && data && (
+          <div className="pointer-events-none absolute inset-x-0 top-2 z-20 flex justify-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white px-3.5 py-1.5 shadow-md">
+              <Loader2 size={14} className="animate-spin text-indigo-600" />
+              <span className="text-[12px] font-semibold text-gray-700">
+                Loading {SCOPES.find((x) => x.key === scope)?.label}…
+              </span>
+            </span>
+          </div>
+        )}
+        <div className={`transition-opacity duration-200 ${loading && data ? "opacity-40" : "opacity-100"}`}>
       {loading && !data ? (
         <div className="py-20"><PremiumLoader size="md" label="Building comparison…" /></div>
       ) : data?.empty ? (
@@ -245,6 +264,10 @@ const Comparison = () => {
                     <th className="text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-indigo-600">Cur Amount</th>
                     <th className="text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Prior</th>
                     <th className="text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Δ Amount</th>
+                    <th className="text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-amber-600 whitespace-nowrap"
+                      title="Projected full month at the current run-rate (lender's current amount ÷ elapsed days × month length), vs that lender's prior FULL month.">
+                      Pace (proj. full month)
+                    </th>
                     <th className="text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Share (Δpp)</th>
                     <th className="text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Rank</th>
                     <th className="text-right px-3 py-2.5 text-[11px] font-bold uppercase tracking-wide text-gray-500">Cur / Prior Count</th>
@@ -260,6 +283,18 @@ const Comparison = () => {
                         {lenderMode === "pct"
                           ? (r.amountPct === null ? <span className="text-[11px] text-gray-400" title="prior base below minimum">low base</span> : <Delta pct={r.amountPct} />)
                           : <span className={`font-semibold ${r.amountAbs >= 0 ? "text-emerald-700" : "text-rose-700"}`}>{r.amountAbs >= 0 ? "+" : ""}{fmtInr(r.amountAbs)}</span>}
+                      </td>
+                      {/* Pace — projected full month for this lender vs its prior full month */}
+                      <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                        <span className="font-semibold text-gray-900">{fmtInr(r.pace?.projectedAmount)}</span>
+                        <span className="block text-[10px] text-gray-400 leading-tight">
+                          vs {fmtInr(r.pace?.priorFullAmount)}{" "}
+                          {r.pace?.amountPct === null || r.pace?.amountPct === undefined
+                            ? <span title="prior full month below the minimum base">· low base</span>
+                            : <span className={`font-semibold ${r.pace.amountPct >= 0 ? "text-emerald-600" : "text-rose-600"}`}>
+                                · {r.pace.amountPct >= 0 ? "+" : ""}{r.pace.amountPct}%
+                              </span>}
+                        </span>
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums text-gray-700 whitespace-nowrap">
                         {r.current.shareAmtPct}% <span className={`text-[10px] font-semibold ${r.shareAmtDeltaPp >= 0 ? "text-emerald-600" : "text-rose-600"}`}>({r.shareAmtDeltaPp >= 0 ? "+" : ""}{r.shareAmtDeltaPp})</span>
@@ -278,7 +313,9 @@ const Comparison = () => {
             </div>
             <p className="px-4 py-2.5 text-[11px] text-gray-400 border-t border-gray-100">
               Amount = Σ disb_amt (reconciles with the Disbursal Dashboard). Share = of current-window amount; Δpp = share change vs prior.
-              Rank by amount (▲ = moved up). <b>low base</b> = prior disbursals below the minimum for a reliable %.
+              Rank by amount (▲ = moved up). <b>Pace</b> = this lender projected to the full month at its current run-rate
+              (current ÷ elapsed days × month length), compared with the same lender's prior <i>full</i> month.
+              <b> low base</b> = prior disbursals below the minimum for a reliable %.
               <span className="text-emerald-700 font-semibold"> new</span>/<span className="text-rose-700 font-semibold">churned</span> = present in only one window.
             </p>
           </div>
@@ -292,6 +329,8 @@ const Comparison = () => {
           </div>
         </>
       )}
+        </div>
+      </div>
     </div>
   );
 };

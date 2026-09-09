@@ -73,6 +73,17 @@ export const routes = [
     order: 1,
     roles: ["super-admin"],
   },
+  // Click-side twin of Disbursal Comparison — scaffold; metrics TBD.
+  {
+    path: "/selected-lenders-comparison",
+    label: "Selected Lenders Comparison",
+    icon: "Building2",
+    showInSidebar: true,
+    group: "Comparison",
+    groupOrder: 0.5,
+    order: 2,
+    roles: ["super-admin"],
+  },
   // Standalone module (no group) — call-center feedback: funnel + agent activity +
   // records, all under one entry (two tabs inside) so the sidebar stays uncluttered.
   {

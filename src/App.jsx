@@ -90,6 +90,7 @@ import ApolloWebhookDetail from './pages/LeadManagement/Apollo/ApolloWebhookDeta
 import ApolloFunnel from './pages/LeadManagement/Apollo/ApolloFunnel';
 import ThreeNOneAnalysis from './pages/LeadManagement/ThreeNOne/ThreeNOneAnalysis';
 import Comparison from './pages/Comparison/Comparison';
+import SelectedLendersComparison from './pages/Comparison/SelectedLendersComparison';
 import RouteChangeAborter from './components/RouteChangeAborter';
 
 function App() {
@@ -135,6 +136,7 @@ function App() {
             <Route path="apollo-funnel" element={<ApolloFunnel />} />
             <Route path="3n1-page" element={<ThreeNOneAnalysis />} />
             <Route path="comparison" element={<Comparison />} />
+            <Route path="selected-lenders-comparison" element={<SelectedLendersComparison />} />
             <Route path="kb-mumbai-success-leads" element={<KBMumbai />} />
             <Route path="kb-mumbai-success-leads/:id" element={<KBMumbaiDetail />} />
             <Route path="kb-banglore-success-leads" element={<KBBanglore />} />
