@@ -33,7 +33,7 @@ const lenderKey = (s) => String(s || '').toLowerCase().trim();
 const VyaparSelectedLenders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canExport = ["super-admin", "vyapar-page-admin"].includes(user?.role);
+  const canExport = ["super-admin", "vyapar-page-admin", "dev"].includes(user?.role);
   // Segmented call-center roles: force the lead's income/loan band (matched to
   // vyaparOfferLeads by phone in the backend).
   const salaryBand = getSalaryBand(user?.role);

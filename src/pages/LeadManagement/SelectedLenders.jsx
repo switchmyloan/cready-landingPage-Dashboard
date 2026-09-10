@@ -52,7 +52,7 @@ const isRapidMoney = (name) => {
 const SelectedLenders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canExport = ["super-admin", "mv-page-admin"].includes(user?.role);
+  const canExport = ["super-admin", "mv-page-admin", "dev"].includes(user?.role);
   // Segmented call-center roles: force the lead's income/loan band on every fetch
   // (the backend matches each selected-lender row to its offerLeads by phone).
   const salaryBand = getSalaryBand(user?.role);

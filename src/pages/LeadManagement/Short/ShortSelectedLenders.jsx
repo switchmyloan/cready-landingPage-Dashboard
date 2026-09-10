@@ -33,7 +33,7 @@ const lenderKey = (s) => String(s || '').toLowerCase().trim();
 const ShortSelectedLenders = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canExport = ["super-admin", "short-page-admin"].includes(user?.role);
+  const canExport = ["super-admin", "short-page-admin", "dev"].includes(user?.role);
   // Segmented call-center roles: force the lead's income/loan band (matched to
   // shortOfferLeads by phone in the backend).
   const salaryBand = getSalaryBand(user?.role);

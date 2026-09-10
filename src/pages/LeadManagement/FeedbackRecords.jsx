@@ -47,7 +47,7 @@ const keyOf = (r) => `${r.scope}:${r.phone}`;
 
 const FeedbackRecords = ({ embedded = false, agent, minMonthlyIncome, maxMonthlyIncome, minLoanAmount }) => {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'super-admin';
+  const isSuperAdmin = ['super-admin', 'dev'].includes(user?.role);
   const [exporting, setExporting] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
   // High ticket is the team's primary book — open on it instead of the blended

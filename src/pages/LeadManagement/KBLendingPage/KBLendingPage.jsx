@@ -27,7 +27,7 @@ const CARD_STATUS_MAP = { total: '', success: 'success', reject: 'rejected', dup
 const KBLendingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canExport = ["super-admin", "mv-page-admin"].includes(user?.role);
+  const canExport = ["super-admin", "mv-page-admin", "dev"].includes(user?.role);
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filteredCount, setFilteredCount] = useState(0);

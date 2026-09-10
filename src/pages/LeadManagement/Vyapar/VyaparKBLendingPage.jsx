@@ -26,7 +26,7 @@ const CARD_STATUS_MAP = { total: '', success: 'success', reject: 'rejected', dup
 const VyaparKBLendingPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canExport = ["super-admin", "vyapar-page-admin"].includes(user?.role);
+  const canExport = ["super-admin", "vyapar-page-admin", "dev"].includes(user?.role);
   const [rawData, setRawData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [filteredCount, setFilteredCount] = useState(0);

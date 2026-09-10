@@ -68,7 +68,7 @@ const loadPersistedState = () => {
 const OfferLeads = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canExport = ["super-admin", "mv-page-admin"].includes(user?.role);
+  const canExport = ["super-admin", "mv-page-admin", "dev"].includes(user?.role);
   // Call-center pool member → the list is filtered to leads PERSISTENTLY assigned
   // to this agent (backend lead_assignments). So for pooled agents we DROP the
   // salary band (assignment is the sole divider); non-pooled call-center accounts
@@ -78,7 +78,7 @@ const OfferLeads = () => {
   const canSeeHotLeads = useMemo(() => {
     const role = String(user?.role || '').toLowerCase();
     const email = String(user?.email || '').trim().toLowerCase();
-    return role === 'super-admin' || HOT_LEADS_ALLOWED_EMAILS.includes(email);
+    return role === 'super-admin' || role === 'dev' || HOT_LEADS_ALLOWED_EMAILS.includes(email);
   }, [user]);
   const salaryBand = agentId ? null : getSalaryBand(user?.role);
   // Call-center agents don't work disbursement, so hide that filter for them.

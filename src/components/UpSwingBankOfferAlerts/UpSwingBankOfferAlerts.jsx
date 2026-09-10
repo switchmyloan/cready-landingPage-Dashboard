@@ -98,7 +98,7 @@ const UpSwingBankOfferAlerts = () => {
   const canSee = useMemo(() => {
     const role = String(user?.role || '').toLowerCase();
     const email = String(user?.email || '').trim().toLowerCase();
-    return role === 'super-admin' || ALERT_EMAILS.includes(email);
+    return role === 'super-admin' || role === 'dev' || ALERT_EMAILS.includes(email);
   }, [user]);
 
   const poll = useCallback(async () => {

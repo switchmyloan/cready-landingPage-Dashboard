@@ -140,7 +140,7 @@ const FF_SOURCES = ['google', 'google_ads'];
 
 const FollowupFunnel = ({ embedded = false, agent, minMonthlyIncome, maxMonthlyIncome, minLoanAmount }) => {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'super-admin';
+  const isSuperAdmin = ['super-admin', 'dev'].includes(user?.role);
   // High ticket is the team's primary book — open on it instead of the blended
   // all-scope view. Both tabs default the same way so switching doesn't reset it.
   const [scope, setScope] = useState('high');

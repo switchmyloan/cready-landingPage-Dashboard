@@ -91,7 +91,7 @@ const IncredSuccessAlerts = () => {
   const canSee = useMemo(() => {
     const role = String(user?.role || '').toLowerCase();
     const email = String(user?.email || '').trim().toLowerCase();
-    return role === 'super-admin' || INCRED_ALERT_EMAILS.includes(email);
+    return role === 'super-admin' || role === 'dev' || INCRED_ALERT_EMAILS.includes(email);
   }, [user]);
 
   // If the agent changes (different agent logs in), re-seed so we don't blast the

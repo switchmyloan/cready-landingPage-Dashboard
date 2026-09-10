@@ -27,7 +27,7 @@ const debounce = (func, delay) => {
 const VyaparOfferLeads = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canExport = ["super-admin", "vyapar-page-admin"].includes(user?.role);
+  const canExport = ["super-admin", "vyapar-page-admin", "dev"].includes(user?.role);
   // Pooled call-center agent → list filtered to their assigned leads (backend
   // lead_assignments), so drop the salary band. Non-pooled accounts keep it.
   const agentId = useMemo(() => getCallCenterAgentId(user), [user]);

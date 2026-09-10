@@ -55,7 +55,7 @@ export default function RamFinCorpOfferAlerts() {
   // because they are the ones who act on it.
   const canSee = useMemo(() => {
     const role = String(user?.role || '').toLowerCase();
-    return role === 'super-admin' || role === 'management' || role === 'mv-page-admin'
+    return role === 'super-admin' || role === 'dev' || role === 'management' || role === 'mv-page-admin'
       || isCallCenterRole(user?.role);
   }, [user]);
 

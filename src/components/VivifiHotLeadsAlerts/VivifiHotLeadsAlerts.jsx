@@ -85,7 +85,7 @@ const VivifiHotLeadsAlerts = () => {
 
   const canSee = useMemo(() => {
     const role = String(user?.role || '').toLowerCase();
-    return role === 'super-admin' || isCallCenterRole(user?.role);
+    return role === 'super-admin' || role === 'dev' || isCallCenterRole(user?.role);
   }, [user]);
   // Per-agent scope: a pooled call-center agent only gets THEIR assigned leads'
   // hot statuses; Super Admin (no agentId) gets all.
