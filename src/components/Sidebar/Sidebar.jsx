@@ -434,9 +434,9 @@ function Sidebar({ onClose, collapsed, onToggleCollapse }) {
       {/* ─── BACKGROUND LAYERS — light premium, blends with white content ─── */}
       <div className="absolute inset-0 bg-gradient-to-b from-white via-purple-50/40 to-white" />
       {/* Soft purple aurora blobs — low opacity so the surface stays bright */}
-      <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-purple-300/25 blur-3xl animate-pulse" style={{ animationDuration: '6s' }} />
-      <div className="pointer-events-none absolute top-1/3 -right-20 w-56 h-56 rounded-full bg-indigo-300/20 blur-3xl animate-pulse" style={{ animationDuration: '8s', animationDelay: '1s' }} />
-      <div className="pointer-events-none absolute -bottom-24 left-1/4 w-64 h-64 rounded-full bg-violet-300/20 blur-3xl animate-pulse" style={{ animationDuration: '7s', animationDelay: '2s' }} />
+      <div className="pointer-events-none absolute -top-24 -left-16 w-64 h-64 rounded-full bg-purple-300/25 blur-3xl" />
+      <div className="pointer-events-none absolute top-1/3 -right-20 w-56 h-56 rounded-full bg-indigo-300/20 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 left-1/4 w-64 h-64 rounded-full bg-violet-300/20 blur-3xl" />
       {/* Right edge — gradient border that meets the content nicely */}
       <div className="absolute top-0 right-0 bottom-0 w-px bg-gradient-to-b from-transparent via-purple-200 to-transparent" />
 
@@ -444,16 +444,13 @@ function Sidebar({ onClose, collapsed, onToggleCollapse }) {
       <div className="relative px-3 pt-4 pb-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center gap-2.5 min-w-0">
-            {/* Animated logo lockup */}
+            {/* Logo lockup — static.
+                Two animations used to run behind it forever: a pulsing purple
+                glow and a conic gradient spinning on a 4s loop. Both sat in the
+                corner of every screen, on every page, all day. Movement in the
+                periphery is a permanent low-level distraction when it never means
+                anything, and it kept a compositor layer repainting for decoration. */}
             <div className="relative flex-shrink-0">
-              <span className="absolute inset-0 rounded-xl bg-purple-400/30 blur-md animate-pulse" style={{ animationDuration: '3s' }} />
-              <span
-                className="absolute -inset-0.5 rounded-xl opacity-60 blur-[1px]"
-                style={{
-                  background: 'conic-gradient(from 0deg, transparent 0%, #a855f7 25%, #6366f1 50%, transparent 75%)',
-                  animation: 'spin 4s linear infinite',
-                }}
-              />
               <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 via-violet-600 to-indigo-700 flex items-center justify-center shadow-lg shadow-purple-500/40 ring-1 ring-white/30">
                 <span className="text-white text-[15px] font-black tracking-tight drop-shadow">C</span>
                 <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow ring-2 ring-white">

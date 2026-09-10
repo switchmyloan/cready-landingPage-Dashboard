@@ -11,6 +11,8 @@ import {
   Search,
   RefreshCw,
   X,
+  SlidersHorizontal,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
@@ -137,18 +139,6 @@ const COLOR_MAP = {
   },
 };
 
-// Gradient tokens for the premium stat cards (icon chip, top accent, progress bar).
-const STAT_GRAD = {
-  blue: "from-blue-500 to-indigo-500",
-  amber: "from-amber-500 to-orange-500",
-  purple: "from-purple-500 to-fuchsia-500",
-  green: "from-emerald-500 to-green-500",
-  emerald: "from-emerald-500 to-teal-500",
-  teal: "from-teal-500 to-cyan-500",
-  rose: "from-rose-500 to-pink-500",
-  slate: "from-slate-400 to-slate-500",
-};
-
 // Hardcoded source baseline — same approach as the regular User Track /
 // Disbursal Dashboard. Mediums come from the DB (getShortDistinctMediums).
 const SOURCE_OPTIONS = [
@@ -180,7 +170,7 @@ const StatCards = ({ summary, loading }) => {
   const cards = [
     {
       key: "total",
-      label: "Landed (All Users)",
+      label: "Landed",
       value: total,
       Icon: Users,
       color: "blue",
@@ -199,7 +189,7 @@ const StatCards = ({ summary, loading }) => {
     },
     {
       key: "otp",
-      label: "OTP Verified Pending",
+      label: "OTP Pending",
       value: otp,
       Icon: ShieldCheck,
       color: "amber",
@@ -238,7 +228,7 @@ const StatCards = ({ summary, loading }) => {
       // to a lender, how many ended up disbursed. A rate, not a count — so it
       // renders its own value/sub-line instead of the shared "% of landed" one.
       key: "click_to_disbursal",
-      label: "Click → Disbursal",
+      label: "Click → Disb.",
       value: disbursed,
       display: lender ? `${Math.round((disbursed / lender) * 1000) / 10}%` : "—",
       subText: lender
@@ -252,7 +242,7 @@ const StatCards = ({ summary, loading }) => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
         {cards.map((_, i) => (
           <div
             key={i}
@@ -268,62 +258,50 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3 mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
       {cards.map(({ key, label, Icon, color, value, pct, note, hint, display, subText }) => {
-        const grad = STAT_GRAD[color] || STAT_GRAD.slate;
+        const tint = COLOR_MAP[color] || COLOR_MAP.slate;
         return (
           <div
             key={key}
             title={hint || undefined}
-            className="relative bg-white rounded-xl border border-gray-200/80 p-4 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all overflow-hidden"
+            className="bg-white rounded-xl border border-gray-200 p-3 flex flex-col shadow-sm hover:shadow-md transition-shadow"
           >
-            {/* Top accent stripe */}
-            <span className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${grad}`} />
-
+            {/* Label on a FIXED two-line box.
+                Some labels wrap ("Form Submitted") and some don't ("Landed"), so
+                without a reserved height every number sat at a different height
+                across the row and the whole strip looked crooked. */}
             <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 truncate">
-                  {label}
-                  {hint && <span className="ml-1 text-gray-300 cursor-help">ⓘ</span>}
-                </p>
-                <p className="mt-1 text-[26px] font-extrabold text-gray-900 leading-none tabular-nums">
-                  {display ?? value.toLocaleString("en-IN")}
-                </p>
-              </div>
-              <div
-                className={`w-10 h-10 rounded-xl bg-gradient-to-br ${grad} grid place-items-center text-white shrink-0 shadow-sm`}
-              >
-                <Icon size={19} />
-              </div>
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400 leading-tight min-h-[24px]">
+                {label}
+                {hint && <span className="ml-1 text-gray-300 cursor-help">ⓘ</span>}
+              </p>
+              {/* Colour lives here and nowhere else. Every card used to carry a
+                  gradient stripe, a gradient icon, a coloured percentage AND a
+                  gradient progress bar — seven of those side by side is noise, not
+                  information. One tinted icon is enough to tell them apart. */}
+              <span className={`w-7 h-7 rounded-lg grid place-items-center shrink-0 ${tint.iconBg} ${tint.iconText}`}>
+                <Icon size={15} />
+              </span>
             </div>
 
-            {subText ? (
-              <p className="mt-3.5 text-[11px] text-gray-500 truncate">{subText}</p>
-            ) : key !== "total" ? (
-              <div className="mt-3.5">
-                <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span className="text-gray-400">
-                    of landed
-                    {note && <span className="text-emerald-700 font-semibold"> · {note}</span>}
-                  </span>
-                  <span
-                    className={`font-bold tabular-nums ${pct >= 50 ? "text-green-600" : pct >= 20 ? "text-amber-600" : "text-red-500"}`}
-                  >
-                    {pct}%
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full bg-gradient-to-r ${grad} transition-[width] duration-700 ease-out`}
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-            ) : (
-              <p className="mt-3.5 text-[11px] text-gray-400">
-                Total users who landed on the page
-              </p>
-            )}
+            <p className="text-[22px] font-extrabold text-gray-900 leading-none tabular-nums">
+              {display ?? value.toLocaleString("en-IN")}
+            </p>
+
+            {/* One footer line, same shape on every card, pinned to the bottom so
+                the cards end level however long the label was. */}
+            <p className="mt-auto pt-2 text-[10.5px] text-gray-400 truncate" title={subText || undefined}>
+              {subText || (key === "total"
+                ? "total users landed"
+                : (
+                  <>
+                    <span className="font-semibold text-gray-600 tabular-nums">{pct}%</span>
+                    {" of landed"}
+                    {note && <span className="text-emerald-600 font-medium"> · {note}</span>}
+                  </>
+                ))}
+            </p>
           </div>
         );
       })}
@@ -364,6 +342,12 @@ const FilterBar = ({
     end: endDate || "",
   });
   const [searchValue, setSearchValue] = useState(search || "");
+  // How many of the collapsed filters are set — drives the badge, and decides
+  // whether the panel starts open so a filter carried in from a previous view is
+  // never applied invisibly.
+  const advancedCount = [lender, medium, source, feedbackStatus, disbursedOn]
+    .filter((v) => v !== "" && v !== null && v !== undefined).length;
+  const [moreOpen, setMoreOpen] = useState(advancedCount > 0);
 
   useEffect(() => {
     setRng({ start: startDate || "", end: endDate || "" });
@@ -373,12 +357,12 @@ const FilterBar = ({
   }, [search]);
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
+    <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 mb-4">
       <div>
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5">
           Filter by Stage
         </p>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1.5">
           {STAGES.map(({ key, label, Icon, color }) => {
             const c = COLOR_MAP[color];
             const active = stage === key;
@@ -388,19 +372,19 @@ const FilterBar = ({
                 key={key || "all"}
                 type="button"
                 onClick={() => onStageChange(key)}
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition ${
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[12px] font-medium border transition ${
                   active
                     ? `${c.pillActive} border-transparent`
                     : `bg-white ${c.pillIdle}`
                 }`}
               >
-                <Icon size={14} />
+                <Icon size={12} />
                 <span>{label}</span>
                 <span
-                  className={`inline-flex items-center justify-center min-w-[22px] h-[18px] px-1.5 rounded-full text-[10px] font-bold ${
+                  className={`inline-flex items-center justify-center min-w-[20px] h-[16px] px-1 rounded-full text-[9.5px] font-bold tabular-nums ${
                     active
                       ? "bg-white/25 text-white"
-                      : "bg-gray-100 text-gray-700"
+                      : "bg-gray-100 text-gray-600"
                   }`}
                 >
                   {(Number(count) || 0).toLocaleString()}
@@ -505,6 +489,15 @@ const FilterBar = ({
           </div>
         </div>
 
+        {/* ADVANCED FILTERS, collapsed by default.
+
+            Five selects — Selected Lender, Medium, Source, Feedback, Disbursed On —
+            sat open permanently under Search and Date, wrapping onto a second row
+            and pushing the table further down. Search and Date carry nearly all the
+            use; the rest open on demand, and the toggle carries a count so an
+            applied filter can never sit hidden behind a closed panel. */}
+        {moreOpen && (
+          <div className="w-full flex flex-wrap items-end gap-2 pt-2.5 mt-1 border-t border-gray-100">
         {/* Selected Lender select */}
         <div className="basis-[150px] shrink-0">
           <label className="block text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-0.5">
@@ -593,8 +586,30 @@ const FilterBar = ({
           </select>
         </div>
 
-        {/* Inline actions — Refresh + Clear */}
-        <div className="flex items-center gap-1.5 shrink-0">
+          </div>
+        )}
+
+        {/* Inline actions — More filters + Refresh + Clear */}
+        <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((o) => !o)}
+            className={`inline-flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold rounded-md border transition ${
+              advancedCount
+                ? "border-purple-300 bg-purple-50 text-purple-700"
+                : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+            }`}
+            title="Lender, medium, source, feedback and disbursal-date filters"
+          >
+            <SlidersHorizontal size={12} />
+            More filters
+            {advancedCount > 0 && (
+              <span className="ml-0.5 px-1.5 rounded-full bg-purple-600 text-white text-[10px] font-bold tabular-nums">
+                {advancedCount}
+              </span>
+            )}
+            <ChevronDown size={12} className={`transition ${moreOpen ? "rotate-180" : ""}`} />
+          </button>
           <button
             type="button"
             onClick={onRefresh}

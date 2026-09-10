@@ -230,7 +230,7 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint 
             onClick={onClick}
             role={onClick ? 'button' : undefined}
             title={onClick ? 'Click for the High + Short combined breakdown' : undefined}
-            className={`relative rounded-2xl border p-5 transition-shadow hover:shadow-md ${tint} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-emerald-300' : ''}`}
+            className={`relative rounded-2xl border p-4 flex flex-col transition-shadow hover:shadow-md ${tint} ${onClick ? 'cursor-pointer hover:ring-2 hover:ring-emerald-300' : ''}`}
         >
             <div className="flex items-center justify-between gap-2">
                 <span className="text-[12.5px] font-semibold text-gray-700">{label}</span>
@@ -248,8 +248,17 @@ const KpiCard = ({ icon: Icon, label, value, format, sub, loading = false, tint 
                 </div>
             ) : (
                 <>
-                    <div className="text-[28px] font-bold tracking-tight leading-none mt-3 text-gray-900 tabular-nums">{display}</div>
-                    {sub && <div className="text-[12px] mt-1.5 text-gray-500">{sub}</div>}
+                    <div className="text-[26px] font-bold tracking-tight leading-none mt-2.5 text-gray-900 tabular-nums">{display}</div>
+                    {/* One line, pinned to the bottom. Some subs are short ("per
+                        disbursal") and one runs long ("3.25x / 100 - tap for High +
+                        Short combined"); left to wrap, that card grew taller than
+                        the three beside it and the row looked broken. Full text
+                        stays available on hover. */}
+                    {sub && (
+                        <div className="text-[11.5px] mt-auto pt-2 text-gray-500 truncate" title={typeof sub === 'string' ? sub : undefined}>
+                            {sub}
+                        </div>
+                    )}
                 </>
             )}
         </div>
@@ -1604,7 +1613,17 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
     const KNOWN_UTM_SOURCES = ['google', 'google_ads'];
     // Mediums in this codebase are lender-name-based (campaign-per-lender model),
     // not the conventional 'cpc'/'organic'/etc. Matches the analytics page list.
-    const KNOWN_UTM_MEDIUMS = ['kreditbee', 'moneyview', 'zype', 'SC', 'meta'];
+    // A medium is junk if it carries a URL, a query string, or is simply too long to
+// be a real tag. Filtered out of the dropdown rather than the data: the rows still
+// exist and still count towards totals — they just aren't offered as a choice,
+// because choosing one can only ever return an empty list.
+const isJunkMedium = (m) => {
+    const v = String(m || '').trim();
+    if (!v) return true;
+    return /https?:\/\//i.test(v) || v.includes('?') || v.includes('=') || v.includes('/') || v.length > 30;
+};
+
+const KNOWN_UTM_MEDIUMS = ['kreditbee', 'moneyview', 'zype', 'SC', 'meta'];
     useEffect(() => {
         let cancelled = false;
         // Case-insensitive de-dupe + alphabetical sort, merging a hard-coded
@@ -1633,7 +1652,13 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 // always selectable, and drop any real duplicate from the API list.
                 const syntheticMedium = (scope === 'short' || scope === 'vyapar') ? 'EasyLoans' : 'QuickLoans';
                 const mediums = mergeAndSort(KNOWN_UTM_MEDIUMS, opts.utmMediums)
-                    .filter(m => !['quickloans', 'easyloan', 'easyloans'].includes(String(m).toLowerCase()));
+                    .filter(m => !['quickloans', 'easyloan', 'easyloans'].includes(String(m).toLowerCase()))
+                    // Drop malformed values. Some rows arrive with a whole landing
+                    // URL glued onto the medium — e.g.
+                    // "LTFhttps://quickloans.cready.in/?utm_medium=LTF" — which is a
+                    // tagging accident, not a medium. It stretched the dropdown to
+                    // twice its width and selecting it matches nothing.
+                    .filter(m => !isJunkMedium(m));
                 setUtmMediumOptions([syntheticMedium, ...mediums]);
             })
             .catch(err => console.error('Failed to load utm options:', err));
@@ -1876,68 +1901,50 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
 
     return (
         <div className="max-w-[1440px] mx-auto px-2 pb-10">
-            {/* PAGE HEADER — premium banner with money-themed accent bar,
-                gradient title text, animated live-dot, and richer pill bg. */}
-            <div className="relative overflow-hidden mb-6 rounded-2xl bg-gradient-to-br from-white via-purple-50/40 to-violet-50/30 border border-purple-100/60 shadow-sm">
-                {/* Top accent stripe */}
-                <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-purple-500 via-violet-500 to-purple-500" />
-                {/* Soft corner glow */}
-                <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-purple-300/15 blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-20 -left-12 w-56 h-56 rounded-full bg-violet-300/10 blur-3xl pointer-events-none" />
-
-                <div className="relative flex items-end justify-between p-5 flex-wrap gap-3">
-                    <div className="flex items-center gap-4">
-                        {/* Hero icon badge */}
-                        <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-600 via-violet-600 to-purple-700 flex items-center justify-center shadow-lg shadow-purple-500/30 ring-1 ring-white/40">
-                            <Layers size={26} className="text-white drop-shadow" />
-                            <div className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow-md ring-2 ring-white">
-                                <span className="text-[9px] font-black text-amber-900 leading-none">₹</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gradient-to-r from-purple-50 to-violet-50 text-purple-700 border border-purple-200">
-                                    <span className="relative flex w-1.5 h-1.5">
-                                        <span className="absolute inline-flex w-full h-full rounded-full bg-purple-400 opacity-75 animate-ping" />
-                                        <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-purple-500" />
-                                    </span>
-                                    <TrendingUp size={11} />
-                                </span>
-                                {/* <span className="text-[12px] text-gray-500 font-medium">Live disbursal data</span> */}
-                            </div>
-                            <h1 className="text-[28px] font-bold leading-tight tracking-tight bg-gradient-to-r from-gray-900 via-purple-900 to-violet-900 bg-clip-text text-transparent">
-                                {title || 'Disbursal monitoring'}
-                            </h1>
-                            <p className="text-[13px] text-gray-500 mt-1">
-                                {subtitle || 'Real-time view of loan disbursals across all lender partners.'}
-                            </p>
-                        </div>
+            {/* PAGE HEADER.
+                It used to be a 150px hero: a 56px gradient badge with a ₹ sub-badge,
+                two blurred corner glows, an accent stripe, a pulsing pill and a 28px
+                gradient title — all of it above the fold, before a single number.
+                The page already sits under a breadcrumb that names it, so the title
+                only has to confirm where you are, not announce it. */}
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-4">
+                <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 grid place-items-center shrink-0">
+                        <Layers size={18} />
+                    </span>
+                    <div className="min-w-0">
+                        <h1 className="text-[18px] font-bold leading-tight tracking-tight text-gray-900 truncate">
+                            {title || 'Disbursal monitoring'}
+                        </h1>
+                        <p className="text-[12px] text-gray-500 truncate">
+                            {subtitle || 'Real-time view of loan disbursals across all lender partners.'}
+                        </p>
                     </div>
-
-                    {/* "Updated X ago" pill — shows how fresh the data is so users
-                        don't keep hitting refresh. Counts up on its own (30s tick). */}
-                    {refreshedLabel && (
-                        <div
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white/70 text-gray-600 border border-gray-200 shadow-sm backdrop-blur-sm"
-                            title="Time since the dashboard data was last loaded"
-                        >
-                            <span className="relative flex w-1.5 h-1.5">
-                                <span className="absolute inline-flex w-full h-full rounded-full bg-green-400 opacity-75 animate-ping" />
-                                <span className="relative inline-flex rounded-full w-1.5 h-1.5 bg-green-500" />
-                            </span>
-                            Updated {refreshedLabel}
-                        </div>
-                    )}
                 </div>
+
+                {/* "Updated X ago" — how fresh the data is, so nobody keeps hitting
+                    refresh. Counts up on its own (30s tick). */}
+                {refreshedLabel && (
+                    <div
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-white text-gray-600 border border-gray-200 shrink-0"
+                        title="Time since the dashboard data was last loaded"
+                    >
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                        Updated {refreshedLabel}
+                    </div>
+                )}
             </div>
 
             {/* FILTER STRIP — its own card so it breathes from the title */}
-            <div className="flex items-center gap-2 flex-wrap mb-6 p-3 bg-white rounded-xl border border-gray-200 shadow-sm">
-                <div className="inline-flex items-center gap-1.5 text-gray-500 px-2">
-                    <Calendar size={13} className="text-purple-600" />
-                    <span className="text-[12px] font-semibold">Range:</span>
-                </div>
+            <div className="flex items-center gap-1.5 flex-wrap mb-4 px-3 py-2 bg-white rounded-xl border border-gray-200 shadow-sm">
+                {/* Icon only. The three text labels — Range: / Source: / Medium: —
+                    were spending ~120px to name things the controls already name:
+                    the chips are obviously a date range, and the selects read
+                    "All Sources" and "All Mediums". That width was the difference
+                    between one row and two, with Medium stranded on its own line. */}
+                <span className="px-1.5 text-purple-600" title="Date range">
+                    <Calendar size={14} />
+                </span>
                 <div className="inline-flex p-[3px] gap-[2px] rounded-lg bg-gradient-to-r from-gray-100 to-purple-50/60 border border-gray-200 flex-wrap">
                     {['Today', 'Yesterday', '24H', '7D', '30D', '90D','Current Month', 'All', 'Custom'].map(r => (
                         <button key={r}
@@ -1949,7 +1956,7 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                                     setToDate(d.toDate);
                                 }
                             }}
-                            className={`px-3 py-1 rounded-md text-[12px] font-semibold transition ${range === r
+                            className={`px-2.5 py-1 rounded-md text-[11.5px] font-semibold transition ${range === r
                                 ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white shadow-md shadow-purple-500/30'
                                 : 'text-gray-600 hover:text-purple-700 hover:bg-white'
                                 }`}>
@@ -1977,11 +1984,12 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 {/* UTM Source filter — narrows disbursals by the source the
                         applicant came from (resolved via offerLeads phone match). */}
                 <div className="inline-flex items-center gap-1.5 ml-1">
-                    <span className="text-[12px] font-medium text-gray-400">Source:</span>
                     <select
                         value={utmSource}
                         onChange={e => setUtmSource(e.target.value)}
-                        className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500 bg-white min-w-[140px]"
+                        title="Filter by UTM source"
+                        aria-label="UTM source"
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-[11.5px] outline-none focus:border-purple-500 bg-white min-w-[112px]"
                     >
                         <option value="">All Sources</option>
                         {utmSourceOptions.map(s => (
@@ -2002,11 +2010,13 @@ export default function DisbursalDashboard({ scope, title, subtitle }) {
                 {/* UTM Medium filter — narrows disbursals by the campaign
                     medium (resolved via offerLeads phone match). */}
                 <div className="inline-flex items-center gap-1.5 ml-1">
-                    <span className="text-[12px] font-medium text-gray-400">Medium:</span>
+
                     <select
                         value={utmMedium}
                         onChange={e => setUtmMedium(e.target.value)}
-                        className="rounded-lg border border-gray-200 px-2 py-1 text-[12px] outline-none focus:border-purple-500 bg-white min-w-[140px]"
+                        title="Filter by UTM medium"
+                        aria-label="UTM medium"
+                        className="rounded-lg border border-gray-200 px-2 py-1 text-[11.5px] outline-none focus:border-purple-500 bg-white min-w-[112px]"
                     >
                         <option value="">All Mediums</option>
                         {utmMediumOptions.map(m => (
