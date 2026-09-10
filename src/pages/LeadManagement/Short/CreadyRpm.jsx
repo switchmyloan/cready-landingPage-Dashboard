@@ -981,6 +981,11 @@ const CreadyRpm = () => {
         type: query.filter_date || undefined,
         fromDate: query.startDate || undefined,
         toDate: query.endDate || undefined,
+        // Application Date Count and AF Paid come from RapidMoney's database,
+        // which has no utm_medium — so the medium is resolved server-side by
+        // matching phone numbers. Without sending it, those two cards stayed
+        // frozen while every other card on the page narrowed.
+        medium: query.medium || undefined,
       });
       setExternalStats(res?.data || {});
     } catch (err) {
@@ -989,7 +994,7 @@ const CreadyRpm = () => {
     } finally {
       setExternalLoading(false);
     }
-  }, [query.filter_date, query.startDate, query.endDate]);
+  }, [query.filter_date, query.startDate, query.endDate, query.medium]);
 
   useEffect(() => {
     fetchExternalStats();

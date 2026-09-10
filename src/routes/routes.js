@@ -59,7 +59,7 @@ export const routes = [
       "kb-mumbai",
       "kb-banglore",
       "mv-admin",
-      "management",
+      "management", "dev"
     ],
   },
   // Comparison — new top-level group (super-admin only). Scaffold; sub-pages TBD.
@@ -71,7 +71,7 @@ export const routes = [
     group: "Comparison",
     groupOrder: 0.5,
     order: 1,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   // Click-side twin of Disbursal Comparison — scaffold; metrics TBD.
   {
@@ -82,7 +82,7 @@ export const routes = [
     group: "Comparison",
     groupOrder: 0.5,
     order: 2,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   // Standalone module (no group) — call-center feedback: funnel + agent activity +
   // records, all under one entry (two tabs inside) so the sidebar stays uncluttered.
@@ -95,7 +95,7 @@ export const routes = [
     groupOrder: 3.5,
     order: 0.5,
     // Call-center agents see it too, but the page self-scopes to their OWN data.
-    roles: ["super-admin", "mv-page-admin", "management"],
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   // Standalone module — CUSTOMER feedback (testimonials / CSAT). Separate table
   // from call-center feedback; read-only list + detail.
@@ -107,7 +107,7 @@ export const routes = [
     group: "Feedback",
     groupOrder: 3.5,
     order: 0.6,
-    roles: ["admin", "super-admin", "management"],
+    roles: ["admin", "super-admin", "management", "dev"],
   },
   // Leaderboard of which call-centre agent brings in the most feedback.
   // Deliberately visible to EVERYONE including the call-centre agents — the
@@ -143,7 +143,7 @@ export const routes = [
     group: "Lead Management",
     groupOrder: 1,
     order: 2,
-    roles: ["mv-admin"],
+    roles: ["mv-admin", "dev"],
   },
   {
     path: "/business-loans",
@@ -193,7 +193,7 @@ export const routes = [
   //   group: "Lead Management",
   //   groupOrder: 1,
   //   order: 7,
-  //   roles: ["super-admin", "kb-mumbai"],
+  //   roles: ["super-admin", "kb-mumbai", "dev"],
   // },
   // {
   //   path: "/kb-banglore-success-leads",
@@ -203,7 +203,7 @@ export const routes = [
   //   group: "Lead Management",
   //   groupOrder: 1,
   //   order: 8,
-  //   roles: ["super-admin", "kb-banglore"],
+  //   roles: ["super-admin", "kb-banglore", "dev"],
   // },
   {
     // Cross-lender rollup — sits above the per-lender pages since it's the
@@ -221,7 +221,7 @@ export const routes = [
       "mv-admin",
       "mv-page",
       "mv-page-admin",
-      "management",
+      "management", "dev"
     ],
   },
   {
@@ -237,7 +237,7 @@ export const routes = [
       "kb-admin",
       "mv-page",
       "mv-page-admin",
-      "management",
+      "management", "dev"
     ],
   },
   {
@@ -253,7 +253,7 @@ export const routes = [
       "mv-admin",
       "mv-page",
       "mv-page-admin",
-      "management",
+      "management", "dev"
     ],
   },
   // {
@@ -270,7 +270,7 @@ export const routes = [
   //     "mv-page",
   //     "mv-page-admin",
   //     "management",
-  //   ],
+  //, "dev"   ],
   // },
   // {
   //   path: "/smartcoin-funnel",
@@ -286,7 +286,7 @@ export const routes = [
   //     "mv-page",
   //     "mv-page-admin",
   //     "management",
-  //   ],
+  //, "dev"   ],
   // },
   {
     path: "/vivifi-webhook-leads",
@@ -419,7 +419,7 @@ export const routes = [
     group: "High Ticket",
     groupOrder: 1.5,
     order: 8.5,
-    roles: ["super-admin", "mv-page-admin", "management", "marketing"],
+    roles: ["super-admin", "mv-page-admin", "management", "marketing", "dev"],
   },
   {
     path: "/disbursal-dashboard",
@@ -429,7 +429,7 @@ export const routes = [
     group: "High Ticket",
     groupOrder: 1.5,
     order: 8,
-    roles: ["super-admin", "mv-page-admin", "management"],
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
     path: "/offer-leads",
@@ -447,7 +447,7 @@ export const routes = [
       "marketing",
       "call-center",
       "call-center-40-65",
-      "call-center-65plus",
+      "call-center-65plus", "dev"
     ],
   },
   {
@@ -463,7 +463,7 @@ export const routes = [
       "mv-page",
       "mv-page-admin",
       "management",
-      "marketing",
+      "marketing", "dev"
     ],
   },
   // {
@@ -474,7 +474,7 @@ export const routes = [
   //   group: "High Ticket",
   //   groupOrder: 1.5,
   //   order: 10.5,
-  //   roles: ["super-admin", "mv-page", "mv-page-admin", "management"],
+  //   roles: ["super-admin", "mv-page", "mv-page-admin", "management", "dev"],
   // },
   // {
   //   path: "/draft-leads-new",
@@ -490,7 +490,7 @@ export const routes = [
   //     "mv-page-admin",
   //     "management",
   //     "marketing",
-  //   ],
+  //, "dev"   ],
   // },
   {
     path: "/short-offer-leads-analytics",
@@ -500,7 +500,7 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 20,
-    roles: ["super-admin", "short-page-admin", "management"],
+    roles: ["super-admin", "short-page-admin", "management", "dev"],
   },
   {
     path: "/short-disbursal-dashboard",
@@ -510,7 +510,7 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 19.5,
-    roles: ["super-admin", "short-page-admin", "management"],
+    roles: ["super-admin", "short-page-admin", "management", "dev"],
   },
   {
     path: "/short-offer-leads",
@@ -527,7 +527,7 @@ export const routes = [
       "call-center",
       "call-center-40-65",
       "call-center-65plus",
-      "marketing",
+      "marketing", "dev"
     ],
   },
   {
@@ -538,7 +538,7 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 21,
-    roles: ["super-admin", "short-page-admin", "management", "marketing"],
+    roles: ["super-admin", "short-page-admin", "management", "marketing", "dev"],
   },
   // {
   //   path: "/short-draft-leads",
@@ -548,7 +548,7 @@ export const routes = [
   //   group: "Short Ticket",
   //   groupOrder: 2,
   //   order: 22,
-  //   roles: ["super-admin", "short-page-admin", "management", "marketing"],
+  //   roles: ["super-admin", "short-page-admin", "management", "marketing", "dev"],
   // },
   {
     path: "/short-user-track",
@@ -558,7 +558,7 @@ export const routes = [
     group: "Short Ticket",
     groupOrder: 2,
     order: 23,
-    roles: ["super-admin", "short-page-admin", "management", "marketing"],
+    roles: ["super-admin", "short-page-admin", "management", "marketing", "dev"],
   },
   {
     path: "/cready-rpm",
@@ -573,7 +573,7 @@ export const routes = [
       "short-page-admin",
       "management",
       "marketing",
-      "campaign-team",
+      "campaign-team", "dev"
     ],
   },
   // Vyapar — parallel module to Short Ticket (copied pages, /vyapar-* routes).
@@ -587,7 +587,7 @@ export const routes = [
   //   group: "Vyapar",
   //   groupOrder: 2.2,
   //   order: 19.5,
-  //   roles: ["super-admin"],
+  //   roles: ["super-admin", "dev"],
   // },
   {
     path: "/vyapar-offer-leads",
@@ -597,7 +597,7 @@ export const routes = [
     group: "Vyapar",
     groupOrder: 2.2,
     order: 20,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   {
     path: "/vyapar-selected-lenders",
@@ -607,7 +607,7 @@ export const routes = [
     group: "Vyapar",
     groupOrder: 2.2,
     order: 21,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   {
     path: "/vyapar-draft-leads",
@@ -617,7 +617,7 @@ export const routes = [
     group: "Vyapar",
     groupOrder: 2.2,
     order: 22,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   {
     path: "/vyapar-user-track",
@@ -627,7 +627,7 @@ export const routes = [
     group: "Vyapar",
     groupOrder: 2.2,
     order: 23,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   // Campaign Team — replica of Cready RPM with its own role + sidebar group.
   {
@@ -638,7 +638,7 @@ export const routes = [
     group: "Campaign",
     groupOrder: 2.5,
     order: 25,
-    roles: ["super-admin", "campaign-team"],
+    roles: ["super-admin", "campaign-team", "dev"],
   },
   // RCS Campaign — identical to Campaign, scoped to the RCS (Onextel) provider only.
   {
@@ -649,7 +649,7 @@ export const routes = [
     group: "Campaign",
     groupOrder: 2.5,
     order: 25.1,
-    roles: ["super-admin", "campaign-team"],
+    roles: ["super-admin", "campaign-team", "dev"],
   },
   // {
   //   path: "/short-kb-lending-page",
@@ -659,7 +659,7 @@ export const routes = [
   //   group: "Short Ticket",
   //   groupOrder: 2,
   //   order: 24,
-  //   roles: ["super-admin", "kb-admin", "short-page-admin", "management"],
+  //   roles: ["super-admin", "kb-admin", "short-page-admin", "management", "dev"],
   // },
   // {
   //   path: "/lending-user-journey",
@@ -669,7 +669,7 @@ export const routes = [
   //   group: "Lead Management",
   //   groupOrder: 1,
   //   order: 13,
-  //   roles: ["super-admin", "mv-page", "mv-page-admin", "mv-admin"],
+  //   roles: ["super-admin", "mv-page", "mv-page-admin", "mv-admin", "dev"],
   // },
   {
     path: "/user-track",
@@ -685,7 +685,7 @@ export const routes = [
       "mv-page-admin",
       "mv-admin",
       "management",
-      "marketing",
+      "marketing", "dev"
     ],
   },
   // Intelligence — one standalone tab holding four modules (High Ticket, Short
@@ -706,7 +706,7 @@ export const routes = [
     icon: "Brain",
     showInSidebar: false,
     order: 3.5,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   {
     path: "/customer-feedback",
@@ -716,7 +716,7 @@ export const routes = [
     // it isn't rendered a second time as a standalone item.
     showInSidebar: false,
     order: 4,
-    roles: ["admin", "super-admin", "management"],
+    roles: ["admin", "super-admin", "management", "dev"],
   },
   // Security was groupOrder 3 — the same value as Lenders — so the two only
   // separated by insertion order. Making it 4 is a no-op for what renders today
@@ -729,7 +729,7 @@ export const routes = [
     group: "Security",
     groupOrder: 4,
     order: 30,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
   {
     path: "/export-audit-logs",
@@ -739,6 +739,6 @@ export const routes = [
     group: "Security",
     groupOrder: 4,
     order: 31,
-    roles: ["super-admin"],
+    roles: ["super-admin", "dev"],
   },
 ];

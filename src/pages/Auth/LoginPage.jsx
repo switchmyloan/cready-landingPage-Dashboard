@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../custom-hooks/useAuth";
+import Api from "../../api-services/api";
 import creadyLogo from "../../assets/cready.webp";
 
 function LoginPage() {
@@ -32,170 +33,12 @@ function LoginPage() {
     return () => window.removeEventListener("mousemove", onMove);
   }, []);
 
-  const dummyUsers = [
-    {
-      id: 1,
-      name: "Admin User",
-      email: "admin@switchmyloan.in",
-      password: "Adm!n#SML2026$X",
-      role: "admin",
-    },
-    {
-      id: 2,
-      name: "Super Admin",
-      email: "super@switchmyloan.in",
-      password: "Sup3r#SML2027!Zq@X8v",
-      role: "super-admin",
-    },
-    {
-      id: 3,
-      name: "KB Admin",
-      email: "kb@cready.in",
-      password: "KB@Cr3ady!2026#R",
-      role: "kb-admin",
-    },
-    {
-      id: 3,
-      name: "KB Admin Mumbai",
-      email: "kb-mumbai@cready.in",
-      password: "KBmum#Cr3ady!26$M",
-      role: "kb-mumbai",
-    },
-    {
-      id: 4,
-      name: "KB Admin Banglore",
-      email: "kb-banglore@cready.in",
-      password: "KBblr#Cr3ady!26$B",
-      role: "kb-banglore",
-    },
-    {
-      id: 5,
-      name: "MV Admin",
-      email: "mvadmin@switchmyloan.in",
-      password: "MVAdm!n#SML2026$V",
-      role: "mv-admin",
-    },
-    {
-      id: 6,
-      name: "MV Page",
-      email: "mvpage@switchmyloan.in",
-      password: "MVp@ge#SML2026!W",
-      role: "mv-page",
-    },
-    {
-      id: 7,
-      name: "MV Page Admin",
-      email: "creadypageadmin@switchmyloan.in",
-      password: "MVpgAdm!n#Cr3ady26",
-      role: "mv-page-admin",
-    },
-    {
-      id: 8,
-      name: "Short Page Admin",
-      email: "shortpageadmin@switchmyloan.in",
-      password: "Sh0rt#Pg!Adm2026$S",
-      role: "short-page-admin",
-    },
-    {
-      id: 9,
-      name: "Management",
-      email: "management@cready.in",
-      password: "Mgmt#Cr3ady!2026$M",
-      role: "management",
-    },
-    {
-      id: 10,
-      name: "Marketing",
-      email: "marketing@cready.in",
-      password: "Mrkt#Cr3ady!2026$C",
-      role: "marketing",
-    },
-    // High-ticket call-center agent — restricted to High Ticket → Offer Leads,
-    // User Track and Selected Lenders only (see roles in routes.js).
-    {
-      id: 11,
-      name: "Call Center",
-      email: "callcenter@cready.in",
-      password: "CallCntr#Cr3ady!2026$H",
-      role: "call-center",
-    },
-    // Salary-segmented call-center agents — each sees ONLY Offer Leads, filtered to
-    // their monthly-income band with loan amount >= ₹1,00,000. The band is enforced
-    // in OfferLeads.jsx (CALL_CENTER_SALARY_BANDS).
-    {
-      id: 12,
-      name: "Jyoti Upadhay",
-      email: "callcenter1@cready.in",
-      password: "CallCntr1#Cr3ady!26$L",
-      role: "call-center",
-    },
-    {
-      id: 13,
-      name: "Anshu Yadav",
-      email: "callcenter2@cready.in",
-      password: "CallCntr2#Cr3ady!26$H",
-      role: "call-center",
-    },
-    // Round-robin call-center agents — no salary band; each is a slot in the flat
-    // pool (see callCenterPool.js) and is assigned leads sequentially.
-    {
-      id: 16,
-      name: "Gautam Vishwakarma",
-      email: "callcenter3@cready.in",
-      password: "CallCntr3#Cr3ady!26$K",
-      role: "call-center",
-    },
-    {
-      id: 17,
-      name: "Atul Kumar Gupta",
-      email: "callcenter4@cready.in",
-      password: "CallCntr4#Cr3ady!26$P",
-      role: "call-center",
-    },
-    {
-      id: 18,
-      name: "Sawan Jha",
-      email: "callcenter5@cready.in",
-      password: "CallCntr5#Cr3ady!26$D",
-      role: "call-center",
-    },
-    {
-      id: 19,
-      name: "Aman Trimukhe",
-      email: "callcenter6@cready.in",
-      password: "CallCntr6#Cr3ady!26$F",
-      role: "call-center",
-    },
-    {
-      id: 20,
-      name: "Ankita Desilva",
-      email: "callcenter7@cready.in",
-      password: "CallCntr7#Cr3ady!26$J",
-      role: "call-center",
-    },
-    {
-      id: 21,
-      name: "Vishal Goud",
-      email: "callcenter8@cready.in",
-      password: "CallCntr8#Cr3ady!26$W",
-      role: "call-center",
-    },
-    // Campaign team — sees only the Campaign page (a Cready RPM replica).
-    {
-      id: 14,
-      name: "Campaign Team",
-      email: "campaign@cready.in",
-      password: "Camp@ign#Cr3ady!2026$T",
-      role: "campaign-team",
-    },
-    {
-      id: 15,
-      name: "dev",
-      email: "developer@cready.in",
-      password: "Dev@gnCr3aday!2026",
-      role: "dev",
-    },
-  ];
+  // The roster used to live here — every account, and until recently every
+  // password, shipped inside this bundle. The server owns it now, so the page
+  // carries nothing: no emails, no names, no roles. It was already unused, but
+  // still handed anyone who opened the login page the full staff list and who
+  // holds which role, which is a free head start for phishing.
+
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -213,6 +56,115 @@ function LoginPage() {
 
   const passwordError =
     touched.password && !formData.password ? "Password is required" : "";
+
+  // ── Phone + OTP login ──────────────────────────────────────────────────
+  // A second way in, not a replacement: the email form is untouched, because the
+  // whole call-centre floor signs in with it every morning. Currently enabled for
+  // one account server-side; everyone else gets a clear "not enabled" message
+  // rather than a silent failure.
+  const [mode, setMode] = useState("email");        // "email" | "phone"
+  const [phone, setPhone] = useState("");
+  const [otp, setOtp] = useState("");
+  const [hashedOtp, setHashedOtp] = useState("");   // server's sealed OTP handle
+  const [otpSent, setOtpSent] = useState(false);
+  const [phoneBusy, setPhoneBusy] = useState(false);
+  // Seconds until "Resend OTP" becomes available. Starts at 30 on every send,
+  // so a resend cannot be hammered — each press costs a real SMS, and the SMS
+  // provider rate-limits too.
+  const [resendIn, setResendIn] = useState(0);
+
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    // setTimeout, not setInterval: one tick is scheduled per render and cleaned
+    // up with it, so leaving the page mid-countdown cannot leave a timer running.
+    const id = setTimeout(() => setResendIn((n) => n - 1), 1000);
+    return () => clearTimeout(id);
+  }, [resendIn]);
+
+  const sendPhoneOtp = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    setError("");
+    const p = phone.replace(/\D/g, "").slice(-10);
+    if (p.length !== 10) { setError("Enter a valid 10-digit mobile number."); return; }
+    setPhoneBusy(true);
+    try {
+      const res = await Api().post("/auth/phone/send-otp", { phone: p }, { skipAdminAppend: true });
+      const h = res?.data?.data?.hashedOtp;
+      if (!h) throw new Error("No OTP session returned");
+      setHashedOtp(h);
+      setOtpSent(true);
+      setOtp("");        // a fresh code means the old one in the box is stale
+      setResendIn(30);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not send OTP. Please try again.");
+    } finally {
+      setPhoneBusy(false);
+    }
+  };
+
+  const verifyPhoneOtp = async (e) => {
+    e.preventDefault();
+    setError("");
+    const code = otp.replace(/\D/g, "");
+    if (code.length < 4) { setError("Enter the OTP you received."); return; }
+    setPhoneBusy(true);
+    try {
+      const res = await Api().post(
+        "/auth/phone/verify-otp",
+        { phone: phone.replace(/\D/g, "").slice(-10), otp: code, hashedOtp },
+        { skipAdminAppend: true },
+      );
+      const token = res?.data?.data?.token;
+      const user = res?.data?.data?.user;
+      if (!token || !user) throw new Error("Malformed response");
+      setPhase("granted");
+      await new Promise((r) => setTimeout(r, 700));
+      completeLogin(token, user);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Invalid OTP. Please try again.");
+      setPhoneBusy(false);
+    }
+  };
+
+  // Where a signed-in user lands, and the only place the session is stored.
+  // Extracted so phone-OTP login ends up in exactly the same state as password
+  // login — one path to keep correct instead of two that drift.
+  const completeLogin = (token, foundUser) => {
+      login(token, foundUser);
+        if (foundUser.role === "kb-admin") {
+          navigate("/kb-success-leads");
+        } else if (foundUser.role === "kb-mumbai") {
+          navigate("/kb-mumbai-success-leads");
+        } else if (foundUser.role === "kb-banglore") {
+          navigate("/kb-banglore-success-leads");
+        } else if (foundUser.role === "mv-admin") {
+          navigate("/mv-success-leads");
+        } else if (foundUser.role === "mv-page") {
+          navigate("/offer-leads");
+        } else if (foundUser.role === "mv-page-admin") {
+          navigate("/offer-leads-analytics");
+        } else if (foundUser.role === "short-page-admin") {
+          navigate("/short-offer-leads-analytics");
+        } else if (foundUser.role === "management") {
+          navigate("/disbursal-dashboard");
+        } else if (foundUser.role === "marketing") {
+          navigate("/offer-leads-analytics");
+        } else if (
+          foundUser.role === "call-center" ||
+          foundUser.role === "call-center-40-65" ||
+          foundUser.role === "call-center-65plus"
+        ) {
+          navigate("/offer-leads");
+        } else if (foundUser.role === "campaign-team") {
+          navigate("/campaign");
+        } else if (foundUser.role === "dev") {
+          navigate("/disbursal-dashboard");
+        } else if (foundUser.role == "super-admin") {
+          navigate("/disbursal-dashboard");
+        } else {
+          navigate("/");
+        }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -232,12 +184,27 @@ function LoginPage() {
     const email = formData.email.trim().toLowerCase();
     const password = formData.password.trim();
 
-    const foundUser = dummyUsers.find(
-      (u) => u.email.toLowerCase() === email && u.password === password
-    );
-
-    if (!foundUser) {
-      setError("Invalid email or password. Please try again.");
+    // The SERVER decides who is logged in.
+    //
+    // This used to be a find() over a roster in this file, comparing
+    // password)` — the whole roster, passwords in plain text, shipped inside this
+    // bundle and compared in the browser. Anyone could read every password from
+    // View Source without logging in, and the API trusted a token that was just
+    // the string "dummy_token_" + role.
+    let foundUser;
+    let token;
+    try {
+      const res = await Api().post("/auth/login", { email, password }, { skipAdminAppend: true });
+      token = res?.data?.data?.token;
+      foundUser = res?.data?.data?.user;
+      if (!token || !foundUser) throw new Error("Malformed login response");
+    } catch (err) {
+      const status = err?.response?.status;
+      setError(
+        status === 401
+          ? "Invalid email or password. Please try again."
+          : "Could not reach the server. Please try again."
+      );
       setPhase("idle");
       return;
     }
@@ -246,43 +213,7 @@ function LoginPage() {
     setPhase("granted");
     await new Promise((r) => setTimeout(r, 1000));
 
-    {
-      const token = "dummy_token_" + foundUser.role;
-      login(token, foundUser);
-      if (foundUser.role === "kb-admin") {
-        navigate("/kb-success-leads");
-      } else if (foundUser.role === "kb-mumbai") {
-        navigate("/kb-mumbai-success-leads");
-      } else if (foundUser.role === "kb-banglore") {
-        navigate("/kb-banglore-success-leads");
-      } else if (foundUser.role === "mv-admin") {
-        navigate("/mv-success-leads");
-      } else if (foundUser.role === "mv-page") {
-        navigate("/offer-leads");
-      } else if (foundUser.role === "mv-page-admin") {
-        navigate("/offer-leads-analytics");
-      } else if (foundUser.role === "short-page-admin") {
-        navigate("/short-offer-leads-analytics");
-      } else if (foundUser.role === "management") {
-        navigate("/disbursal-dashboard");
-      } else if (foundUser.role === "marketing") {
-        navigate("/offer-leads-analytics");
-      } else if (
-        foundUser.role === "call-center" ||
-        foundUser.role === "call-center-40-65" ||
-        foundUser.role === "call-center-65plus"
-      ) {
-        navigate("/offer-leads");
-      } else if (foundUser.role === "campaign-team") {
-        navigate("/campaign");
-      } else if (foundUser.role === "dev") {
-        navigate("/disbursal-dashboard");
-      } else if (foundUser.role == "super-admin") {
-        navigate("/disbursal-dashboard");
-      } else {
-        navigate("/");
-      }
-    }
+    completeLogin(token, foundUser);
   };
 
   // Feature highlights shown on the branded panel
@@ -460,7 +391,106 @@ function LoginPage() {
             </div>
           )}
 
-          {/* Form */}
+          {/* Email / Phone switch.
+              Email stays the default and the first tab: the whole floor signs in
+              that way every morning, and phone login is enabled for one account
+              while it is being proven out. */}
+          <div className="mb-5 inline-flex w-full rounded-xl bg-gray-100 p-1">
+            {[
+              { k: "email", label: "Email & Password" },
+              { k: "phone", label: "Login with Phone" },
+            ].map(({ k, label }) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => { setMode(k); setError(""); setOtpSent(false); setOtp(""); }}
+                className={`flex-1 rounded-lg px-3 py-2 text-[12.5px] font-semibold transition ${
+                  mode === k ? "bg-white text-purple-700 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {mode === "phone" ? (
+            <form onSubmit={otpSent ? verifyPhoneOtp : sendPhoneOtp} className="space-y-5">
+              <div className="space-y-1.5">
+                <label htmlFor="phone" className="block text-[12px] font-semibold text-gray-700">
+                  Mobile number
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  inputMode="numeric"
+                  autoComplete="tel"
+                  maxLength={10}
+                  value={phone}
+                  // Locked once the OTP is out: changing the number underneath a
+                  // live OTP would verify a code against the wrong account.
+                  disabled={otpSent}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  placeholder="10-digit mobile number"
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] outline-none transition focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-100 disabled:opacity-60"
+                />
+              </div>
+
+              {otpSent && (
+                <div className="space-y-1.5">
+                  <label htmlFor="otp" className="block text-[12px] font-semibold text-gray-700">
+                    Enter OTP
+                  </label>
+                  <input
+                    id="otp"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="6-digit code"
+                    className="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-[14px] tracking-[0.3em] outline-none transition focus:border-purple-400 focus:bg-white focus:ring-2 focus:ring-purple-100"
+                  />
+                  <div className="flex items-center justify-between pt-0.5">
+                    <button
+                      type="button"
+                      onClick={() => { setOtpSent(false); setOtp(""); setError(""); setResendIn(0); }}
+                      className="text-[11.5px] font-medium text-purple-600 hover:underline"
+                    >
+                      Change number
+                    </button>
+
+                    {resendIn > 0 ? (
+                      <span className="text-[11.5px] text-gray-400 tabular-nums">
+                        Resend OTP in {resendIn}s
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => sendPhoneOtp()}
+                        disabled={phoneBusy}
+                        className="text-[11.5px] font-semibold text-purple-600 hover:underline disabled:opacity-50 disabled:no-underline"
+                      >
+                        Resend OTP
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {error && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-[12.5px] font-medium text-red-600">{error}</p>
+              )}
+
+              <button
+                type="submit"
+                disabled={phoneBusy}
+                className="w-full rounded-xl bg-gradient-to-r from-purple-600 to-violet-600 px-4 py-3 text-[14px] font-semibold text-white shadow-lg transition hover:from-purple-700 hover:to-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {phoneBusy ? "Please wait…" : otpSent ? "Verify & Sign In" : "Send OTP"}
+              </button>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div className="space-y-1.5">
@@ -627,6 +657,7 @@ function LoginPage() {
               </span>
             </button>
           </form>
+          )}
 
           {/* Footer */}
           <div className="mt-8 flex items-center justify-center gap-1.5 text-[11.5px] text-gray-400">

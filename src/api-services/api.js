@@ -37,6 +37,15 @@ const createAxiosInstance = () => {
     function (error) {
       const controller = error.config && error.config.__abortController
       if (controller) pendingControllers.delete(controller)
+      // 401 = the server rejected the session (missing, expired or tampered
+      // token). Clear it and send the user back to login, otherwise every page
+      // just renders empty and looks broken. 403 stays as it was.
+      if (error.response && error.response.status === 401) {
+        TokenService.removeToken()
+        if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+          window.location.replace('/login')
+        }
+      }
       if (error.response && error.response.status === 403) {
         TokenService.removeToken()
       }

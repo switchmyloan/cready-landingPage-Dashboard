@@ -764,9 +764,9 @@ export const getCreadyRpmAfPaidTrend = async ({ type, fromDate, toDate, granular
 
 // Slow external-DB metric cards (Campaign Click / Application Date Count / AF Paid),
 // loaded separately from the main dashboard so a filter change reflects instantly.
-export const getCreadyRpmExternalStats = async ({ type, fromDate, toDate } = {}) => {
+export const getCreadyRpmExternalStats = async ({ type, fromDate, toDate, medium } = {}) => {
     return Api().get(`/cready-rpm/external-stats`, {
-        params: { type, fromDate, toDate },
+        params: { type, fromDate, toDate , medium},
         skipAdminAppend: true,
     });
 };
