@@ -60,11 +60,23 @@ export default function ProtectedRoute() {
     ? [...(parentRoute.roles || []), ...parentRoute.detailRoles]
     : currentRoute?.roles;
 
+  // Explicit module grants win over the role table when a user has any. See
+  // canOpenRoute — no grants means the role defaults, i.e. today's behaviour.
+  const grants = user?.modules;
+  const hasGrants = Array.isArray(grants) && grants.length > 0;
+
   // `dev` is a super-role — full access to EVERY module (bypasses the per-route
   // role gate, including any routes added later). No need to list it per route.
   const isDev = user?.role === "dev";
 
-  if (allowedRoles && !isDev && !allowedRoles.includes(user?.role)) {
+  if (hasGrants && !isDev && currentRoute && !grants.includes(currentRoute.path)) {
+    // Granted users land on their first granted module, not on /login — being
+    // bounced to a login screen while already logged in reads as a broken app.
+    const fallback = grants[0] || '/login';
+    return <Navigate to={fallback} replace />;
+  }
+
+  if (!hasGrants && allowedRoles && !isDev && !allowedRoles.includes(user?.role)) {
     // Logged in but this route isn't allowed for the role → bounce to the first
     // route the role CAN open (so a call-center agent lands on Offer Leads, not the
     // login screen). Falls back to /login if the role has no allowed route.

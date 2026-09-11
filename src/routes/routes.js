@@ -741,4 +741,15 @@ export const routes = [
     order: 31,
     roles: ["super-admin", "dev"],
   },
+  {
+    path: "/access-control",
+    label: "Access Control",
+    icon: "Boxes",
+    showInSidebar: true,
+    group: "Security",
+    groupOrder: 9,
+    order: 29,
+    // Deliberately dev-only: this screen can grant anyone access to anything.
+    roles: ["dev"],
+  },
 ];

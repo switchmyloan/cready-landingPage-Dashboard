@@ -1,4 +1,5 @@
 import './App.css'
+import AccessControl from "./pages/Admin/AccessControl";
 import Home from '@pages/Home'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
@@ -217,6 +218,9 @@ function App() {
             <Route path="loanwalle" element={<LoanWalleLeads />} />
 
             {/* Super-admin only */}
+            {/* Access Control — dev only; users, modules and grants. */}
+            <Route path="access-control" element={<AccessControl />} />
+
             <Route path="otp-logs" element={<OtpLogs />} />
             <Route path="export-audit-logs" element={<ExportAuditLogs />} />
 

@@ -363,7 +363,16 @@ function Sidebar({ onClose, collapsed, onToggleCollapse }) {
   const sidebarRef = useRef(null);
 
   // Filter routes based on user role. `dev` is a super-role → sees every module.
-  const allowedRoutes = routes.filter(r => user?.role === 'dev' || r.roles?.includes(user?.role));
+  // Same rule as ProtectedRoute, or the menu and the guard disagree: a link you
+  // can see but cannot open, or a page you can open but cannot find.
+  const grants = Array.isArray(user?.modules) && user.modules.length ? user.modules : null;
+  const allowedRoutes = routes.filter(r => (
+    user?.role === 'dev'
+      ? true
+      : grants
+        ? grants.includes(r.path)
+        : r.roles?.includes(user?.role)
+  ));
 
   // Close dropdown if location is not inside the group's children
   useEffect(() => {
