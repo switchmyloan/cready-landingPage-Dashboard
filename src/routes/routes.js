@@ -752,4 +752,16 @@ export const routes = [
     // Deliberately dev-only: this screen can grant anyone access to anything.
     roles: ["dev"],
   },
+  {
+    path: "/activity-log",
+    label: "Activity Log",
+    icon: "ScrollText",
+    showInSidebar: true,
+    group: "Security",
+    groupOrder: 9,
+    order: 32,
+    // dev and super-admin: an audit trail nobody but the audited can read is
+    // not much of an audit trail.
+    roles: ["dev", "super-admin"],
+  },
 ];
