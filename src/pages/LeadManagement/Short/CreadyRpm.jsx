@@ -1003,7 +1003,6 @@ const CreadyRpm = () => {
       setExternalLoading(false);
     }
   }, [query.filter_date, query.startDate, query.endDate, query.medium]);
-  }, [query.filter_date, query.startDate, query.endDate, query.medium]);
 
   useEffect(() => {
     fetchExternalStats();
