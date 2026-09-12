@@ -169,7 +169,7 @@ const AfTooltip = ({ active, payload }) => {
 // Date-wise AF Paid trend, shown when the AF Paid / AF Amount card is clicked.
 // Fetches its own data (the dashboard's custom range if one is set, else the
 // last 30 days). Degrades to an empty state if the RapidMoney replica is down.
-const AfPaidTrendModal = ({ open, onClose }) => {
+const AfPaidTrendModal = ({ open, onClose, medium }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [preset, setPreset] = useState("today"); // 'today' | 'yest' | '7d' | '30d' | '90d' | 'custom'
@@ -219,6 +219,9 @@ const AfPaidTrendModal = ({ open, onClose }) => {
       fromDate: effFrom || undefined,
       toDate: effTo || undefined,
       granularity,
+      // Inherited from the page so the chart shows the same slice as the card
+      // that opened it. The modal's own buttons still control the DATE range.
+      medium: medium || undefined,
     })
       .then((res) => {
         if (!cancelled) setData(res?.data || null);
@@ -232,7 +235,7 @@ const AfPaidTrendModal = ({ open, onClose }) => {
     return () => {
       cancelled = true;
     };
-  }, [open, effFrom, effTo, granularity, preset]);
+  }, [open, effFrom, effTo, granularity, preset, medium]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -407,7 +410,7 @@ const AfPaidTrendModal = ({ open, onClose }) => {
   );
 };
 
-const StatCards = ({ summary, loading, externalStats = {}, externalLoading = false }) => {
+const StatCards = ({ summary, loading, externalStats = {}, externalLoading = false, medium }) => {
   const [afOpen, setAfOpen] = useState(false);
   const landed = summary.total || 0;
   const lenderSelected = summary.lender_clicked || 0;
@@ -623,7 +626,7 @@ const StatCards = ({ summary, loading, externalStats = {}, externalLoading = fal
         );
       })}
     </div>
-      <AfPaidTrendModal open={afOpen} onClose={() => setAfOpen(false)} />
+      <AfPaidTrendModal open={afOpen} onClose={() => setAfOpen(false)} medium={medium} />
     </>
   );
 };
@@ -968,9 +971,14 @@ const CreadyRpm = () => {
     lender_clicked: 0,
   });
 
-  // Campaign Click / Application Date / AF Paid — slow external-DB metrics, fetched
-  // separately (date-only) so they never stall the funnel/list and always reflect
-  // the current date filter.
+  // Campaign Click / Application Date / AF Paid — slow external-DB metrics,
+  // fetched separately so they never stall the funnel/list while still following
+  // the date AND medium filters.
+  //
+  // Application and AF Paid come from RapidMoney's database, which has no record
+  // of the medium the user reached Cready through — the backend resolves it by
+  // matching phone numbers. Campaign is WhatsApp send data with no medium at all,
+  // so it stays global whatever is selected.
   const [externalStats, setExternalStats] = useState({});
   const [externalLoading, setExternalLoading] = useState(false);
 
@@ -994,6 +1002,7 @@ const CreadyRpm = () => {
     } finally {
       setExternalLoading(false);
     }
+  }, [query.filter_date, query.startDate, query.endDate, query.medium]);
   }, [query.filter_date, query.startDate, query.endDate, query.medium]);
 
   useEffect(() => {
@@ -1243,7 +1252,7 @@ const CreadyRpm = () => {
         </p>
       </div>
 
-      <StatCards summary={summary} loading={loading} externalStats={externalStats} externalLoading={externalLoading} />
+      <StatCards summary={summary} loading={loading} externalStats={externalStats} externalLoading={externalLoading} medium={query.medium} />
 
       <FilterBar
         search={query.search}
