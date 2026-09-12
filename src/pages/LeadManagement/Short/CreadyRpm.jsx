@@ -114,6 +114,7 @@ const AF_PRESETS = [
   { k: "7d", label: "7 Days" },
   { k: "30d", label: "30 Days" },
   { k: "90d", label: "90 Days" },
+  { k: "all", label: "All" },
 ];
 
 const AfTooltip = ({ active, payload }) => {
@@ -169,21 +170,46 @@ const AfTooltip = ({ active, payload }) => {
 // Date-wise AF Paid trend, shown when the AF Paid / AF Amount card is clicked.
 // Fetches its own data (the dashboard's custom range if one is set, else the
 // last 30 days). Degrades to an empty state if the RapidMoney replica is down.
-const AfPaidTrendModal = ({ open, onClose, medium }) => {
+// Translate the page's date filter into the modal's own preset vocabulary. The
+// chart has to open on the window the card was showing, or the two disagree the
+// moment it appears — which is exactly what people report as a bug.
+// The page speaks '', today, yesterday, current_month, last_month (+ a custom
+// startDate/endDate); the modal speaks all, today, yest, 7d/30d/90d, custom.
+const presetFromPageFilter = ({ filterDate, startDate, endDate }) => {
+    if (startDate && endDate) return { preset: "custom", from: startDate, to: endDate };
+    if (filterDate === "today") return { preset: "today", from: "", to: "" };
+    if (filterDate === "yesterday") return { preset: "yest", from: "", to: "" };
+    if (filterDate === "current_month") {
+        const t = new Date();
+        return { preset: "custom", from: isoOf(new Date(t.getFullYear(), t.getMonth(), 1)), to: todayISO() };
+    }
+    if (filterDate === "last_month") {
+        const t = new Date();
+        return {
+            preset: "custom",
+            from: isoOf(new Date(t.getFullYear(), t.getMonth() - 1, 1)),
+            to: isoOf(new Date(t.getFullYear(), t.getMonth(), 0)),
+        };
+    }
+    return { preset: "all", from: "", to: "" };   // page is on All
+};
+
+const AfPaidTrendModal = ({ open, onClose, medium, filterDate, startDate, endDate }) => {
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState(null);
   const [preset, setPreset] = useState("today"); // 'today' | 'yest' | '7d' | '30d' | '90d' | 'custom'
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
 
-  // Every time the modal opens, default to Today (a fresh AF snapshot). The user
-  // can then switch presets or pick a custom range.
+  // Open on whatever window the page is showing, so the chart's total matches the
+  // card that opened it. The user can still switch presets from here.
   useEffect(() => {
     if (!open) return;
-    setPreset("today");
-    setCustomFrom("");
-    setCustomTo("");
-  }, [open]);
+    const { preset: p, from, to } = presetFromPageFilter({ filterDate, startDate, endDate });
+    setPreset(p);
+    setCustomFrom(from);
+    setCustomTo(to);
+  }, [open, filterDate, startDate, endDate]);
 
   // Effective ISO range sent to the API. A partial custom range (only one date)
   // falls back to null → the backend then uses its own last-30-days window.
@@ -191,6 +217,7 @@ const AfPaidTrendModal = ({ open, onClose, medium }) => {
     if (preset === "custom") {
       return { effFrom: customFrom || null, effTo: customTo || null };
     }
+    if (preset === "all") return { effFrom: null, effTo: null };
     if (preset === "today") {
       const t = todayISO();
       return { effFrom: t, effTo: t };
@@ -215,7 +242,10 @@ const AfPaidTrendModal = ({ open, onClose, medium }) => {
       // Pass the preset as `type` so today/yesterday use the SAME DB-side IST day the
       // AF Paid card uses (getAfPaidStats) — the trend total then matches the card
       // exactly, instead of drifting when the browser date ≠ the DB's IST date.
-      type: preset === 'today' ? 'today' : preset === 'yest' ? 'yesterday' : undefined,
+      type: preset === 'today' ? 'today'
+        : preset === 'yest' ? 'yesterday'
+          : preset === 'all' ? 'all'
+            : undefined,
       fromDate: effFrom || undefined,
       toDate: effTo || undefined,
       granularity,
@@ -410,7 +440,7 @@ const AfPaidTrendModal = ({ open, onClose, medium }) => {
   );
 };
 
-const StatCards = ({ summary, loading, externalStats = {}, externalLoading = false, medium }) => {
+const StatCards = ({ summary, loading, externalStats = {}, externalLoading = false, medium, filterDate, startDate, endDate }) => {
   const [afOpen, setAfOpen] = useState(false);
   const landed = summary.total || 0;
   const lenderSelected = summary.lender_clicked || 0;
@@ -626,7 +656,14 @@ const StatCards = ({ summary, loading, externalStats = {}, externalLoading = fal
         );
       })}
     </div>
-      <AfPaidTrendModal open={afOpen} onClose={() => setAfOpen(false)} medium={medium} />
+      <AfPaidTrendModal
+        open={afOpen}
+        onClose={() => setAfOpen(false)}
+        medium={medium}
+        filterDate={filterDate}
+        startDate={startDate}
+        endDate={endDate}
+      />
     </>
   );
 };
@@ -1251,7 +1288,16 @@ const CreadyRpm = () => {
         </p>
       </div>
 
-      <StatCards summary={summary} loading={loading} externalStats={externalStats} externalLoading={externalLoading} medium={query.medium} />
+      <StatCards
+        summary={summary}
+        loading={loading}
+        externalStats={externalStats}
+        externalLoading={externalLoading}
+        medium={query.medium}
+        filterDate={query.filter_date}
+        startDate={query.startDate}
+        endDate={query.endDate}
+      />
 
       <FilterBar
         search={query.search}

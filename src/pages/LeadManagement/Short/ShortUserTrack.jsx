@@ -150,11 +150,15 @@ const StatCards = ({ summary, loading }) => {
   const total = summary.total || 0;
   const otp = summary.otp_verified || 0;
   const form = summary.form_submitted || 0;
-  // No landedOnly/notSubmitted pair here by accident: "Form Not Submitted" is a
-  // filter, not a funnel step — it spans Landed Only + OTP Pending, so it lives on
-  // the chip row (which reads the summary directly) and NOT in the cards, where it
-  // would stop the row adding up to Landed.
   const landedOnly = summary.landed_only || 0;
+  // "Form Not Submitted" is a CROSS-CUT, not a funnel step — it is Landed Only
+  // plus OTP Pending added together (711 + 377 = 1,088 on 12 Sep), so it overlaps
+  // two cards that are already on this row. It was left out for exactly that
+  // reason; it is here now because it is worth seeing, and it carries its own
+  // sub-line saying what it overlaps so nobody totals the row and finds it wrong.
+  // The other four (Landed Only / OTP Pending / Form Submitted / Lender Clicked)
+  // still partition Landed exactly.
+  const notSubmitted = summary.form_not_submitted || 0;
   const lender = summary.lender_clicked || 0;
   const disbursed = summary.disbursed || 0;
   const disbursedAmt = summary.disbursed_amount || 0;
@@ -194,6 +198,15 @@ const StatCards = ({ summary, loading }) => {
       Icon: ShieldCheck,
       color: "amber",
       pct: pct(otp),
+    },
+    {
+      key: "form_not_submitted",
+      label: "Form Not Submitted",
+      value: notSubmitted,
+      Icon: FileX,
+      color: "rose",
+      subText: `${pct(notSubmitted)}% of landed · landed only + otp pending`,
+      hint: "Everyone who landed but never submitted the form, whatever else they did. This OVERLAPS Landed Only and OTP Pending on purpose — it is those two added together, not a separate step, so the cards will not sum to Landed if you include it.",
     },
     {
       key: "form_submitted",
@@ -242,7 +255,7 @@ const StatCards = ({ summary, loading }) => {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-4">
         {cards.map((_, i) => (
           <div
             key={i}
@@ -258,7 +271,7 @@ const StatCards = ({ summary, loading }) => {
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-4">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-4">
       {cards.map(({ key, label, Icon, color, value, pct, note, hint, display, subText }) => {
         const tint = COLOR_MAP[color] || COLOR_MAP.slate;
         return (
