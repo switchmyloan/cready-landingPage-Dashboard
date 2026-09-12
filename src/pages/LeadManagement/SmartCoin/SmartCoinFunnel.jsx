@@ -93,16 +93,24 @@ const SmartCoinFunnel = () => {
   const [trendOpen, setTrendOpen] = useState(null);
   const [medium, setMedium] = useState("");
   const [mediums, setMediums] = useState([]);
+  // High and short ticket are two separate funnels over two separate tables that
+  // happen to run the same SmartCoin integration. They also went live on
+  // different days, so each carries its own start date.
+  const [scope, setScope] = useState("high");
 
   // Options come from the data itself, so the dropdown can only offer mediums
   // that actually exist in this era — no dead entries to pick and get zeros from.
   useEffect(() => {
     let alive = true;
-    getSmartCoinUtmMediums()
+    getSmartCoinUtmMediums({ scope })
       .then((r) => { if (alive) setMediums(r?.data?.data || []); })
       .catch(() => { if (alive) setMediums([]); });
     return () => { alive = false; };
-  }, []);
+  }, [scope]);
+
+  // The two funnels carry different traffic sources, so a medium picked on one
+  // may not exist on the other — clear it rather than silently showing zeros.
+  useEffect(() => { setMedium(""); setStage(null); }, [scope]);
 
   const dateParams = useMemo(
     () => ({
@@ -110,8 +118,9 @@ const SmartCoinFunnel = () => {
       fromDate: fromDate && toDate ? fromDate : undefined,
       toDate: fromDate && toDate ? toDate : undefined,
       medium: medium || undefined,
+      scope,
     }),
-    [range, fromDate, toDate, medium],
+    [range, fromDate, toDate, medium, scope],
   );
 
   const fetchAll = useCallback(async () => {
@@ -195,6 +204,7 @@ const SmartCoinFunnel = () => {
       sub: i === 0
         ? `${fmtNum(tot.passed)} passed + ${fmtNum(tot.duplicate)} duplicate`
         : `${f.pct}% of ${shortOf(fn[i - 1].key).toLowerCase()}`,
+      users: f.users,
     }));
     const disbursed = stages.find((s) => s.key === "disbursed");
     if (disbursed && tot.disbursedAmount) disbursed.sub = inr(tot.disbursedAmount);
@@ -208,6 +218,7 @@ const SmartCoinFunnel = () => {
         icon: Copy,
         hint: "SmartCoin already had this applicant — dropped at dedupe",
         sub: `${pctOf(tot.duplicate, tot.pushed)}% of pushed`,
+        users: tot.duplicateUsers,
       },
     ];
   }, [data]);
@@ -259,6 +270,21 @@ const SmartCoinFunnel = () => {
           </p>
         </div>
         <div className="ml-auto flex items-center gap-2">
+          <div className="inline-flex rounded-lg border border-gray-200 overflow-hidden">
+            {[["high", "High Ticket"], ["short", "Short Ticket"]].map(([k, label]) => (
+              <button
+                key={k}
+                onClick={() => setScope(k)}
+                className={`px-3 py-[7px] text-[12px] font-semibold transition ${
+                  scope === k
+                    ? "bg-indigo-600 text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
           <CompactDateFilter
             range={range}
             onRangeChange={(k) => { setRange(k); setStage(null); }}
@@ -339,6 +365,21 @@ const SmartCoinFunnel = () => {
                 {fmtNum(t.count)}
               </p>
               <p className="mt-1 text-[11px] text-gray-400 truncate">{t.sub}</p>
+              {/* The big number counts LEADS, because that is what count(*) on
+                  offerLeads returns. About half the people submit more than once,
+                  so the number of humans behind it is a different — and equally
+                  asked — number. Both, rather than a choice between them. */}
+              {t.users > 0 && (
+                <p
+                  className="text-[11px] text-gray-400 truncate"
+                  title={`${fmtNum(t.count)} leads from ${fmtNum(t.users)} unique people`}
+                >
+                  {fmtNum(t.users)} unique {t.users === 1 ? "user" : "users"}
+                  {t.count > t.users && (
+                    <span className="text-gray-300"> · {(t.count / t.users).toFixed(1)}× repeat</span>
+                  )}
+                </p>
+              )}
             </button>
           );
         })}
