@@ -337,69 +337,6 @@ const CreadyRpmDetail = () => {
             )}
           </Section>
 
-          {/* Offers Shown — what the user actually saw on the short-ticket
-              /offers page, taken from the latest shortOfferLeads.shown_offers JSON. */}
-          {(() => {
-            const latestOffer = data.offers && data.offers.length
-              ? data.offers[data.offers.length - 1]
-              : null;
-            let shown = latestOffer?.shown_offers;
-            if (typeof shown === 'string') {
-              try { shown = JSON.parse(shown); } catch { shown = null; }
-            }
-            if (!Array.isArray(shown) || shown.length === 0) return null;
-            return (
-              <Section title={`Offers Shown to User (${shown.length})`}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {shown.map((o, i) => {
-                    const name = typeof o === 'string' ? o : (o?.lenderName || '—');
-                    const section = typeof o === 'object' ? o?.section : null;
-                    const utmLink = typeof o === 'object' ? o?.utmLink : null;
-                    const wasApproved = typeof o === 'object' ? o?.wasApproved : null;
-                    return (
-                      <div key={`${name}-${i}`} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-sm font-semibold text-gray-800 truncate">{name}</p>
-                          {section && (
-                            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-                              section === 'promoted'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-gray-200 text-gray-700'
-                            }`}>
-                              {section}
-                            </span>
-                          )}
-                        </div>
-                        <div className="mt-1.5 flex items-center gap-2 flex-wrap">
-                          {wasApproved === true && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-green-100 text-green-700">Approved</span>
-                          )}
-                          {wasApproved === false && (
-                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">Not approved</span>
-                          )}
-                          {utmLink && (
-                            <a
-                              href={utmLink}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[11px] text-purple-600 hover:underline truncate max-w-[200px]"
-                              title={utmLink}
-                            >
-                              UTM Link
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-gray-500 mt-3">
-                  Captured from latest submission on {formatDateTime(latestOffer?.createdAt)}.
-                </p>
-              </Section>
-            );
-          })()}
-
           {/* Submissions (shortOfferLeads) */}
           {data.offers && data.offers.length > 0 && (
             <Section title={`Submissions (${data.offers.length}) — shortOfferLeads`}>

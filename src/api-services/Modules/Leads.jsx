@@ -755,18 +755,18 @@ export const getCreadyRpmDetail = async ({ phone } = {}) => {
 
 // AF Paid trend for the Cready RPM dashboard (shown on AF card click).
 // granularity='hour' returns a 24-hour breakdown for a single day; else daily.
-export const getCreadyRpmAfPaidTrend = async ({ type, fromDate, toDate, granularity } = {}) => {
+export const getCreadyRpmAfPaidTrend = async ({ type, fromDate, toDate, granularity, medium } = {}) => {
     return Api().get(`/cready-rpm/af-paid-trend`, {
-        params: { type, fromDate, toDate, granularity },
+        params: { type, fromDate, toDate, granularity, medium },
         skipAdminAppend: true,
     });
 };
 
 // Slow external-DB metric cards (Campaign Click / Application Date Count / AF Paid),
 // loaded separately from the main dashboard so a filter change reflects instantly.
-export const getCreadyRpmExternalStats = async ({ type, fromDate, toDate } = {}) => {
+export const getCreadyRpmExternalStats = async ({ type, fromDate, toDate, medium } = {}) => {
     return Api().get(`/cready-rpm/external-stats`, {
-        params: { type, fromDate, toDate },
+        params: { type, fromDate, toDate, medium },
         skipAdminAppend: true,
     });
 };

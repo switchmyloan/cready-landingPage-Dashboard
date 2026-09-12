@@ -2474,15 +2474,26 @@ export const shortUserTrackColumn = ({ handleEdit, showMedium = false }) => [
     id: 'all-mediums',
     enableSorting: false,
     cell: ({ row }) => {
+      // all_mediums carries ONE ENTRY PER ROW the phone appeared in, not one per
+      // distinct medium — the query builds it without DISTINCT on purpose, because
+      // ARRAY_AGG(DISTINCT …) was a severe slowdown on wide windows. So a user with
+      // 39 submissions rendered 39 identical "ramfincorp" chips (and 39 duplicate
+      // React keys). Collapse it here instead, and keep the repeat count on the
+      // chip so the information is not thrown away.
       const list = row.original.all_mediums || [];
       if (!list.length) return <span className="text-[11px] text-gray-300">—</span>;
-      const others = list.filter((m) => m !== 'rapidmoney');
-      const ordered = [...others, ...list.filter((m) => m === 'rapidmoney')];
+      const counts = new Map();
+      for (const m of list) counts.set(m, (counts.get(m) || 0) + 1);
+      // rapidmoney is on every row here by definition, so it goes last and stays
+      // grey — the other mediums are the ones that say where the user came from.
+      const ordered = [...counts.keys()].filter((m) => m !== 'rapidmoney');
+      if (counts.has('rapidmoney')) ordered.push('rapidmoney');
       return (
         <div className="flex flex-wrap gap-1 max-w-[220px]">
           {ordered.map((m) => (
             <span
               key={m}
+              title={counts.get(m) > 1 ? `${m} — ${counts.get(m)} submissions` : m}
               className={`px-1.5 py-0.5 rounded text-[10.5px] font-medium whitespace-nowrap ${
                 m === 'rapidmoney'
                   ? 'bg-gray-100 text-gray-500'
@@ -2490,6 +2501,9 @@ export const shortUserTrackColumn = ({ handleEdit, showMedium = false }) => [
               }`}
             >
               {m}
+              {counts.get(m) > 1 && (
+                <span className="ml-1 opacity-60">×{counts.get(m)}</span>
+              )}
             </span>
           ))}
         </div>

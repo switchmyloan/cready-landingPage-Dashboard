@@ -43,10 +43,22 @@ const debounce = (fn, delay) => {
   };
 };
 
-// Stage definitions — cumulative "reached" semantics for OTP/form/lender
-// (clicking a pill shows everyone who crossed that gate, including those who
-// went further). `landed_only` is the exception: it isolates users who landed
-// but never progressed past OTP.
+// Stage definitions.
+//
+// These are EXCLUSIVE buckets, not a cumulative funnel: every landed user falls
+// into exactly one of landed_only / otp_verified / form_submitted /
+// lender_clicked, and the four sum to the landed total (297 + 420 + 498 + 2,088
+// = 3,303 on 11 Sep). Each one means "got this far and no further" — the backend
+// counts form_submitted as `has_submitted MINUS has_lender_clicked`.
+//
+// So "Form Submitted 498" never meant 498 people submitted the form; 2,586 did
+// (498 + the 2,088 who submitted AND went on to click). The labels below say
+// "Stopped at …" for the two buckets where the old wording read as a total and
+// made the page look broken — lender clicks cannot exceed form submissions, and
+// they never did.
+//
+// lender_clicked IS cumulative (anyone with a click, disbursed included), so it
+// keeps its plain name.
 const STAGES = [
   { key: "", label: "Landed (All Users)", Icon: Users, color: "blue" },
   {
@@ -57,13 +69,13 @@ const STAGES = [
   },
   {
     key: "otp_verified",
-    label: "OTP Verified",
+    label: "Stopped at OTP",
     Icon: ShieldCheck,
     color: "amber",
   },
   {
     key: "form_submitted",
-    label: "Form Submitted",
+    label: "Stopped at Form",
     Icon: FileCheck,
     color: "purple",
   },
@@ -156,7 +168,7 @@ const StatCards = ({ summary, loading }) => {
     },
     {
       key: "otp",
-      label: "OTP Verified",
+      label: "Stopped at OTP",
       value: otp,
       Icon: ShieldCheck,
       color: "amber",
@@ -164,7 +176,7 @@ const StatCards = ({ summary, loading }) => {
     },
     {
       key: "form_submitted",
-      label: "Form Submitted",
+      label: "Stopped at Form",
       value: form,
       Icon: FileCheck,
       color: "purple",
@@ -1289,7 +1301,7 @@ const UserTrack = () => {
         title="High User Track"
         subtitle="End-to-end journey of every applicant — from landing on the site to clicking a lender."
         whatYouSee={[
-          "Each applicant's progress through the funnel: Landed → OTP Verified → Form Submitted → Lender Clicked.",
+          "Each applicant's furthest point: Landed → Stopped at OTP → Stopped at Form → Lender Clicked. Every user sits in exactly one of these.",
           'The list of lenders the applicant pressed Apply on.',
           'The offer cards that were actually shown to the applicant on the offer page.',
           'Filters by traffic source (Medium) and by clicked lender — useful for segment analysis.',
