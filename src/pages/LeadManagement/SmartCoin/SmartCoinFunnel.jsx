@@ -448,9 +448,9 @@ const SmartCoinFunnel = () => {
               </thead>
               <tbody>
                 {stageLoading ? (
-                  <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-10 text-center text-gray-400">Loading…</td></tr>
                 ) : rows.length === 0 ? (
-                  <tr><td colSpan={7} className="px-5 py-10 text-center text-gray-400">No leads in this stage.</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-10 text-center text-gray-400">No leads in this stage.</td></tr>
                 ) : rows.map((r) => (
                   <tr key={r.id} className="h-[46px] border-b border-gray-50 hover:bg-indigo-50/40">
                     <td className="px-5 max-w-0">
@@ -529,24 +529,34 @@ const SmartCoinFunnel = () => {
                 <tr className="text-left text-[10.5px] uppercase tracking-wider text-gray-400 border-b border-gray-100">
                   <th className="px-5 py-2.5 font-medium">Date</th>
                   <th className="px-3 py-2.5 font-medium text-right">Pushed</th>
+                  {/* Each rate sits next to the count it comes from. Bunched at the end,
+                      you have to keep looking back to work out the denominator. */}
                   <th className="px-3 py-2.5 font-medium text-right">Passed</th>
+                  <th className="px-3 py-2.5 font-medium text-right" title="Dedupe Passed as a share of Pushed">Passed %</th>
                   <th className="px-3 py-2.5 font-medium text-right">Duplicate</th>
+                  <th className="px-3 py-2.5 font-medium text-right" title="Duplicates as a share of Pushed. Passed % and Duplicate % add up to 100 - every dedupe answer is one or the other.">Duplicate %</th>
                   <th className="px-3 py-2.5 font-medium text-right">Leads created</th>
-                  <th className="px-3 py-2.5 font-medium text-right">Pass %</th>
+                  <th className="px-3 py-2.5 font-medium text-right" title="Leads Created as a share of Dedupe Passed - the same rate the Lead Created card shows">Lead %</th>
                 </tr>
               </thead>
               <tbody>
                 {history.length === 0 ? (
-                  <tr><td colSpan={6} className="px-5 py-10 text-center text-gray-400">No SmartCoin activity in this window.</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-10 text-center text-gray-400">No SmartCoin activity in this window.</td></tr>
                 ) : history.map((h) => (
                   <tr key={h.date} className="h-[42px] border-b border-gray-50 hover:bg-violet-50/30">
                     <td className="px-5 font-semibold text-gray-700 whitespace-nowrap">{fmtDay(h.date)}</td>
                     <td className="px-3 text-right tabular-nums text-gray-700">{fmtNum(h.pushed)}</td>
                     <td className="px-3 text-right tabular-nums font-semibold text-indigo-700">{fmtNum(h.passed)}</td>
-                    <td className="px-3 text-right tabular-nums text-amber-700">{fmtNum(h.duplicate)}</td>
-                    <td className="px-3 text-right tabular-nums font-semibold text-emerald-700">{fmtNum(h.leadCreated)}</td>
-                    <td className="px-3 text-right tabular-nums text-gray-500">
+                    <td className="px-3 text-right tabular-nums text-indigo-400">
                       {h.pushed ? `${pctOf(h.passed, h.pushed)}%` : "—"}
+                    </td>
+                    <td className="px-3 text-right tabular-nums text-amber-700">{fmtNum(h.duplicate)}</td>
+                    <td className="px-3 text-right tabular-nums text-amber-400">
+                      {h.pushed ? `${pctOf(h.duplicate, h.pushed)}%` : "—"}
+                    </td>
+                    <td className="px-3 text-right tabular-nums font-semibold text-emerald-700">{fmtNum(h.leadCreated)}</td>
+                    <td className="px-3 text-right tabular-nums text-emerald-500">
+                      {h.passed ? `${pctOf(h.leadCreated, h.passed)}%` : "—"}
                     </td>
                   </tr>
                 ))}
