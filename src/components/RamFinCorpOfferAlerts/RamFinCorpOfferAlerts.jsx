@@ -6,6 +6,7 @@ import { useAuth } from '../../custom-hooks/useAuth';
 import { isCallCenterRole } from '../../custom-hooks/callCenterBands';
 import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
 import { getRamFinCorpHotLeads } from '../../api-services/Modules/RamFinCorpFunnel';
+import { io } from 'socket.io-client';
 
 // RamFinCorp hot leads — users RamFinCorp came back BRE APPROVED on, WITH an
 // offer amount. These are the ones worth calling: the lender has already said
@@ -101,6 +102,29 @@ export default function RamFinCorpOfferAlerts() {
     poll();
     const id = setInterval(poll, POLL_MS);
     return () => { clearInterval(id); clearTimeout(flashTimer.current); };
+  }, [poll, canSee]);
+
+  // Live updates.
+  //
+  // The server says "an approved RamFinCorp offer landed" and we run the SAME
+  // poll() as always — so the token check and the per-agent filtering still decide
+  // what this user sees. Nothing about the data path changes; it just stops
+  // waiting for the next 5-minute tick.
+  //
+  // The interval above is KEPT on purpose. If the socket cannot connect — a proxy
+  // that blocks WebSocket, a laptop waking from sleep — the bell behaves exactly
+  // as it did before this existed.
+  useEffect(() => {
+    if (!canSee) return undefined;
+    // VITE_API_URL ends in /api; socket.io lives at the server root.
+    const url = String(import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '')
+      || window.location.origin;
+    const socket = io(url, {
+      // Token in the handshake, not the URL — a URL token lands in the access log.
+      auth: { token: localStorage.getItem('access_token') || '' },
+    });
+    socket.on('ramfincorp:new', poll);
+    return () => socket.disconnect();
   }, [poll, canSee]);
 
   useEffect(() => { seenRef.current = null; }, [agentId]);
