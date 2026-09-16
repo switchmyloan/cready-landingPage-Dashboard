@@ -52,6 +52,11 @@ const STAGE_META = {
     short: "Lead Created",
     hint: "SmartCoin issued a lead id (SMLI-…) — the lead reached them",
   },
+  leadDuplicate: {
+    icon: Copy,
+    short: "Lead Duplicate",
+    hint: "Passed the first dedupe, then rejected as a duplicate at lead creation — no lead id issued",
+  },
   disbursed: {
     icon: IndianRupee,
     short: "Disbursed",
@@ -67,6 +72,7 @@ const statusTone = (s) => {
 };
 const statusLabel = (s) => ({
   lead_created: "Lead created",
+  lead_duplicate: "Lead duplicate",
   passed: "Passed",
   duplicate: "Duplicate",
 }[String(s || "").toLowerCase()] || "—");
@@ -180,7 +186,9 @@ const SmartCoinFunnel = () => {
   const showTrend = trendOpen === null ? history.length > 1 : trendOpen;
 
   const stageLabel = funnel.find((f) => f.key === stage)?.label
-    || (stage === "duplicate" ? "Duplicates" : stage);
+    || (stage === "duplicate" ? "Duplicates"
+      : stage === "leadDuplicate" ? "Lead Duplicates — rejected at lead creation"
+        : stage);
 
   // The stages themselves, plus Duplicate parked at the end — it is a drop-off,
   // not a step, so it sits outside the sequence rather than inside it. Each tile
@@ -219,6 +227,20 @@ const SmartCoinFunnel = () => {
         hint: "SmartCoin already had this applicant — dropped at dedupe",
         sub: `${pctOf(tot.duplicate, tot.pushed)}% of pushed`,
         users: tot.duplicateUsers,
+      },
+      // A SECOND, later duplicate: these cleared the first dedupe but SmartCoin
+      // rejected them as a duplicate when we tried to create the lead, so no lead
+      // id came back. Its base is Dedupe Passed, not Pushed — that is the pool it
+      // was lost from, and it never overlaps Lead Created.
+      {
+        key: "leadDuplicate",
+        label: "Lead Duplicate",
+        fullLabel: "Lead Duplicate — rejected at lead creation",
+        count: tot.leadDuplicate || 0,
+        icon: Copy,
+        hint: "Passed the first dedupe, then rejected as a duplicate at lead creation — no lead id issued",
+        sub: `${pctOf(tot.leadDuplicate, tot.passed)}% of dedupe passed`,
+        users: tot.leadDuplicateUsers,
       },
     ];
   }, [data]);
@@ -333,7 +355,7 @@ const SmartCoinFunnel = () => {
           parked at the end. Each one opens its own list of leads — which nothing
           on screen used to say, so the cards looked like read-only numbers. */}
       <p className="text-[11.5px] text-gray-400 mb-2">Click any card to see the leads behind it.</p>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-4">
         {tiles.map((t) => {
           const Icon = t.icon;
           const isOpen = stage === t.key;
@@ -356,7 +378,7 @@ const SmartCoinFunnel = () => {
                   amber — so the eye lands on them instead of on four identical
                   grey numbers. */}
               <p className={`mt-1 text-[24px] font-bold leading-none tabular-nums ${
-                t.key === "duplicate"
+                t.key === "duplicate" || t.key === "leadDuplicate"
                   ? "text-amber-700"
                   : t.key === "leadCreated"
                     ? "text-emerald-700"
@@ -537,11 +559,12 @@ const SmartCoinFunnel = () => {
                   <th className="px-3 py-2.5 font-medium text-right" title="Duplicates as a share of Pushed. Passed % and Duplicate % add up to 100 - every dedupe answer is one or the other.">Duplicate %</th>
                   <th className="px-3 py-2.5 font-medium text-right">Leads created</th>
                   <th className="px-3 py-2.5 font-medium text-right" title="Leads Created as a share of Dedupe Passed - the same rate the Lead Created card shows">Lead %</th>
+                  <th className="px-3 py-2.5 font-medium text-right" title="Passed the first dedupe, then rejected as a duplicate at lead creation - no lead id issued">Lead dup.</th>
                 </tr>
               </thead>
               <tbody>
                 {history.length === 0 ? (
-                  <tr><td colSpan={8} className="px-5 py-10 text-center text-gray-400">No SmartCoin activity in this window.</td></tr>
+                  <tr><td colSpan={9} className="px-5 py-10 text-center text-gray-400">No SmartCoin activity in this window.</td></tr>
                 ) : history.map((h) => (
                   <tr key={h.date} className="h-[42px] border-b border-gray-50 hover:bg-violet-50/30">
                     <td className="px-5 font-semibold text-gray-700 whitespace-nowrap">{fmtDay(h.date)}</td>
@@ -558,6 +581,7 @@ const SmartCoinFunnel = () => {
                     <td className="px-3 text-right tabular-nums text-emerald-500">
                       {h.passed ? `${pctOf(h.leadCreated, h.passed)}%` : "—"}
                     </td>
+                    <td className="px-3 text-right tabular-nums text-amber-700">{fmtNum(h.leadDuplicate)}</td>
                   </tr>
                 ))}
               </tbody>

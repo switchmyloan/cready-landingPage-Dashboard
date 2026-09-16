@@ -2391,7 +2391,11 @@ export const lendingUserJourneyColumn = ({ handleEdit }) => [
 // showMedium is opt-in because this column set is shared by three pages (Cready
 // RPM, Short User Track, Vyapar User Track) and only RPM asked for it — adding it
 // unconditionally would widen two tables nobody asked to change.
-export const shortUserTrackColumn = ({ handleEdit, showMedium = false }) => [
+// selectedMedium: when the Medium filter is set, the column shows ONLY that
+// medium — the phone's LAST-checked entry, which is exactly what the row was
+// filtered on (the query matches last_medium). Without a filter it falls back to
+// showing every medium the phone came through.
+export const shortUserTrackColumn = ({ handleEdit, showMedium = false, selectedMedium = '' }) => [
   {
     header: 'SN',
     id: 'sn',
@@ -2474,6 +2478,29 @@ export const shortUserTrackColumn = ({ handleEdit, showMedium = false }) => [
     id: 'all-mediums',
     enableSorting: false,
     cell: ({ row }) => {
+      // A medium is selected in the filter. The row qualified because its
+      // last-checked entry was that medium (the query filters on last_medium), so
+      // show exactly that one band — not the phone's whole history. This is the
+      // "jo select kiya wahi dikhe, uska last check" behaviour: pick last_medium,
+      // and fall back to the selected value if the row didn't carry it.
+      if (selectedMedium) {
+        const only = (row.original.last_medium || selectedMedium || '').toString().toLowerCase();
+        if (!only) return <span className="text-[11px] text-gray-300">—</span>;
+        return (
+          <span
+            title={`Last came through ${only}`}
+            className={`px-1.5 py-0.5 rounded text-[10.5px] font-medium whitespace-nowrap ${
+              only === 'rapidmoney'
+                ? 'bg-gray-100 text-gray-500'
+                : 'bg-purple-50 text-purple-700 border border-purple-100'
+            }`}
+          >
+            {only}
+          </span>
+        );
+      }
+
+      // No filter: show every medium this phone arrived through.
       // all_mediums carries ONE ENTRY PER ROW the phone appeared in, not one per
       // distinct medium — the query builds it without DISTINCT on purpose, because
       // ARRAY_AGG(DISTINCT …) was a severe slowdown on wide windows. So a user with

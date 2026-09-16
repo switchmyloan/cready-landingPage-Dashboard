@@ -1,6 +1,5 @@
 import './App.css'
 import AccessControl from "./pages/Admin/AccessControl";
-import ActivityLog from "./pages/Admin/ActivityLog";
 import Home from '@pages/Home'
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Suspense, lazy } from 'react';
@@ -221,8 +220,6 @@ function App() {
             {/* Super-admin only */}
             {/* Access Control — dev only; users, modules and grants. */}
             <Route path="access-control" element={<AccessControl />} />
-            {/* Activity Log — dev + super-admin. */}
-            <Route path="activity-log" element={<ActivityLog />} />
 
             <Route path="otp-logs" element={<OtpLogs />} />
             <Route path="export-audit-logs" element={<ExportAuditLogs />} />

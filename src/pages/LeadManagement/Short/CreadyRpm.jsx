@@ -1238,9 +1238,11 @@ const CreadyRpm = () => {
     }
   };
 
+  // Rebuild when the medium filter changes: with a medium selected the column
+  // shows only that one (the phone's last-checked entry), else the full history.
   const columns = useMemo(
-    () => shortUserTrackColumn({ handleEdit: handleView, showMedium: true }),
-    [],
+    () => shortUserTrackColumn({ handleEdit: handleView, showMedium: true, selectedMedium: query.medium }),
+    [query.medium],
   );
 
   if (firstLoad) {

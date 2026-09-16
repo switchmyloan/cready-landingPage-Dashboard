@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  TrendingDown, RefreshCw, Download, Search, X, IndianRupee,
-  Users, CheckCircle2, Info,
+  TrendingDown, RefreshCw, Download, Search, X,
+  Users, CheckCircle2, Info, ArrowRight,
 } from "lucide-react";
 import {
-  getVivifiFunnel, getVivifiFunnelHistory, getVivifiStageLeads,
+  getVivifiFunnelHistory, getVivifiFunnelHistoryByEvent,
+  getVivifiFunnelStageStatus, getVivifiStageLeads,
 } from "../../../api-services/Modules/VivifiFunnel";
 import CompactDateFilter from "../../../components/CompactDateFilter";
 import TablePagination from "../../../components/TablePagination";
@@ -12,14 +13,6 @@ import PremiumPageLoader from "../../../components/PremiumPageLoader";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
-// Indian money reads badly in a fixed unit: ₹3,50,490 as "₹0.04 Cr" is harder to
-// grasp than "₹3.50 L". Pick the unit that fits the number.
-const compactInr = (n) => {
-  const v = Number(n) || 0;
-  if (v >= 10000000) return `₹${(v / 10000000).toFixed(2)} Cr`;
-  if (v >= 100000) return `₹${(v / 100000).toFixed(2)} L`;
-  return `₹${Math.round(v).toLocaleString("en-IN")}`;
-};
 const fmtDT = (v) => {
   if (!v) return "—";
   const d = new Date(String(v).replace(" ", "T"));
@@ -40,11 +33,16 @@ const VivifiFunnel = () => {
   const [range, setRange] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [viewMode, setViewMode] = useState("create"); // "create" (cohort) | "event"
 
-  const [data, setData] = useState(null);
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(null);
   const [loading, setLoading] = useState(true);
   const [firstLoad, setFirstLoad] = useState(true);
+
+  // Drill "where are they now" — of leads who reached a rung, their current status.
+  const [drill, setDrill] = useState(null);        // { key, label, day }
+  const [drillData, setDrillData] = useState(null); // { reached, statuses:[...] }
+  const [drillLoading, setDrillLoading] = useState(false);
 
   const [stage, setStage] = useState(null);
   const [stageData, setStageData] = useState(null);
@@ -67,20 +65,16 @@ const VivifiFunnel = () => {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [f, h] = await Promise.all([
-        getVivifiFunnel(dateParams),
-        getVivifiFunnelHistory(dateParams),
-      ]);
-      setData(f?.data?.data || null);
-      setHistory(h?.data?.data || []);
+      const histCall = viewMode === "event" ? getVivifiFunnelHistoryByEvent : getVivifiFunnelHistory;
+      const h = await histCall(dateParams);
+      setHistory(h?.data?.data || null);
     } catch {
-      setData(null);
-      setHistory([]);
+      setHistory(null);
     } finally {
       setLoading(false);
       setFirstLoad(false);
     }
-  }, [dateParams]);
+  }, [dateParams, viewMode]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -100,15 +94,84 @@ const VivifiFunnel = () => {
     return () => { alive = false; };
   }, [stage, stageParams]);
 
-  const totals = data?.totals || {};
-  const funnel = data?.funnel || [];
-  const rejected = data?.rejected || [];
-  const win = data?.window;
   const rows = stageData?.data || [];
   const stageTotal = stageData?.pagination?.total || 0;
   const stageTotalPages = stageData?.pagination?.totalPages || 1;
 
+  // Everything now comes from the history response, so the KPIs, the matrix and
+  // the rejected chips all move together when the Create/Event toggle or the date
+  // filter changes — one source, one question at a time.
+  const cohortStages = history?.stages || [];
+  const matrix = history?.matrix || [];
+  const cohortTotal = history?.totalLeads || 0;
+  const cohortSummary = history?.summary || {};
+  const win = history?.window;
+  // Rejected chips = the red (terminal) columns of the CURRENT view.
+  const rejected = cohortStages
+    .filter((s) => s.tone === "red")
+    .map((s) => ({ key: s.key, label: s.label, count: s.total }));
+  // Event-day is raw per-event counts, NOT a monotonic cohort — so no conversion %
+  // and no "where are they now" drill (both only make sense on the reached cohort).
+  const byEvent = !!history?.byEvent;
+
+  // Conversion ratio target → the progression rung it converts FROM (the one
+  // before it). Red outcomes are not part of the progression chain. These are
+  // ≤10-item arrays rebuilt from `history`, so plain consts, not memos.
+  const progKeys = cohortStages.filter((s) => s.tone !== "red").map((s) => s.key);
+  const ratioFrom = {};
+  progKeys.forEach((k, i) => { if (i > 0) ratioFrom[k] = progKeys[i - 1]; });
+  const stageTotalByKey = Object.fromEntries(cohortStages.map((s) => [s.key, Number(s.total) || 0]));
+  const rpct = (n, d) => (d > 0 ? Math.round((n / d) * 1000) / 10 : null);
+
   const openStage = (f) => { setStage({ status: f.key, label: f.label }); setPage(1); setSearch(""); };
+
+  // Drill a rung (whole range, or one first-arrival `day` from a matrix cell).
+  // Red outcome columns are raw totals, not a "reached" cohort, so they don't drill.
+  const isDrillable = (st) => !!st && st.tone !== "red" && !byEvent;
+  const openDrill = useCallback(async (st, day = null) => {
+    if (!st || st.tone === "red" || byEvent) return;   // only the reached cohort drills
+    setDrill({ key: st.key, label: st.label, day });
+    setDrillData(null);
+    setDrillLoading(true);
+    try {
+      const r = await getVivifiFunnelStageStatus({ ...dateParams, stage: st.key, day: day || undefined });
+      setDrillData(r?.data?.data || null);
+    } catch {
+      setDrillData(null);
+    } finally {
+      setDrillLoading(false);
+    }
+  }, [dateParams, byEvent]);
+
+  // Export the actual LEADS in the current window (not the count matrix) — one row
+  // per lead with its details, the same data the rest of the CMS exports. Pulls
+  // every lead in the window (no status filter), so it is a fetch, not client-side.
+  const exportLeads = async () => {
+    setExporting(true);
+    let all = [];
+    try {
+      const res = await getVivifiStageLeads({ ...dateParams, perPage: 100000, currentPage: 1 });
+      all = res?.data?.data?.data || [];
+    } catch {
+      /* leave empty rather than hand back a broken file */
+    } finally {
+      setExporting(false);
+    }
+    if (!all.length) return;
+    const esc = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+    const head = ["Lead ID", "Name", "Phone", "Current Status", "Rejection Reason", "Eligible Amount", "Created At", "Updated At"];
+    const lines = [head.map(esc).join(",")];
+    all.forEach((r) => lines.push([
+      r.leadId, r.name, r.phone, r.currentStatus, r.rejectionReason,
+      r.eligibleAmount ?? "", r.createdAt, r.updatedAt,
+    ].map(esc).join(",")));
+    const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\n")], { type: "text/csv;charset=utf-8;" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Vivifi-Funnel-Leads_${win?.from || "all"}_to_${win?.to || "all"}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
 
   const exportCsv = async () => {
     if (!stage) return;
@@ -165,6 +228,28 @@ const VivifiFunnel = () => {
         </div>
         <h1 className="text-[16px] font-bold text-gray-800 leading-none">Vivifi Funnel</h1>
 
+        {/* Count by: Create day (first-arrival cohort, cumulative) vs Event day
+            (each event on the day it happened). Same toggle as the UpSwing funnel. */}
+        <div className="inline-flex items-center rounded-lg border border-purple-200 bg-white p-0.5 text-[11.5px] font-semibold">
+          {[
+            { k: "create", label: "Create day" },
+            { k: "event", label: "Event day" },
+          ].map((m) => (
+            <button
+              key={m.k}
+              onClick={() => { setViewMode(m.k); setStage(null); setDrill(null); }}
+              title={m.k === "create"
+                ? "Each lead on its create/first-arrival day, in every stage it ever reached (cumulative)"
+                : "Each event counted on the day it actually happened (not cumulative)"}
+              className={`px-2.5 py-1 rounded-md transition ${
+                viewMode === m.k ? "bg-purple-600 text-white shadow-sm" : "text-gray-500 hover:text-gray-800"
+              }`}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         <div className="ml-auto flex items-center gap-2">
           <CompactDateFilter
             range={range}
@@ -177,6 +262,14 @@ const VivifiFunnel = () => {
             accent="purple"
           />
           <button
+            onClick={exportLeads}
+            disabled={exporting || !cohortTotal}
+            title="Export every lead in this window as CSV"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[12px] font-semibold text-white bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 disabled:opacity-40 shadow-sm"
+          >
+            <Download size={14} className={exporting ? "animate-pulse" : ""} /> {exporting ? "Preparing…" : "Export"}
+          </button>
+          <button
             onClick={fetchAll}
             title="Refresh"
             className="p-2 rounded-lg border border-purple-200 bg-white text-gray-500 hover:bg-purple-50 transition"
@@ -186,27 +279,27 @@ const VivifiFunnel = () => {
         </div>
       </div>
 
-      {/* Worth one line: the obvious alternative reading (each lead's FURTHEST
-          stage over its whole history) gives different, also-correct numbers, and
-          that version used to disagree with the module beside it. */}
+      {/* One line: KPIs + matrix both follow the toggle above, so neither is the
+          current-status snapshot the Webhook Leads list shows — a different question. */}
       <p className="flex items-center gap-1.5 text-[11px] text-gray-400 mb-2.5">
         <Info size={12} className="shrink-0 text-purple-400" />
-        Each lead counted once, on its current stage — tallies exactly with Vivifi Webhook Leads.
+        {byEvent
+          ? "Event day — each event counted on the day it happened. Totals are distinct leads active in the window; not the current-status Webhook Leads list."
+          : "Create day — each lead on its first-arrival day, credited in every stage it reached (cumulative). Not the current-status Webhook Leads list."}
       </p>
 
-      {/* Compact KPI strip: context for the funnel below, not the headline, so no
-          more 26px numbers and 16px padding each. */}
+      {/* KPI strip — driven by the current view's summary, so it moves with the
+          Create/Event toggle and the date filter (matches the matrix below). */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2 mb-2.5">
         {[
           { icon: <Users size={11} />, label: "Total Leads", tone: "border-l-indigo-400",
-            value: fmtNum(totals.leads), sub: "in this window" },
+            value: fmtNum(cohortTotal), sub: byEvent ? "active in this window" : "started in this window" },
+          { icon: <TrendingDown size={11} />, label: "In Progress", tone: "border-l-amber-400",
+            value: fmtNum(cohortSummary.inProgress), sub: `${cohortSummary.inProgressPct ?? 0}% still moving` },
           { icon: <CheckCircle2 size={11} />, label: "Disbursed", tone: "border-l-emerald-400",
-            value: fmtNum(totals.disbursedLeads),
-            sub: totals.leads ? `${Math.round((totals.disbursedLeads / totals.leads) * 1000) / 10}% of leads` : "—" },
-          { icon: <IndianRupee size={11} />, label: "Disbursed Amt", tone: "border-l-purple-400",
-            value: compactInr(totals.disbursedAmount), sub: inr(totals.disbursedAmount) },
-          { icon: <IndianRupee size={11} />, label: "Sanctioned", tone: "border-l-amber-400",
-            value: compactInr(totals.sanctionedAmount), sub: "approved, not all paid" },
+            value: fmtNum(cohortSummary.disbursed), sub: `${cohortSummary.disbursedPct ?? 0}% of leads` },
+          { icon: <X size={11} />, label: "Rejected", tone: "border-l-rose-400",
+            value: fmtNum(cohortSummary.rejected), sub: `${cohortSummary.rejectedPct ?? 0}% of leads` },
         ].map((k) => (
           <div key={k.label} className={`rounded-lg border border-gray-200 border-l-[3px] ${k.tone} bg-white px-2.5 py-2 shadow-sm`}>
             <span className="inline-flex items-center gap-1 text-[9.5px] font-bold uppercase tracking-wide text-gray-400">
@@ -333,54 +426,148 @@ const VivifiFunnel = () => {
         </div>
       )}
 
-      {/* Day by day */}
+      {/* Day by day — COHORT matrix (UpSwing model). Each cell = leads that first
+          arrived that day and REACHED that stage (furthest >= rung), so columns are
+          cumulative and monotonic. Small % under a cell = conversion from the stage
+          before it. Click a stage header (whole range) or a cell (that day) to see
+          "where are they now". */}
       <div className="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100">
+        <div className="flex flex-wrap items-center gap-2 px-5 py-3 border-b border-gray-100">
           <span className="w-1 h-5 rounded-full bg-indigo-600" />
           <h2 className="text-[15px] font-bold text-gray-800">Day by day</h2>
           <span className="px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 text-[11px] font-bold border border-indigo-100">
-            {fmtNum(history.length)} DAYS
+            {fmtNum(matrix.length)} DAYS
           </span>
-          <span className="text-[11px] text-gray-400">leads touched that day, by current stage</span>
+          <span className="text-[11px] text-gray-400">
+            {byEvent
+              ? "events that happened that day — each on its own day, not cumulative"
+              : "of leads that started that day, how many reached each stage · click a stage or cell for “where are they now”"}
+          </span>
+          {win?.liveFrom && (
+            <span className="ml-auto text-[10.5px] text-gray-400">from {win.liveFrom} (feed go-live)</span>
+          )}
         </div>
-        <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-          <table className="w-full text-[12.5px] min-w-[900px]">
-            <thead className="sticky top-0 bg-gray-50/95 backdrop-blur">
-              <tr className="text-left text-[10.5px] uppercase tracking-wider text-gray-400 border-b border-gray-100">
-                <th className="px-5 py-2.5 font-medium">Date</th>
-                {funnel.map((f, i) => (
-                  <th
-                    key={f.key}
-                    onClick={() => openStage(f)}
-                    title={`See the ${fmtNum(f.count)} leads currently at ${f.label}`}
-                    className={`px-3 py-2.5 font-medium text-right whitespace-nowrap cursor-pointer select-none transition hover:text-purple-700 ${
-                      stage?.status === f.key ? "text-purple-700 underline" : ""
-                    }`}
-                  >
-                    {f.label}
-                  </th>
-                ))}
-                <th className="px-3 py-2.5 font-medium text-right">Disb %</th>
+        <div className="overflow-x-auto max-h-[460px] overflow-y-auto">
+          <table className="w-full text-[12.5px] border-separate border-spacing-0 min-w-[1000px]">
+            <thead className="sticky top-0 z-10">
+              <tr className="bg-gray-50 text-left text-[10.5px] uppercase tracking-wider text-gray-400">
+                <th className="sticky left-0 z-20 bg-gray-50 px-5 py-2.5 font-medium">Date</th>
+                <th className="px-3 py-2.5 font-medium text-right">Total</th>
+                {cohortStages.map((s) => {
+                  const drillable = isDrillable(s);
+                  return (
+                    <th
+                      key={s.key}
+                      onClick={() => drillable && openDrill(s)}
+                      title={drillable ? `Where are the ${fmtNum(s.total)} leads that reached ${s.label} now?` : s.label}
+                      className={`px-3 py-2.5 font-medium text-right whitespace-nowrap ${
+                        s.tone === "red" ? "text-rose-500" : s.tone === "green" ? "text-emerald-600" : ""
+                      } ${drillable ? "cursor-pointer select-none hover:text-purple-700 hover:underline underline-offset-2" : ""} ${
+                        drill?.key === s.key ? "text-purple-700 underline" : ""
+                      }`}
+                    >
+                      {s.label}
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
-              {history.length === 0 ? (
-                <tr><td colSpan={funnel.length + 2} className="px-5 py-10 text-center text-gray-400">No activity in this window.</td></tr>
-              ) : history.map((h) => (
-                <tr key={h.date} className="h-[42px] border-b border-gray-50 hover:bg-indigo-50/30">
-                  <td className="px-5 font-semibold text-gray-700 whitespace-nowrap">{h.date}</td>
-                  {funnel.map((f, i) => (
-                    <td key={f.key} className={`px-3 text-right tabular-nums ${i === 0 ? "font-semibold text-gray-800" : "text-gray-600"}`}>
-                      {fmtNum(h[f.key])}
-                    </td>
-                  ))}
-                  <td className="px-3 text-right tabular-nums font-semibold text-emerald-700">{h.disbursed_pct}%</td>
+              {matrix.length === 0 ? (
+                <tr><td colSpan={cohortStages.length + 2} className="px-5 py-10 text-center text-gray-400">No activity in this window.</td></tr>
+              ) : matrix.map((h) => (
+                <tr key={h.date} className="border-b border-gray-50 hover:bg-indigo-50/30">
+                  <td className="sticky left-0 z-[1] bg-white px-5 py-2 font-semibold text-gray-700 whitespace-nowrap">{h.date}</td>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{fmtNum(h.total)}</td>
+                  {cohortStages.map((s, i) => {
+                    const v = h.byStage?.[s.key] || 0;
+                    const fromKey = ratioFrom[s.key];
+                    const r = (!byEvent && fromKey) ? rpct(v, h.byStage?.[fromKey] || 0) : null;
+                    const drillable = isDrillable(s) && v > 0;
+                    return (
+                      <td key={s.key} className={`px-3 py-2 text-right align-top ${i === 0 ? "font-semibold text-gray-800" : "text-gray-600"}`}>
+                        <span
+                          onClick={() => drillable && openDrill(s, h.date)}
+                          className={`tabular-nums ${drillable ? "cursor-pointer hover:text-purple-700 hover:underline underline-offset-2" : ""}`}
+                        >
+                          {fmtNum(v)}
+                        </span>
+                        {r != null && <div className="text-[9.5px] text-indigo-400 tabular-nums">{r}%</div>}
+                      </td>
+                    );
+                  })}
                 </tr>
               ))}
             </tbody>
+            {matrix.length > 0 && (
+              <tfoot>
+                <tr className="bg-gray-100 font-bold text-gray-700">
+                  <td className="sticky left-0 z-[1] bg-gray-100 px-5 py-2.5 text-[11px] uppercase tracking-wide border-t-2 border-gray-200">Total</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums border-t-2 border-gray-200">{fmtNum(cohortTotal)}</td>
+                  {cohortStages.map((s) => {
+                    const fromKey = ratioFrom[s.key];
+                    const r = (!byEvent && fromKey) ? rpct(s.total, stageTotalByKey[fromKey] || 0) : null;
+                    return (
+                      <td key={s.key} className={`px-3 py-2.5 text-right align-top tabular-nums border-t-2 border-gray-200 ${
+                        s.tone === "red" ? "text-rose-600" : s.tone === "green" ? "text-emerald-700" : ""
+                      }`}>
+                        {fmtNum(s.total)}
+                        <div className="text-[9.5px] font-semibold text-indigo-500 tabular-nums">
+                          {r != null ? `${r}%` : `${s.pctOfTotal}%`}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
       </div>
+
+      {/* Drill: of the leads that reached a stage, where are they now */}
+      {drill && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setDrill(null)}>
+          <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-purple-50 to-indigo-50">
+              <span className="w-1 h-5 rounded-full bg-purple-600" />
+              <div className="min-w-0">
+                <h2 className="text-[14px] font-bold text-gray-800 truncate">Reached {drill.label} — where are they now?</h2>
+                <p className="text-[11px] text-gray-500">
+                  {drill.day ? `First arrived ${drill.day}` : "All days in the window"}
+                  {drillData ? ` · ${fmtNum(drillData.reached)} leads` : ""}
+                </p>
+              </div>
+              <button onClick={() => setDrill(null)} className="ml-auto p-1.5 rounded-lg border border-gray-200 text-gray-400 hover:text-rose-500"><X size={14} /></button>
+            </div>
+            <div className="max-h-[60vh] overflow-y-auto p-3">
+              {drillLoading ? (
+                <div className="py-10 text-center text-gray-400 text-[13px]">Loading…</div>
+              ) : !drillData || !drillData.statuses?.length ? (
+                <div className="py-10 text-center text-gray-400 text-[13px]">No leads.</div>
+              ) : drillData.statuses.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => { openStage({ key: s.key, label: s.label }); setDrill(null); }}
+                  title={`See the ${fmtNum(s.leads)} leads now at ${s.label}`}
+                  className="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-50 text-left group"
+                >
+                  <span className={`shrink-0 w-2 h-2 rounded-full ${s.tone === "green" ? "bg-emerald-500" : s.tone === "red" ? "bg-rose-500" : "bg-indigo-400"}`} />
+                  <span className={`text-[12.5px] font-medium truncate ${s.tone === "green" ? "text-emerald-700" : s.tone === "red" ? "text-rose-600" : "text-gray-700"}`}>{s.label}</span>
+                  <div className="ml-auto flex items-center gap-2 shrink-0">
+                    <div className="w-24 h-1.5 rounded-full bg-gray-100 overflow-hidden">
+                      <div className={`h-full rounded-full ${s.tone === "green" ? "bg-emerald-500" : s.tone === "red" ? "bg-rose-400" : "bg-indigo-400"}`} style={{ width: `${s.pct}%` }} />
+                    </div>
+                    <span className="tabular-nums text-[12px] font-semibold text-gray-800 w-12 text-right">{fmtNum(s.leads)}</span>
+                    <span className="tabular-nums text-[11px] text-gray-400 w-10 text-right">{s.pct}%</span>
+                    <ArrowRight size={12} className="text-gray-300 group-hover:text-purple-500" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
