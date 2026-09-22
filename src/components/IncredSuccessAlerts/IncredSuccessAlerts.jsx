@@ -185,7 +185,7 @@ const IncredSuccessAlerts = () => {
               <Flame size={15} className="text-orange-600" />
               <span className="text-[13px] font-bold text-gray-800">InCred Success Leads</span>
             </div>
-            <span className="text-[11px] font-semibold text-orange-700">{count} in last 6h</span>
+            <span className="text-[11px] font-semibold text-orange-700">{count} in last 24h</span>
           </div>
 
           <div className="max-h-[24rem] overflow-y-auto">
