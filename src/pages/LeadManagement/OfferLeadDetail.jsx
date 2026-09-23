@@ -95,6 +95,17 @@ const classifyLenderResponse = (resp, name) => {
     if (mmsg.includes('can_attribute=false')) return 'reject';
   }
 
+  // HeroFinCorp — a dedupe/eligibility response. The authoritative outcome is the
+  // top-level status / dedupeStatus, NOT the message: "APPROVED"/"Approved" means
+  // the lead is NOT a recent duplicate in HIPL, i.e. eligible → success. Its
+  // message ("Lead does not exist in HIPL in last 30 days") matches no keyword
+  // below, so without this it wrongly defaulted to reject.
+  if (name === 'HeroFinCorp') {
+    const hs = (resp?.status ?? resp?.dedupeStatus ?? '').toString().toLowerCase();
+    if (hs === 'approved') return 'success';
+    if (hs === 'rejected' || hs === 'reject' || hs === 'failed') return 'reject';
+  }
+
   const message = (resp.message || '').toString().toLowerCase().trim();
   if (!message) return 'reject';
 
