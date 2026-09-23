@@ -953,7 +953,7 @@ export const dismissCallback = async (phone) =>
 export const getShortDueCallbacks = async (agent) =>
     Api().get(`/short-feedback/due-callbacks`, { params: { agent }, skipAdminAppend: true });
 
-// Recent InCred-success leads for the in-CMS alert bell (last 6h). Powers the
+// Recent InCred-success leads for the in-CMS alert bell (last 24h). Powers the
 // IncredSuccessAlerts navbar bell — beeps / desktop-notifies on new arrivals.
 // agentId scopes a pooled call-center agent to the leads assigned to them
 // (lead_assignments) — same persisted ownership the Offer Leads list uses.
