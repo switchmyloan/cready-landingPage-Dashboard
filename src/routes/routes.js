@@ -391,6 +391,18 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    // QuickMoney — separate product (own QuickMoney_internal DB). First item's icon
+    // (IndianRupee) becomes the "QuickMoney" dropdown's group icon in the sidebar.
+    path: "/quickmoney-funnel",
+    label: "Funnel",
+    icon: "IndianRupee",
+    showInSidebar: true,
+    group: "QuickMoney",
+    groupOrder: 3.7,
+    order: 1,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/loanwalle",
     label: "LoanWalle",
     icon: "ClipboardList",

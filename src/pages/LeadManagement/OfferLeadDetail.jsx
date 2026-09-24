@@ -95,15 +95,21 @@ const classifyLenderResponse = (resp, name) => {
     if (mmsg.includes('can_attribute=false')) return 'reject';
   }
 
-  // HeroFinCorp — a dedupe/eligibility response. The authoritative outcome is the
-  // top-level status / dedupeStatus, NOT the message: "APPROVED"/"Approved" means
-  // the lead is NOT a recent duplicate in HIPL, i.e. eligible → success. Its
-  // message ("Lead does not exist in HIPL in last 30 days") matches no keyword
-  // below, so without this it wrongly defaulted to reject.
+  // HeroFinCorp — a dedupe response. The authoritative outcome is dedupeStatus (and
+  // the top-level status), NOT the message. Live data has exactly these:
+  //   dedupeStatus=Approved / status=APPROVED → not a recent HIPL duplicate → SUCCESS
+  //     ("Lead does not exist in HIPL in last 30 days")
+  //   dedupeStatus=Duplicate / status=REJECTED → recent HIPL duplicate → DUPLICATE
+  //     ("Duplicate leads exists in HIPL") — NOT a reject; check this BEFORE status,
+  //     since the row carries status=REJECTED too.
+  //   dedupeStatus=Error → transient (Limit Exceeded / timeout / bad input); no real
+  //     outcome, so let it fall through to the message rules (→ reject).
   if (name === 'HeroFinCorp') {
-    const hs = (resp?.status ?? resp?.dedupeStatus ?? '').toString().toLowerCase();
-    if (hs === 'approved') return 'success';
-    if (hs === 'rejected' || hs === 'reject' || hs === 'failed') return 'reject';
+    const ds = (resp?.dedupeStatus ?? '').toString().toLowerCase();
+    const st = (resp?.status ?? '').toString().toLowerCase();
+    if (ds === 'duplicate') return 'dedupe';
+    if (ds === 'approved' || st === 'approved') return 'success';
+    if (ds === 'rejected' || st === 'rejected' || ds === 'failed') return 'reject';
   }
 
   const message = (resp.message || '').toString().toLowerCase().trim();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import {
   TrendingDown, RefreshCw, Download, Search, X,
   Users, CheckCircle2, Info, ArrowRight,
@@ -13,6 +13,13 @@ import PremiumPageLoader from "../../../components/PremiumPageLoader";
 
 const fmtNum = (n) => Number(n || 0).toLocaleString("en-IN");
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString("en-IN")}`;
+// Compact money for the KPI sub-line — disbursed totals run into crores.
+const compactInr = (n) => {
+  const v = Number(n) || 0;
+  if (v >= 1e7) return `₹${(v / 1e7).toFixed(2)} Cr`;
+  if (v >= 1e5) return `₹${(v / 1e5).toFixed(2)} L`;
+  return `₹${Math.round(v).toLocaleString("en-IN")}`;
+};
 const fmtDT = (v) => {
   if (!v) return "—";
   const d = new Date(String(v).replace(" ", "T"));
@@ -122,6 +129,12 @@ const VivifiFunnel = () => {
   progKeys.forEach((k, i) => { if (i > 0) ratioFrom[k] = progKeys[i - 1]; });
   const stageTotalByKey = Object.fromEntries(cohortStages.map((s) => [s.key, Number(s.total) || 0]));
   const rpct = (n, d) => (d > 0 ? Math.round((n / d) * 1000) / 10 : null);
+  // The disbursed (green) rung. The money columns — Disb. ₹ amount + ATS(amount/count)
+  // — sit immediately AFTER this count column. If no one reached disbursed in the
+  // window there is no green column, so they fall back to the far right (see render).
+  const greenStage = cohortStages.find((s) => s.tone === "green");
+  const greenKey = greenStage?.key || null;
+  const atsOf = (amt, cnt) => (cnt > 0 ? Math.round((Number(amt) || 0) / cnt) : 0);
 
   const openStage = (f) => { setStage({ status: f.key, label: f.label }); setPage(1); setSearch(""); };
 
@@ -297,7 +310,9 @@ const VivifiFunnel = () => {
           { icon: <TrendingDown size={11} />, label: "In Progress", tone: "border-l-amber-400",
             value: fmtNum(cohortSummary.inProgress), sub: `${cohortSummary.inProgressPct ?? 0}% still moving` },
           { icon: <CheckCircle2 size={11} />, label: "Disbursed", tone: "border-l-emerald-400",
-            value: fmtNum(cohortSummary.disbursed), sub: `${cohortSummary.disbursedPct ?? 0}% of leads` },
+            value: fmtNum(cohortSummary.disbursed),
+            // After the count: total disbursed amount + ATS (average ticket = amount / count).
+            sub: `${compactInr(cohortSummary.disbursedAmount)} · ATS ${compactInr(cohortSummary.ats)}` },
           { icon: <X size={11} />, label: "Rejected", tone: "border-l-rose-400",
             value: fmtNum(cohortSummary.rejected), sub: `${cohortSummary.rejectedPct ?? 0}% of leads` },
         ].map((k) => (
@@ -455,7 +470,7 @@ const VivifiFunnel = () => {
                 <th className="px-3 py-2.5 font-medium text-right">Total</th>
                 {cohortStages.map((s) => {
                   const drillable = isDrillable(s);
-                  return (
+                  const cells = [(
                     <th
                       key={s.key}
                       onClick={() => drillable && openDrill(s)}
@@ -468,14 +483,30 @@ const VivifiFunnel = () => {
                     >
                       {s.label}
                     </th>
-                  );
+                  )];
+                  if (s.key === greenKey) {
+                    cells.push(<th key="__disbamt" className="px-3 py-2.5 font-medium text-right whitespace-nowrap text-emerald-600 bg-emerald-50/40">Disb. ₹</th>);
+                    cells.push(<th key="__ats" className="px-3 py-2.5 font-medium text-right whitespace-nowrap text-emerald-600 bg-emerald-50/40">ATS</th>);
+                  }
+                  return cells;
                 })}
+                {!greenKey && (<>
+                  <th className="px-3 py-2.5 font-medium text-right whitespace-nowrap text-emerald-600">Disb. ₹</th>
+                  <th className="px-3 py-2.5 font-medium text-right whitespace-nowrap text-emerald-600">ATS</th>
+                </>)}
               </tr>
             </thead>
             <tbody>
               {matrix.length === 0 ? (
-                <tr><td colSpan={cohortStages.length + 2} className="px-5 py-10 text-center text-gray-400">No activity in this window.</td></tr>
-              ) : matrix.map((h) => (
+                <tr><td colSpan={cohortStages.length + 4} className="px-5 py-10 text-center text-gray-400">No activity in this window.</td></tr>
+              ) : matrix.map((h) => {
+                const dAmt = h.disbursedAmount || 0;
+                const dCnt = greenKey ? (h.byStage?.[greenKey] || 0) : 0;
+                const moneyCells = (<>
+                  <td className="px-3 py-2 text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap bg-emerald-50/30">{compactInr(dAmt)}</td>
+                  <td className="px-3 py-2 text-right tabular-nums text-emerald-700 whitespace-nowrap bg-emerald-50/30">{dCnt > 0 ? compactInr(atsOf(dAmt, dCnt)) : "—"}</td>
+                </>);
+                return (
                 <tr key={h.date} className="border-b border-gray-50 hover:bg-indigo-50/30">
                   <td className="sticky left-0 z-[1] bg-white px-5 py-2 font-semibold text-gray-700 whitespace-nowrap">{h.date}</td>
                   <td className="px-3 py-2 text-right tabular-nums font-semibold text-gray-800">{fmtNum(h.total)}</td>
@@ -484,7 +515,7 @@ const VivifiFunnel = () => {
                     const fromKey = ratioFrom[s.key];
                     const r = (!byEvent && fromKey) ? rpct(v, h.byStage?.[fromKey] || 0) : null;
                     const drillable = isDrillable(s) && v > 0;
-                    return (
+                    const cells = [(
                       <td key={s.key} className={`px-3 py-2 text-right align-top ${i === 0 ? "font-semibold text-gray-800" : "text-gray-600"}`}>
                         <span
                           onClick={() => drillable && openDrill(s, h.date)}
@@ -494,10 +525,14 @@ const VivifiFunnel = () => {
                         </span>
                         {r != null && <div className="text-[9.5px] text-indigo-400 tabular-nums">{r}%</div>}
                       </td>
-                    );
+                    )];
+                    if (s.key === greenKey) cells.push(<Fragment key="__money">{moneyCells}</Fragment>);
+                    return cells;
                   })}
+                  {!greenKey && moneyCells}
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
             {matrix.length > 0 && (
               <tfoot>
@@ -507,7 +542,7 @@ const VivifiFunnel = () => {
                   {cohortStages.map((s) => {
                     const fromKey = ratioFrom[s.key];
                     const r = (!byEvent && fromKey) ? rpct(s.total, stageTotalByKey[fromKey] || 0) : null;
-                    return (
+                    const cells = [(
                       <td key={s.key} className={`px-3 py-2.5 text-right align-top tabular-nums border-t-2 border-gray-200 ${
                         s.tone === "red" ? "text-rose-600" : s.tone === "green" ? "text-emerald-700" : ""
                       }`}>
@@ -516,8 +551,17 @@ const VivifiFunnel = () => {
                           {r != null ? `${r}%` : `${s.pctOfTotal}%`}
                         </div>
                       </td>
-                    );
+                    )];
+                    if (s.key === greenKey) {
+                      cells.push(<td key="__disbamt" className="px-3 py-2.5 text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap border-t-2 border-gray-200 bg-emerald-50/50">{compactInr(cohortSummary.disbursedAmount || 0)}</td>);
+                      cells.push(<td key="__ats" className="px-3 py-2.5 text-right tabular-nums text-emerald-700 whitespace-nowrap border-t-2 border-gray-200 bg-emerald-50/50">{compactInr(cohortSummary.ats || 0)}</td>);
+                    }
+                    return cells;
                   })}
+                  {!greenKey && (<>
+                    <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-emerald-700 whitespace-nowrap border-t-2 border-gray-200">{compactInr(cohortSummary.disbursedAmount || 0)}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums text-emerald-700 whitespace-nowrap border-t-2 border-gray-200">{compactInr(cohortSummary.ats || 0)}</td>
+                  </>)}
                 </tr>
               </tfoot>
             )}

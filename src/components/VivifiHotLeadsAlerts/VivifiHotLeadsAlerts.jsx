@@ -14,6 +14,8 @@ import { getCallCenterAgentId } from '../../custom-hooks/callCenterPool';
 const POLL_MS = 5 * 60 * 1000;
 
 const fmtInr = (n) => (n == null ? '' : `₹${Number(n).toLocaleString('en-IN')}`);
+// The bell shows only high-value leads by default: eligible amount ABOVE this.
+const AMOUNT_MIN = 10000;
 
 // The tables store DateTime64 in IST, so the backend already emits IST wall-clock.
 // "30 Jul, 11:27 am · 5m ago"
@@ -70,6 +72,7 @@ const VivifiHotLeadsAlerts = () => {
   const [open, setOpen] = useState(false);
   const [flash, setFlash] = useState(null);
   const [collapsed, setCollapsed] = useState(() => new Set()); // status groups the user collapsed
+  const [only10k, setOnly10k] = useState(true); // DEFAULT ON — bell shows only leads above ₹10k
   const toggleGroup = useCallback((s) => setCollapsed((prev) => {
     const next = new Set(prev);
     if (next.has(s)) next.delete(s); else next.add(s);
@@ -94,9 +97,18 @@ const VivifiHotLeadsAlerts = () => {
   // Group the leads by status (Awaiting VKYC / Esign / EMandate / Loan Chosen …) so
   // the dropdown is scannable — each group shows its count and collapses. Biggest
   // group first; items inside stay newest-first (already sorted on poll).
+  // "10k+" filters what is SHOWN — the list, per-status counts and the bell badge —
+  // without touching what the poll fetches or the beep on new arrivals. ON by
+  // default, so the bell only ever surfaces leads worth more than ₹10k unless the
+  // user turns it off. Strictly ABOVE 10k, so a ₹10,000 or ₹2,100 lead is hidden.
+  const visibleItems = useMemo(
+    () => (only10k ? items.filter((it) => Number(it.eligibleAmount) > AMOUNT_MIN) : items),
+    [items, only10k],
+  );
+
   const groups = useMemo(() => {
     const map = new Map();
-    items.forEach((it) => {
+    visibleItems.forEach((it) => {
       const s = it.status || 'Other';
       if (!map.has(s)) map.set(s, []);
       map.get(s).push(it);
@@ -104,7 +116,7 @@ const VivifiHotLeadsAlerts = () => {
     return [...map.entries()]
       .map(([status, list]) => ({ status, items: list }))
       .sort((a, b) => b.items.length - a.items.length);
-  }, [items]);
+  }, [visibleItems]);
 
   const poll = useCallback(async () => {
     try {
@@ -172,7 +184,7 @@ const VivifiHotLeadsAlerts = () => {
 
   if (!canSee) return null;
 
-  const count = items.length;
+  const count = visibleItems.length;
 
   return (
     <div className="relative" ref={boxRef}>
@@ -200,7 +212,22 @@ const VivifiHotLeadsAlerts = () => {
               <Zap size={15} className="text-cyan-600" />
               <span className="text-[13px] font-bold text-gray-800">Vivifi Hot Leads</span>
             </div>
-            <span className="text-[11px] font-semibold text-cyan-700">{count} {count === 1 ? 'lead' : 'leads'}</span>
+            <div className="flex items-center gap-2">
+              {/* High-value filter, ON by default: only leads above ₹10k. */}
+              <button
+                type="button"
+                onClick={() => setOnly10k((v) => !v)}
+                title={only10k ? 'Showing only leads above ₹10,000 — click to show all' : 'Showing all leads — click to show only above ₹10,000'}
+                className={`px-2 py-0.5 rounded-full text-[10.5px] font-bold border transition ${
+                  only10k
+                    ? 'bg-cyan-600 text-white border-cyan-600'
+                    : 'bg-white text-cyan-700 border-cyan-200 hover:bg-cyan-50'
+                }`}
+              >
+                10k+
+              </button>
+              <span className="text-[11px] font-semibold text-cyan-700">{count} {count === 1 ? 'lead' : 'leads'}</span>
+            </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto">
