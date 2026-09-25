@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  RefreshCw, Search, X, TrendingDown,
+  RefreshCw, Search, X, TrendingDown, Download,
   Calendar, ChevronLeft, ChevronRight,
 } from "lucide-react";
 import quickmoneyLogo from "../../../assets/quickmoney.png";
+import ExportModal from "../../../components/ExportModal";
 import {
   getQuickMoneyFunnel,
   getQuickMoneyStageLeads,
@@ -197,6 +198,8 @@ export default function QuickMoneyFunnel() {
   const [drillPage, setDrillPage] = useState(1);
   const [drillSearch, setDrillSearch] = useState("");
   const [searchBox, setSearchBox] = useState("");
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const presets = useMemo(buildPresets, []);
   const activePreset = presets.find((p) => p.from === fromDate && p.to === toDate)?.key || "custom";
@@ -246,6 +249,38 @@ export default function QuickMoneyFunnel() {
     setDrillPage(1);
     setDrillSearch("");
     setSearchBox("");
+  };
+
+  // OTP-gated CSV of the current drill stage — every lead behind the tile, with all
+  // detail columns, honouring the same date / medium / search the modal is showing
+  // (no pagination). Built client-side (see [[export-follows-table-filters]]).
+  const handleExport = async () => {
+    if (!drill) return;
+    setExporting(true);
+    try {
+      const res = await getQuickMoneyStageLeads({
+        stage: drill.key, medium, fromDate, toDate, search: drillSearch, perPage: 100000, currentPage: 1,
+      });
+      const all = res?.data?.data?.data || [];
+      const head = DRILL_COLS.map((c) => c.label);
+      const body = all.map((r) => DRILL_COLS.map((c) => r[c.key] ?? ""));
+      const csv = [head, ...body]
+        .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+        .join("\n");
+      const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `quickmoney_${drill.key}_${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      setExportOpen(false);
+    } catch {
+      // keep the modal open so the user can retry
+    } finally {
+      setExporting(false);
+    }
   };
 
   const totals = matrix.reduce(
@@ -349,7 +384,7 @@ export default function QuickMoneyFunnel() {
         <div className="flex items-center gap-2 border-b border-gray-100 px-4 py-2.5">
           <TrendingDown size={14} className="text-gray-400" />
           <h2 className="text-[12.5px] font-semibold text-gray-800">By day</h2>
-          <span className="ml-auto pr-1 text-[10.5px] text-gray-400">{fmtNum(matrix.length)} days · signup day (IST)</span>
+          <span className="ml-auto pr-1 text-[10.5px] text-gray-400">{fmtNum(matrix.length)} days · application date</span>
         </div>
 
           <div className="max-h-[520px] overflow-auto">
@@ -446,6 +481,15 @@ export default function QuickMoneyFunnel() {
               {drillData && <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-semibold text-gray-500">{fmtNum(drillData.total)}</span>}
               {medium !== "all" && <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-600">{medium}</span>}
               <div className="ml-auto flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setExportOpen(true)}
+                  disabled={!drillData?.total}
+                  title={drillData?.total ? `Export these ${fmtNum(drillData.total)} leads` : "Nothing to export"}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-2.5 py-1 text-[12px] font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:opacity-40"
+                >
+                  <Download size={13} /> Export
+                </button>
                 <div className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-2 py-1">
                   <Search size={13} className="text-gray-400" />
                   <input
@@ -525,6 +569,13 @@ export default function QuickMoneyFunnel() {
           </div>
         </div>
       )}
+
+      <ExportModal
+        open={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onSubmit={handleExport}
+        isSubmitting={exporting}
+      />
     </div>
   );
 }
