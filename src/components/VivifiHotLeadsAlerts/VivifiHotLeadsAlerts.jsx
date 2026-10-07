@@ -120,13 +120,12 @@ const VivifiHotLeadsAlerts = () => {
 
   const poll = useCallback(async () => {
     try {
-      // Agents want to hear about ANY movement on their own leads, not just the
-      // hot four — the dedupe key is leadId+status, so each stage change fires
-      // once. Super Admin (no agentId) keeps the narrow hot-only bell; the whole
-      // book changing stage would be unusable as a notification stream.
+      // Scope is the backend's call, from agentId alone: a caller gets only the
+      // stages enabled for callers (their work queue), Super Admin gets every
+      // stage (a monitoring view). The dedupe key is leadId+status, so a lead
+      // advancing to a new stage fires once per stage.
       const res = await getVivifiHotLeadAlerts({
         agentId: agentId || undefined,
-        allStages: agentId ? true : undefined,
       });
       if (!res?.data?.success) return;
       const rows = res.data.data || [];

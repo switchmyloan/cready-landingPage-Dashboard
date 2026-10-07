@@ -49,13 +49,14 @@ export const getVivifiLeadEvents = async (leadId) => {
   });
 };
 
-// Live "hot leads" (awaiting VKYC / e-Sign / e-Mandate / loan-chosen) — polled by the
-// navbar alert bell. `agentId` scopes it to that call-center agent's OWN assigned
-// leads (lead_assignments); omit (Super Admin) for all. `allStages` widens it to
-// EVERY stage, so an agent is alerted on any movement, not only the hot ones.
-export const getVivifiHotLeadAlerts = async ({ agentId, allStages } = {}) => {
+// Live "hot leads" — polled by the navbar alert bell. `agentId` scopes it to that
+// call-center agent's OWN assigned leads (lead_assignments) AND to the stages
+// enabled for callers; omit it (Super Admin) to get every lead at every stage.
+// Which stages a caller sees is the backend's decision (CALLER_ENABLED_PATTERNS),
+// so there is no client-side flag to widen it.
+export const getVivifiHotLeadAlerts = async ({ agentId } = {}) => {
   return Api().get(`/vivifi-webhook-leads/hot-alerts`, {
-    params: { agentId, allStages },
+    params: { agentId },
     skipAdminAppend: true,
   });
 };
