@@ -120,7 +120,7 @@ const fetchAllEvents = async (baseParams) => {
   const PAGE = 200;
   const rows = [];
   for (let page = 1; page <= 200; page += 1) {
-    const res = await getUpSwingEvents({ ...baseParams, perPage: PAGE, currentPage: page });
+    const res = await getUpSwingEvents({ ...baseParams, perPage: PAGE, currentPage: page, enrichAmounts: true });
     const chunk = res?.data?.data?.data || [];
     rows.push(...chunk);
     const total = res?.data?.data?.pagination?.total ?? rows.length;

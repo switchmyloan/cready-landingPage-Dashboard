@@ -13,9 +13,10 @@ export const getUpSwingEvents = async ({
   fromDate,
   toDate,
   status = '',
+  enrichAmounts = false, // CSV export only — fills bank-offer / user-selected amounts from event history
 } = {}) => {
   return Api().get(`/upswing-webhook/events`, {
-    params: { search, perPage, currentPage, type, fromDate, toDate, status },
+    params: { search, perPage, currentPage, type, fromDate, toDate, status, ...(enrichAmounts ? { enrichAmounts: 'true' } : {}) },
     skipAdminAppend: true,
   });
 };

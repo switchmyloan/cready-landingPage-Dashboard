@@ -349,6 +349,16 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    path: "/pfl-funnel",
+    label: "PFL Funnel",
+    icon: "TrendingDown",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.58,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/apollo-webhook",
     label: "Apollo",
     icon: "ClipboardList",
