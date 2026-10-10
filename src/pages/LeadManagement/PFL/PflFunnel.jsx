@@ -318,11 +318,12 @@ const PflFunnel = () => {
   const exportDrill = useCallback(async () => {
     if (!drill) return;
     const slug = (x) => String(x || '').replace(/[^a-zA-Z0-9]+/g, '_');
-    // Columns: application no (the identity) + MRN & contact (from offerLeads) + reference, status, when.
-    const LEAD_COLS = ['Application No', 'MRN', 'Phone', 'Name', 'PAN', 'Email', 'Reference'];
-    const leadCells = (l) => [l.dp || '', l.mrn || '', l.phone || '', l.name || '', l.pan || '', l.email || '', l.ref || ''];
+    // Columns: application no (the identity) + MRN & contact + reference + the lead's
+    // CURRENT stage, then when. (PAN / Email dropped per request.)
+    const LEAD_COLS = ['Application No', 'MRN', 'Phone', 'Name', 'Reference', 'Current Stage'];
+    const leadCells = (l) => [l.dp || '', l.mrn || '', l.phone || '', l.name || '', l.ref || '', l.cur || ''];
     if (statusLeads && Array.isArray(statusLeads.leads)) {
-      const rows = [[...LEAD_COLS, 'Status', 'When'], ...statusLeads.leads.map((l) => [...leadCells(l), statusLeads.label, l.at])];
+      const rows = [[...LEAD_COLS, 'When'], ...statusLeads.leads.map((l) => [...leadCells(l), l.at])];
       downloadCsv(rows, `pfl_${slug(drill.key)}_${slug(statusLeads.status)}_leads.csv`);
       return;
     }

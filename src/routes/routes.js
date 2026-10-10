@@ -349,6 +349,16 @@ export const routes = [
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
   {
+    path: "/pfl-leads",
+    label: "PFL Webhook Leads",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 22.57,
+    roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  },
+  {
     path: "/pfl-funnel",
     label: "PFL Funnel",
     icon: "TrendingDown",

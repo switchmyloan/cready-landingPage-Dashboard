@@ -90,6 +90,8 @@ import UpSwingWebhookDetail from './pages/LeadManagement/UpSwing/UpSwingWebhookD
 import UpSwingFunnel from './pages/LeadManagement/UpSwing/UpSwingFunnel';
 import UpSwingDisbursals from './pages/LeadManagement/UpSwing/UpSwingDisbursals';
 import PflFunnel from './pages/LeadManagement/PFL/PflFunnel';
+import PflLeads from './pages/LeadManagement/PFL/PflLeads';
+import PflLeadDetail from './pages/LeadManagement/PFL/PflLeadDetail';
 import ApolloWebhook from './pages/LeadManagement/Apollo/ApolloWebhook';
 import ApolloWebhookDetail from './pages/LeadManagement/Apollo/ApolloWebhookDetail';
 import ApolloFunnel from './pages/LeadManagement/Apollo/ApolloFunnel';
@@ -139,6 +141,8 @@ function App() {
             <Route path="upswing-funnel" element={<UpSwingFunnel />} />
             <Route path="upswing-disbursals" element={<UpSwingDisbursals />} />
             <Route path="pfl-funnel" element={<PflFunnel />} />
+            <Route path="pfl-leads" element={<PflLeads />} />
+            <Route path="pfl-leads/:mrn" element={<PflLeadDetail />} />
             <Route path="apollo-webhook" element={<ApolloWebhook />} />
             <Route path="apollo-webhook/:id" element={<ApolloWebhookDetail />} />
             <Route path="apollo-funnel" element={<ApolloFunnel />} />
