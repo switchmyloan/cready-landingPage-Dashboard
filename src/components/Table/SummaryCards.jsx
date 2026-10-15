@@ -1,6 +1,6 @@
 // SummaryCards.jsx
 import React from 'react';
-import { Users, CheckCircle, XCircle, TriangleAlert } from 'lucide-react';
+import { Users, CheckCircle, XCircle, TriangleAlert, MousePointerClick } from 'lucide-react';
 
 const SummaryCards = ({
   totalLeads,
@@ -13,6 +13,9 @@ const SummaryCards = ({
   duplicateCard = false,
   errorsCount = 0,
   errorCard = false,
+  // Opt-in "Clicked" card: leads where the user clicked the KreditBee card.
+  clickedCount,
+  clickedCard = false,
   // When provided, cards become clickable and call onCardClick(cardKey).
   // The parent maps the semantic key to its own status filter value.
   onCardClick,
@@ -63,6 +66,15 @@ const SummaryCards = ({
       icon: XCircle,
       color: 'text-red-600',
       bg: 'bg-red-50',
+    },
+    {
+      show: clickedCard && typeof clickedCount === 'number',
+      key: 'clicked',
+      title: 'Clicked KB Card',
+      value: clickedCount,
+      icon: MousePointerClick,
+      color: 'text-purple-600',
+      bg: 'bg-purple-50',
     },
     {
       show: showInProgress && typeof in_progress === 'number',

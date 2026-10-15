@@ -22,7 +22,7 @@ const debounce = (func, delay) => {
 
 // Summary card key → status filter value. "Duplicate (Error)" card shows the
 // Errors count, so it maps to the 'error' status.
-const CARD_STATUS_MAP = { total: '', success: 'success', reject: 'rejected', duplicate: 'error', error: 'error' };
+const CARD_STATUS_MAP = { total: '', success: 'success', reject: 'rejected', duplicate: 'error', error: 'error', clicked: 'clicked' };
 
 const KBLendingPage = () => {
   const navigate = useNavigate();
@@ -40,6 +40,7 @@ const KBLendingPage = () => {
     successCount: 0,
     rejectCount: 0,
     duplicateCount: 0,
+    clickedCount: 0,
     distinctProfessions: [],
   });
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -144,6 +145,7 @@ const KBLendingPage = () => {
             successCount: Number(summary.success) || 0,
             rejectCount: Number(summary.reject) || 0,
             duplicateCount: Number(summary.Errors) || 0,
+            clickedCount: Number(summary.clicked) || 0,
             // Keep distinctProfessions stable across requests so dropdown doesn't flicker
             distinctProfessions: Array.isArray(summary.distinctProfessions) && summary.distinctProfessions.length > 0
               ? summary.distinctProfessions
@@ -194,6 +196,7 @@ const KBLendingPage = () => {
       case 'success': return 'success';
       case 'rejected': return 'reject';
       case 'error': return 'duplicate';
+      case 'clicked': return 'clicked';
       case '': return 'total';
       default: return null; // e.g. dropdown 'dedupted' has no matching card here
     }
@@ -378,6 +381,8 @@ const KBLendingPage = () => {
         successCount={Number(summaryMetrics.successCount) || 0}
         rejectCount={Number(summaryMetrics.rejectCount) || 0}
         duplicateCount={Number(summaryMetrics.duplicateCount) || 0}
+        clickedCount={Number(summaryMetrics.clickedCount) || 0}
+        clickedCard
         loading={loading}
         duplicateCard={true}
         onCardClick={handleCardClick}
