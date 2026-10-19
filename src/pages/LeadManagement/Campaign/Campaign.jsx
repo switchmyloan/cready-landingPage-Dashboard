@@ -480,6 +480,13 @@ const Campaign = ({ provider, title = "Campaign", subtitle } = {}) => {
         </div>
       )}
 
+      {summary.campaignError && !loading && (
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[12px] text-amber-800">
+          <span className="font-semibold">Campaign-portal data unavailable right now.</span>
+          <span className="text-amber-700">The leadops database is not reachable, so these numbers are not shown as zero. Try Refresh once the connection is back.</span>
+        </div>
+      )}
+
       <StatCards campaign={campaignView} loading={loading} />
 
       <div className="flex items-center gap-x-6 gap-y-2 flex-wrap mb-4">
