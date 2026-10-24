@@ -84,6 +84,8 @@ import AllLenders from './pages/LeadManagement/AllLenders';
 import VivifiWebhookLeads from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeads';
 import VivifiWebhookLeadDetail from './pages/LeadManagement/VivifiWebhook/VivifiWebhookLeadDetail';
 import VivifiFunnel from './pages/LeadManagement/VivifiWebhook/VivifiFunnel';
+import LoanWalleAffiliateLeads from './pages/LeadManagement/LoanWalleAffiliate/LoanWalleAffiliateLeads';
+import LoanWalleAffiliateLeadDetail from './pages/LeadManagement/LoanWalleAffiliate/LoanWalleAffiliateLeadDetail';
 import QuickMoneyFunnel from './pages/LeadManagement/QuickMoney/QuickMoneyFunnel';
 import UserTrackFunnel from './pages/LeadManagement/UserTrack/UserTrackFunnel';
 import UpSwingWebhook from './pages/LeadManagement/UpSwing/UpSwingWebhook';
@@ -135,6 +137,8 @@ function App() {
             /> */}
             <Route path="vivifi-webhook-leads" element={<VivifiWebhookLeads />} />
             <Route path="vivifi-webhook-leads/:leadId" element={<VivifiWebhookLeadDetail />} />
+            <Route path="loanwalle-webhook-leads" element={<LoanWalleAffiliateLeads />} />
+            <Route path="loanwalle-webhook-leads/:trackingId" element={<LoanWalleAffiliateLeadDetail />} />
             <Route path="vivifi-funnel" element={<VivifiFunnel />} />
             <Route path="quickmoney-funnel" element={<QuickMoneyFunnel />} />
             <Route path="user-track-funnel" element={<UserTrackFunnel />} />

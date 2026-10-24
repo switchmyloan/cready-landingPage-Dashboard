@@ -142,6 +142,11 @@ function MainTable({
     onFilterByRange,
     activeDateRange = { startDate: null, endDate: null },
     activeStatusFilter = 'success',
+    // Opt-in: presets + inline validation for the date popover. Other pages keep the
+    // original popover unchanged.
+    richDateFilter = false,
+    // Quick-date chips beside the filter button. Each key is passed to onFilterByDate.
+    dateChips = ['today', 'yesterday'],
     onFilterChange,
     onLoanAmountFilter,
     onLoanAmountClear,
@@ -225,6 +230,13 @@ function MainTable({
         endDate: activeDateRange.endDate ? new Date(activeDateRange.endDate).toISOString().split('T')[0] : ''
     });
     const [loanAmountFilter, setLoanAmountFilter] = useState({ min: activeLoanAmount.min || '', max: activeLoanAmount.max || '' });
+    const [dateRangeError, setDateRangeError] = useState('');
+
+    // Keep the date inputs in step with the range the page is actually filtering on
+    // (e.g. after a preset or Clear), so reopening the popover shows the live range.
+    useEffect(() => {
+        setDateRangeFilter({ startDate: activeDateRange.startDate || '', endDate: activeDateRange.endDate || '' });
+    }, [activeDateRange.startDate, activeDateRange.endDate]);
 
     // DOB range filter state
     const [dobRangeFilter, setDobRangeFilter] = useState({
@@ -390,6 +402,35 @@ function MainTable({
         if (end > today) return alert("End date cannot be in the future");
 
         onFilterByRange && onFilterByRange({ startDate, endDate });
+        setOpenFilter(null);
+    };
+
+    // Rich date popover helpers. Local calendar days (not UTC), so "Today" is the
+    // user's day, matching the IST day the server filters on.
+    const localIso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const todayIso = localIso(new Date());
+    const datePresets = () => {
+        const now = new Date();
+        const daysAgo = (n) => { const d = new Date(now); d.setDate(d.getDate() - n); return localIso(d); };
+        return [
+            { key: 'today', label: 'Today', start: todayIso, end: todayIso },
+            { key: 'yesterday', label: 'Yesterday', start: daysAgo(1), end: daysAgo(1) },
+            { key: '7d', label: 'Last 7 days', start: daysAgo(6), end: todayIso },
+        ];
+    };
+    const applyDateRange = (startDate, endDate) => {
+        if (!startDate || !endDate) return setDateRangeError('Pick both a start and an end date.');
+        if (startDate > endDate) return setDateRangeError('Start date is after the end date.');
+        if (endDate > todayIso) return setDateRangeError('End date cannot be in the future.');
+        setDateRangeError('');
+        setDateRangeFilter({ startDate, endDate });
+        onFilterByRange && onFilterByRange({ startDate, endDate });
+        setOpenFilter(null);
+    };
+    const clearDateRange = () => {
+        setDateRangeError('');
+        setDateRangeFilter({ startDate: '', endDate: '' });
+        onFilterByRange && onFilterByRange({ startDate: null, endDate: null });
         setOpenFilter(null);
     };
 
@@ -825,7 +866,86 @@ function MainTable({
                                 {dateRangeDisplay}
                             </button>
 
-                            {openFilter === 'dateRange' && (
+                            {openFilter === 'dateRange' && richDateFilter && (
+                                <div className="absolute left-0 mt-2 z-30 w-72 bg-white border border-gray-200 rounded-xl shadow-xl overflow-hidden">
+                                    <div className="px-3 py-2.5 border-b border-gray-100 bg-gray-50">
+                                        <p className="text-[10.5px] font-bold uppercase tracking-wide text-gray-500">Date range</p>
+                                        <p className="text-[12px] text-gray-700 mt-0.5">
+                                            {activeDateRange.startDate && activeDateRange.endDate
+                                                ? `${activeDateRange.startDate} → ${activeDateRange.endDate}`
+                                                : 'All dates'}
+                                        </p>
+                                    </div>
+                                    <div className="p-3 space-y-3">
+                                        <div className="grid grid-cols-2 gap-1.5">
+                                            {datePresets().map((p) => {
+                                                const active = activeDateRange.startDate === p.start && activeDateRange.endDate === p.end;
+                                                return (
+                                                    <button
+                                                        key={p.key}
+                                                        onClick={() => applyDateRange(p.start, p.end)}
+                                                        className={`px-2 py-1.5 rounded-md text-[11.5px] font-semibold border transition ${active
+                                                            ? 'bg-purple-600 text-white border-purple-600'
+                                                            : 'bg-white text-gray-700 border-gray-200 hover:bg-purple-50 hover:border-purple-300'
+                                                            }`}
+                                                    >
+                                                        {p.label}
+                                                    </button>
+                                                );
+                                            })}
+                                            <button
+                                                onClick={clearDateRange}
+                                                className="px-2 py-1.5 rounded-md text-[11.5px] font-semibold border border-gray-200 text-gray-500 bg-white hover:bg-gray-100 transition"
+                                            >
+                                                All time
+                                            </button>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="text-[11px] font-medium text-gray-500">From</label>
+                                                <input
+                                                    type="date"
+                                                    max={todayIso}
+                                                    value={dateRangeFilter.startDate}
+                                                    onChange={(e) => { setDateRangeError(''); setDateRangeFilter(prev => ({ ...prev, startDate: e.target.value })); }}
+                                                    className="mt-0.5 w-full px-2 py-1 border border-gray-300 rounded-md text-[12px] focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="text-[11px] font-medium text-gray-500">To</label>
+                                                <input
+                                                    type="date"
+                                                    min={dateRangeFilter.startDate || undefined}
+                                                    max={todayIso}
+                                                    value={dateRangeFilter.endDate}
+                                                    onChange={(e) => { setDateRangeError(''); setDateRangeFilter(prev => ({ ...prev, endDate: e.target.value })); }}
+                                                    className="mt-0.5 w-full px-2 py-1 border border-gray-300 rounded-md text-[12px] focus:outline-none focus:ring-1 focus:ring-purple-400"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {dateRangeError && <p className="text-[11px] text-rose-600">{dateRangeError}</p>}
+
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => applyDateRange(dateRangeFilter.startDate, dateRangeFilter.endDate)}
+                                                className="flex-1 px-2 py-1.5 bg-purple-600 text-white rounded-md text-[12px] font-semibold hover:bg-purple-700 transition"
+                                            >
+                                                Apply
+                                            </button>
+                                            <button
+                                                onClick={clearDateRange}
+                                                className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-md text-[12px] font-semibold hover:bg-gray-200 transition"
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {openFilter === 'dateRange' && !richDateFilter && (
                                 <div className="absolute left-0 mt-2 z-30 p-3 flex flex-col gap-2 bg-white border border-gray-300 rounded-lg shadow-lg w-64">
                                     <label className="text-xs font-medium text-gray-600">Start Date</label>
                                     <input
@@ -855,7 +975,7 @@ function MainTable({
                     {/* Today/Yesterday Filter */}
                     {onFilterByDate && (
                         <div className="flex gap-2 shrink-0">
-                            {['today', 'yesterday'].map((type) => (
+                            {dateChips.map((type) => (
                                 <button
                                     key={type}
                                     onClick={() => onFilterByDate(type)}
@@ -864,7 +984,7 @@ function MainTable({
                                         : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 hover:border-purple-400'
                                         }`}
                                 >
-                                    {type.charAt(0).toUpperCase() + type.slice(1)}
+                                    {({ today: 'Today', yesterday: 'Yesterday', this_month: 'This month', last_month: 'Last month' })[type] || type}
                                 </button>
                             ))}
                         </div>

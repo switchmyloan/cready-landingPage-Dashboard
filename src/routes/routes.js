@@ -289,6 +289,18 @@ export const routes = [
     ],
   },
   {
+    path: "/loanwalle-webhook-leads",
+    label: "LoanWalle Webhook Leads",
+    icon: "ClipboardList",
+    showInSidebar: true,
+    group: "Lenders",
+    groupOrder: 3,
+    order: 21.2,
+    roles: [
+      "super-admin", "mv-admin", "mv-page", "mv-page-admin", "management", "dev",
+    ],
+  },
+  {
     path: "/vivifi-webhook-leads",
     label: "Vivifi Webhook Leads",
     icon: "ClipboardList",
@@ -432,16 +444,16 @@ export const routes = [
     order: 1,
     roles: ["super-admin", "mv-page-admin", "management", "dev"],
   },
-  {
-    path: "/loanwalle",
-    label: "LoanWalle",
-    icon: "ClipboardList",
-    showInSidebar: true,
-    group: "Lenders",
-    groupOrder: 3,
-    order: 22.97,
-    roles: ["super-admin", "mv-page-admin", "management", "dev"],
-  },
+  // {
+  //   path: "/loanwalle",
+  //   label: "LoanWalle",
+  //   icon: "ClipboardList",
+  //   showInSidebar: true,
+  //   group: "Lenders",
+  //   groupOrder: 3,
+  //   order: 22.97,
+  //   roles: ["super-admin", "mv-page-admin", "management", "dev"],
+  // },
   // The daily dedupe -> offer report, in the format RamFinCorp themselves use.
   {
     path: "/ramfincorp-dashboard",

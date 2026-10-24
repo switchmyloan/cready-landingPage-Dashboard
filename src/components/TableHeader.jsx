@@ -2812,6 +2812,62 @@ export const vivifiLoansColumn = ({ handleEdit }) => [
   { header: 'Actions', id: 'actions-vivifi-loan', cell: vivifiEyeCell(handleEdit, 'View timeline') },
 ];
 
+// ---- LoanWalle affiliate webhook leads ------------------------------------
+// Reuses the Vivifi cell helpers above. Tracking ID is the lead key (one row per lead
+// in the leads list; one row per disbursed loan in the disbursals list).
+const lwTrackingCell = ({ getValue }) => {
+  const v = getValue();
+  return v
+    ? <span className="font-mono text-sm font-medium text-gray-800 inline-block max-w-[130px] truncate align-middle" title={v}>{v}</span>
+    : <span className="text-gray-400 italic">N/A</span>;
+};
+
+const lwPartnerCell = ({ getValue }) => {
+  const v = getValue();
+  return v
+    ? <span className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">{v}</span>
+    : <span className="text-gray-400 italic">—</span>;
+};
+
+const lwUserCell = ({ getValue }) => (
+  <span className="font-mono text-sm text-gray-700">{getValue() || 'N/A'}</span>
+);
+
+// MRN = the lead's clickid (see lwAffiliate.services.js contactByTrackingId).
+const lwMrnCell = ({ getValue }) => {
+  const v = getValue();
+  return v
+    ? <span className="font-mono text-sm font-medium text-gray-800">{v}</span>
+    : <span className="text-gray-400 italic">—</span>;
+};
+
+// Leads — current-state, one row per lead (webhook_data.lw_affiliate_latest).
+export const lwLeadsColumn = ({ handleEdit }) => [
+  { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
+  { header: 'MRN', accessorKey: 'mrn', cell: lwMrnCell },
+  { header: 'Phone', accessorKey: 'phone', cell: vivifiPhoneCell },
+  { header: 'Partner', accessorKey: 'partnerCode', cell: lwPartnerCell },
+  { header: 'Status', accessorKey: 'latestStatus', cell: ({ getValue }) => vivifiStatusBadge(getValue()) },
+  { header: 'Loan Amt', accessorKey: 'loanAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
+  { header: 'Disbursed', accessorKey: 'disbursedAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
+  { header: 'Updated At', accessorKey: 'updatedAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
+  { header: 'Action', id: 'actions-lw-lead', cell: vivifiEyeCell(handleEdit, 'View timeline') },
+];
+
+// Disbursals — one row per disbursed loan (webhook_data.lw_affiliate_disbursals).
+export const lwDisbursalsColumn = ({ handleEdit }) => [
+  { header: 'SN', id: 'sn', enableSorting: false, maxSize: 50, cell: vivifiSnCell },
+  { header: 'Tracking ID', accessorKey: 'trackingId', cell: lwTrackingCell },
+  { header: 'User ID', accessorKey: 'userId', cell: lwUserCell },
+  { header: 'MRN', accessorKey: 'mrn', cell: lwMrnCell },
+  { header: 'Phone', accessorKey: 'phone', cell: vivifiPhoneCell },
+  { header: 'Partner', accessorKey: 'partnerCode', cell: lwPartnerCell },
+  { header: 'Loan Amt', accessorKey: 'loanAmount', cell: ({ getValue }) => vivifiFmtInr(getValue()) },
+  { header: 'Disbursed Date', accessorKey: 'disbursedDate', cell: ({ getValue }) => <span className="text-sm text-gray-600">{getValue() || '—'}</span> },
+  { header: 'Updated At', accessorKey: 'updatedAt', cell: ({ getValue }) => <span className="text-sm text-gray-600">{vivifiFmtDateTime(getValue())}</span> },
+  { header: 'Actions', id: 'actions-lw-disb', cell: vivifiEyeCell(handleEdit, 'View timeline') },
+];
+
 // Truncate long opaque hashes (pci / event_id) with the full value on hover.
 const upSwingTruncCell = ({ getValue }) => {
   const v = getValue();

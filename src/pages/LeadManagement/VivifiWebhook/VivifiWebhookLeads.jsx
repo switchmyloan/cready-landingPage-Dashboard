@@ -58,7 +58,7 @@ const writeQuery = (sp, prefix, q) => {
 // Drop-in replacement for useState({...filters}) that reads/writes the URL.
 // Memoized on the param STRING (not the URLSearchParams object) so `query` keeps
 // a stable identity between renders — otherwise the fetch effect would loop.
-const useUrlQuery = (prefix) => {
+export const useUrlQuery = (prefix) => {
   const [searchParams, setSearchParams] = useSearchParams();
   // setSearchParams is ref-held so setQuery stays STABLE (react-router recreates it on
   // every URL change). Functional updates chain off `latest`, NOT react-router's prev:
@@ -90,8 +90,8 @@ const csvEscape = (v) => {
 };
 // Trim a stored datetime string (already IST — the ClickHouse server runs in
 // Asia/Kolkata) to "YYYY-MM-DD HH:MM" for a clean export cell.
-const fmtDT = (s) => (s ? String(s).replace('T', ' ').slice(0, 16) : '');
-const downloadCsv = (filename, cols, rows) => {
+export const fmtDT = (s) => (s ? String(s).replace('T', ' ').slice(0, 16) : '');
+export const downloadCsv = (filename, cols, rows) => {
   const head = cols.map((c) => csvEscape(c.header)).join(',');
   const body = rows.map((r, i) => cols.map((c) => csvEscape(c.value(r, i))).join(',')).join('\n');
   const blob = new Blob(['﻿' + head + '\n' + body], { type: 'text/csv;charset=utf-8;' });
@@ -124,7 +124,7 @@ const fetchAllVivifi = async (fetcher, baseParams) => {
 };
 
 // Clickable stage chip — click to filter the table by that status, click again to clear.
-const StageChip = ({ label, count, active, onClick, tone = 'gray' }) => {
+export const StageChip = ({ label, count, active, onClick, tone = 'gray' }) => {
   const tones = {
     gray: 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200',
     green: 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100',
@@ -144,7 +144,7 @@ const StageChip = ({ label, count, active, onClick, tone = 'gray' }) => {
   );
 };
 
-const toneForStatus = (s) => {
+export const toneForStatus = (s) => {
   const t = String(s || '').toLowerCase();
   if (/disburs|approved|success|complete|active/.test(t)) return 'green';
   if (/reject|declin|fail|cancel|expire/.test(t)) return 'red';
@@ -350,7 +350,7 @@ const AnalyticsModal = ({ open, onClose, summary, activeStatus, onPick }) => {
   );
 };
 
-const KpiCard = ({ icon: Icon, label, value, sub, tone = 'purple' }) => {
+export const KpiCard = ({ icon: Icon, label, value, sub, tone = 'purple' }) => {
   const tones = {
     purple: 'from-purple-500 to-indigo-500',
     green: 'from-emerald-500 to-green-500',
